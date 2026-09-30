@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("user")
+  isVerified   Boolean   @default(false)
+  profileImage String?
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id           String    @id @default(uuid())
+  title        String
+  thumbnailUrl String?
+  ownerId      String
+  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  pages        Page[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+model Page {
+  id         String   @id @default(uuid())
+  name       String
+  width      Int
+  height     Int
+  presetName String
+  background String   @default("#FFFFFF")
+  elements   String   @db.LongText
+  order      Int      @default(0)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("pages")
+}
