@@ -7,7 +7,6 @@ import {
   UploadCloud,
   Palette,
   Square,
-  Smile,
   BarChart2,
   LayoutGrid,
   Folder,
@@ -21,7 +20,6 @@ import {
 export type SidebarTab =
   | "templates"
   | "elements"
-  | "stickers"
   | "text"
   | "uploads"
   | "photos"
@@ -72,11 +70,6 @@ export function Toolbar({
       icon: <Shapes size={22} />,
     },
     {
-      id: "stickers",
-      label: "Stickers",
-      icon: <Smile size={22} />,
-    },
-    {
       id: "text",
       label: "Text",
       icon: <Type size={22} />,
@@ -118,14 +111,14 @@ export function Toolbar({
 
   return (
     <aside
-      className={`flex w-[82px] shrink-0 flex-col items-center justify-between border-r select-none z-30 transition-colors duration-200 ${
+      className={`flex w-[76px] shrink-0 flex-col items-center justify-between border-r select-none z-30 transition-colors duration-200 ${
         isDark
-          ? "border-white/[0.08] bg-[#0c1017] text-white"
+          ? "border-white/[0.06] bg-[#090b0e] text-white"
           : "border-slate-200 bg-slate-50 text-slate-900"
       }`}
     >
       {/* ── TOP SECTION: Main Navigation Items ── */}
-      <div className="flex w-full flex-col items-center gap-0.5 py-2 px-1.5 overflow-y-auto no-scrollbar">
+      <div className="flex w-full flex-col items-center gap-1.5 py-3 px-2 overflow-y-auto no-scrollbar">
         {primaryNavItems.map((item) => {
           const active = activeTab === item.id;
           return (
@@ -134,18 +127,18 @@ export function Toolbar({
               type="button"
               onClick={() => handleTabClick(item.id)}
               title={item.label}
-              className={`group relative flex h-[58px] w-full flex-col items-center justify-center rounded-xl transition-all duration-200 ${
+              className={`group relative flex h-[62px] w-full flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
                 active
-                  ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                  ? "bg-[#00c4cc]/10 text-[#00c4cc] border-[1.5px] border-[#00c4cc] shadow-[0_0_16px_rgba(0,196,204,0.22)]"
                   : isDark
-                  ? "text-zinc-400 hover:bg-white/[0.05] hover:text-white"
+                  ? "text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   : "text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-sm"
               }`}
             >
-              <div className="mb-1 transition-transform group-hover:scale-110">
+              <div className="mb-1 transition-transform group-hover:scale-105">
                 {item.icon}
               </div>
-              <span className="text-[9px] font-medium tracking-tight leading-tight text-center px-0.5">
+              <span className={`text-[10px] font-medium tracking-tight leading-tight text-center px-0.5 ${active ? "text-[#00c4cc] font-semibold" : ""}`}>
                 {item.label}
               </span>
             </button>
@@ -154,21 +147,21 @@ export function Toolbar({
       </div>
 
       {/* ── BOTTOM SECTION: AI Tools ── */}
-      <div className={`w-full p-1.5 border-t ${isDark ? "border-white/[0.06]" : "border-slate-200"}`}>
+      <div className={`w-full p-2 border-t ${isDark ? "border-white/[0.06]" : "border-slate-200"}`}>
         <button
           type="button"
           onClick={() => handleTabClick("ai")}
           title="AI Tools"
-          className={`group flex h-[58px] w-full flex-col items-center justify-center rounded-xl transition-all duration-200 ${
+          className={`group flex h-[60px] w-full flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
             activeTab === "ai"
-              ? "bg-gradient-to-b from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-400/40 shadow-lg shadow-cyan-500/15"
+              ? "bg-[#00c4cc]/15 text-[#00c4cc] border-[1.5px] border-[#00c4cc] shadow-[0_0_16px_rgba(0,196,204,0.25)]"
               : isDark
-              ? "text-zinc-400 hover:bg-white/[0.05] hover:text-cyan-400"
+              ? "text-slate-400 hover:bg-white/[0.05] hover:text-[#00c4cc]"
               : "text-slate-600 hover:bg-white hover:text-cyan-600"
           }`}
         >
-          <Sparkles size={22} className="text-cyan-400 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="text-[9px] font-medium text-cyan-400">
+          <Sparkles size={22} className="text-[#00c4cc] mb-1 group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-medium text-[#00c4cc]">
             AI Tools
           </span>
         </button>

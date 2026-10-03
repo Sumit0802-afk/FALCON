@@ -296,67 +296,43 @@ export function StickersPanel({ onAddSticker }: StickersPanelProps) {
             </div>
           </div>
 
-          {/* Horizontal Category Pill Bar */}
-          <div className="relative group">
+          {/* Category Pill Bar - ALL DIRECTLY VISIBLE */}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {/* Favorites Pill */}
             <button
               type="button"
-              onClick={() => scrollCategoryPills("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-6 w-5 items-center justify-center rounded-r-md bg-[#111115]/90 border border-white/[0.08] text-zinc-400 hover:text-white opacity-0 group-hover:opacity-100 transition shadow"
-              title="Scroll left"
+              onClick={() => {
+                setFavoritesOnly((v) => !v);
+                if (!favoritesOnly) setActiveCategory("all");
+              }}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
+                favoritesOnly
+                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_8px_rgba(244,63,94,0.25)]"
+                  : "bg-white/[0.04] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-zinc-200"
+              }`}
             >
-              <ChevronLeft size={13} />
+              <Heart size={11} fill={favoritesOnly ? "#f43f5e" : "none"} />
+              <span>Favorites</span>
             </button>
 
-            <div
-              ref={pillsRef}
-              className="flex gap-1.5 overflow-x-auto pb-1"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {/* Favorites Pill */}
+            {STICKER_CATEGORIES.map((cat) => (
               <button
+                key={cat.id}
                 type="button"
                 onClick={() => {
-                  setFavoritesOnly((v) => !v);
-                  if (!favoritesOnly) setActiveCategory("all");
+                  setActiveCategory(cat.id);
+                  setFavoritesOnly(false);
                 }}
-                className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                  favoritesOnly
-                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_8px_rgba(244,63,94,0.25)]"
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
+                  activeCategory === cat.id && !favoritesOnly
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 shadow-[0_0_8px_rgba(6,182,212,0.2)]"
                     : "bg-white/[0.04] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-zinc-200"
                 }`}
               >
-                <Heart size={11} fill={favoritesOnly ? "#f43f5e" : "none"} />
-                <span>Favorites</span>
+                <span className="text-[11px] leading-none">{cat.emoji}</span>
+                <span>{cat.label}</span>
               </button>
-
-              {STICKER_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveCategory(cat.id);
-                    setFavoritesOnly(false);
-                  }}
-                  className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                    activeCategory === cat.id && !favoritesOnly
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 shadow-[0_0_8px_rgba(6,182,212,0.2)]"
-                      : "bg-white/[0.04] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-zinc-200"
-                  }`}
-                >
-                  <span className="text-[11px] leading-none">{cat.emoji}</span>
-                  <span>{cat.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollCategoryPills("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-6 w-5 items-center justify-center rounded-l-md bg-[#111115]/90 border border-white/[0.08] text-zinc-400 hover:text-white opacity-0 group-hover:opacity-100 transition shadow"
-              title="Scroll right"
-            >
-              <ChevronRight size={13} />
-            </button>
+            ))}
           </div>
         </div>
 

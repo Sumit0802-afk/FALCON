@@ -2201,7 +2201,7 @@ export function EditorLayout({
   const isDark = editorTheme === "dark";
 
   return (
-    <div className={`flex h-screen w-screen flex-col transition-colors duration-300 ${isDark ? "bg-zinc-950" : "bg-slate-100"}`}>
+    <div className={`flex h-screen w-screen flex-col transition-colors duration-300 ${isDark ? "bg-[#090b0e]" : "bg-slate-100"}`}>
 
       <input
         ref={fileInputRef}
@@ -2297,6 +2297,8 @@ export function EditorLayout({
         {activeSidebarTab === "elements" && (
           <ElementsPanel
             onAddShape={handleAddShape}
+            onAddFrame={handleAddFrame}
+            onAddImage={handleAddImageToCanvas}
           />
         )}
 
@@ -2348,12 +2350,7 @@ export function EditorLayout({
           />
         )}
 
-        {/* STICKERS PANEL */}
-        {activeSidebarTab === "stickers" && (
-          <StickersPanel
-            onAddSticker={handleAddSticker}
-          />
-        )}
+        {/* STICKERS PANEL — removed; now integrated into Elements panel */}
 
         {/* LAYERS PANEL */}
         {activeSidebarTab === "layers" && (
@@ -2392,7 +2389,7 @@ export function EditorLayout({
           <button
             type="button"
             onClick={() => setActiveSidebarTab(null)}
-            className="absolute left-[442px] top-1/2 z-40 -translate-y-1/2 flex h-14 w-4 items-center justify-center rounded-r-md border-y border-r border-white/[0.1] bg-[#18191b] text-zinc-400 shadow-md transition hover:bg-[#25262b] hover:text-white"
+            className="absolute left-[436px] top-1/2 z-40 -translate-y-1/2 flex h-14 w-4 items-center justify-center rounded-r-md border-y border-r border-white/[0.1] bg-[#12151c] text-zinc-400 shadow-md transition hover:bg-[#181d28] hover:text-[#00dfb6]"
             title="Collapse side panel"
           >
             <ChevronLeft size={14} />

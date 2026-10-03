@@ -95,8 +95,8 @@ export function FramesPanel({ onAddFrame }: FramesPanelProps) {
           )}
         </div>
 
-        {/* ── Category Filter Pills ── */}
-        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* ── Category Filter Pills - ALL DIRECTLY VISIBLE ── */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pb-1">
           {CATEGORY_TABS.map((tab) => {
             const active = activeCategory === tab.id;
             return (
@@ -104,7 +104,7 @@ export function FramesPanel({ onAddFrame }: FramesPanelProps) {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveCategory(tab.id)}
-                className={`flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                   active
                     ? "bg-pink-500/20 text-pink-300 shadow-[0_0_10px_rgba(244,114,182,0.15)] border border-pink-500/30"
                     : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200 border border-transparent"

@@ -81,8 +81,12 @@ export class StickerService {
         return false;
       }
 
-      if (category && category !== "all" && sticker.category.toLowerCase() !== category.toLowerCase()) {
-        return false;
+      if (category && category !== "all") {
+        const catMatch = sticker.category.toLowerCase() === category.toLowerCase();
+        const trendingMatch = category.toLowerCase() === "trending" && sticker.tags.some(t => t.toLowerCase() === "trending");
+        if (!catMatch && !trendingMatch) {
+          return false;
+        }
       }
 
       if (subcategory && sticker.subcategory?.toLowerCase() !== subcategory.toLowerCase()) {
@@ -380,19 +384,19 @@ export class StickerService {
     const imported = this.getImportedStickers();
     const importedIds = new Set(imported.map((s) => s.id));
 
-    // Published catalog from ingestion pipeline (1,098 real assets)
-    const publishedIds = new Set(this.publishedStickers.map((s) => s.id));
-
-    // Seed demo stickers not already covered by ingested catalog
+    // Seed demo stickers (Realistic Pop Culture, Heroes, Gaming & Demo stickers)
     const filteredDemo = SEED_DEMO_STICKERS.filter(
-      (s) => !publishedIds.has(s.id) && !importedIds.has(s.id)
+      (s) => !importedIds.has(s.id)
+    );
+    const demoIds = new Set(filteredDemo.map((s) => s.id));
+
+    // Published catalog from ingestion pipeline (excluding any demo/imported ids)
+    const filteredPublished = this.publishedStickers.filter(
+      (s) => !importedIds.has(s.id) && !demoIds.has(s.id)
     );
 
-    // Published stickers not overridden by user-imported items
-    const filteredPublished = this.publishedStickers.filter((s) => !importedIds.has(s.id));
-
-    // Order: locally imported (freshest) → published catalog → demo fallbacks
-    return [...imported, ...filteredPublished, ...filteredDemo];
+    // Order: locally imported (freshest) → curated realistic stickers → published catalog
+    return [...imported, ...filteredDemo, ...filteredPublished];
   }
 
   private getImportedStickers(): Sticker[] {

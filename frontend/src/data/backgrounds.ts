@@ -15,63 +15,63 @@ export const BACKGROUND_CATEGORIES = [
   },
   {
     "id": "abstract",
-    "label": "01. Abstract (20)"
+    "label": "Abstract"
   },
   {
     "id": "gradient",
-    "label": "02. Gradient (20)"
+    "label": "Gradient"
   },
   {
     "id": "minimal",
-    "label": "03. Minimal (20)"
+    "label": "Minimal"
   },
   {
     "id": "geometric",
-    "label": "04. Geometric (20)"
+    "label": "Geometric"
   },
   {
     "id": "liquid",
-    "label": "05. Liquid (20)"
+    "label": "Liquid"
   },
   {
     "id": "mesh-gradient",
-    "label": "06. Mesh Gradient (20)"
+    "label": "Mesh Gradient"
   },
   {
     "id": "3d",
-    "label": "07. 3D (20)"
+    "label": "3D"
   },
   {
     "id": "glassmorphism",
-    "label": "08. Glassmorphism (20)"
+    "label": "Glassmorphism"
   },
   {
     "id": "neumorphism",
-    "label": "09. Neumorphism (20)"
+    "label": "Neumorphism"
   },
   {
     "id": "futuristic",
-    "label": "10. Futuristic (20)"
+    "label": "Futuristic"
   },
   {
     "id": "technology",
-    "label": "11. Technology (20)"
+    "label": "Technology"
   },
   {
     "id": "ai",
-    "label": "12. AI & Neural (20)"
+    "label": "AI & Neural"
   },
   {
     "id": "cyberpunk",
-    "label": "13. Cyberpunk (20)"
+    "label": "Cyberpunk"
   },
   {
     "id": "neon",
-    "label": "14. Neon (20)"
+    "label": "Neon"
   },
   {
     "id": "glitch",
-    "label": "15. Glitch (20)"
+    "label": "Glitch"
   },
   {
     "id": "textures",

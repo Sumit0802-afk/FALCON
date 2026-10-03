@@ -154,8 +154,8 @@ export function TemplatesPanel({ onSelectTemplate, theme = "dark" }: TemplatesPa
           </button>
         </div>
 
-        {/* CATEGORY FILTER PILLS */}
-        <div className="no-scrollbar mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        {/* CATEGORY FILTER PILLS - ALL DIRECTLY VISIBLE */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 pb-0.5">
           {CATEGORY_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -163,7 +163,7 @@ export function TemplatesPanel({ onSelectTemplate, theme = "dark" }: TemplatesPa
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                   isActive
                     ? "bg-cyan-500 text-black font-semibold shadow-sm shadow-cyan-500/30"
                     : isDark

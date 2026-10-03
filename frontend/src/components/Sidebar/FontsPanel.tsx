@@ -170,8 +170,8 @@ export function FontsPanel({
           )}
         </div>
 
-        {/* ── Category Filter Pills ── */}
-        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* ── Category Filter Pills - ALL DIRECTLY VISIBLE ── */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pb-1">
           {CATEGORY_TABS.map((tab) => {
             const active = activeCategory === tab.id;
             return (
@@ -182,7 +182,7 @@ export function FontsPanel({
                   setActiveCategory(tab.id);
                   setVisibleCount(40);
                 }}
-                className={`flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                   active
                     ? "bg-indigo-500/20 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/30"
                     : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200 border border-transparent"

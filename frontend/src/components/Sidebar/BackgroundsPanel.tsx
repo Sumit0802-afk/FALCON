@@ -119,7 +119,7 @@ export function BackgroundsPanel({
                   Backgrounds
                 </h2>
                 <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[9px] font-medium text-cyan-300">
-                  {BACKGROUNDS_DATA.length}+ Pro
+                  Pro
                 </span>
               </div>
               <p className="text-[10px] text-zinc-400">
@@ -179,14 +179,14 @@ export function BackgroundsPanel({
           ))}
         </div>
 
-        {/* CATEGORY TABS SCROLLER */}
-        <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
+        {/* CATEGORY TABS - ALL DIRECTLY VISIBLE */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
           {BACKGROUND_CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => setActiveCategory(cat.id)}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                 activeCategory === cat.id
                   ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
                   : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
@@ -346,7 +346,7 @@ export function BackgroundsPanel({
       {/* BACKGROUNDS GRID */}
       <div className="flex-1 overflow-y-auto p-3.5 scrollbar-thin scrollbar-thumb-zinc-800">
         <div className="mb-2 flex items-center justify-between text-[11px] text-zinc-400">
-          <span>{filteredBackgrounds.length} Backgrounds</span>
+          <span>Curated Backgrounds</span>
           {searchQuery && (
             <button
               type="button"

@@ -2,6 +2,7 @@
 #  Dependencies
 # ─────────────────────────────────────────────
 node_modules/
+**/node_modules/
 .pnp
 .pnp.js
 
@@ -9,19 +10,31 @@ node_modules/
 #  Build outputs
 # ─────────────────────────────────────────────
 dist/
+**/dist/
 build/
+**/build/
 out/
+**/out/
 .next/
+**/.next/
 .nuxt/
+**/.nuxt/
 .cache/
+**/.cache/
 *.tsbuildinfo
+**/*.tsbuildinfo
 
 # ─────────────────────────────────────────────
 #  Environment / secrets
 # ─────────────────────────────────────────────
 .env
 .env.*
+.env*.local
+**/.env
+**/.env.*
+**/.env*.local
 !.env.example
+!**/.env.example
 
 # ─────────────────────────────────────────────
 #  Uploads / user-generated content
