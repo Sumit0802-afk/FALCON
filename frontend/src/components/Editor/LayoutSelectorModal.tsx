@@ -238,15 +238,8 @@ export function LayoutSelectorModal({
                     className="rounded-lg border border-indigo-400/30 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
                     style={{ width: dims.w, height: dims.h }}
                   >
-                    {/* grid texture */}
-                    <div
-                      className="h-full w-full rounded-lg opacity-20"
-                      style={{
-                        backgroundImage:
-                          "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-                        backgroundSize: "16px 16px",
-                      }}
-                    />
+                    {/* preview container */}
+                    <div className="h-full w-full rounded-lg" />
                   </div>
                 );
               })()}

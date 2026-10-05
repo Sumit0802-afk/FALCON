@@ -8,30 +8,33 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         String    @default("user")
-  isVerified   Boolean   @default(false)
-  profileImage String?
-  lastLogin    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  projects     Project[]
+  id                  String               @id @default(uuid())
+  name                String
+  email               String               @unique
+  passwordHash        String
+  role                String               @default("user")
+  isVerified          Boolean              @default(false)
+  profileImage        String?
+  lastLogin           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  projects            Project[]
+  otpVerifications    OtpVerification[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
 
 model Project {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   title        String
   thumbnailUrl String?
   ownerId      String
-  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   pages        Page[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([ownerId])
   @@map("projects")
@@ -53,4 +56,51 @@ model Page {
 
   @@index([projectId])
   @@map("pages")
+}
+
+model OtpVerification {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpHash      String
+  purpose      String   @default("LOGIN_MFA")
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  maxAttempts  Int      @default(5)
+  used         Boolean  @default(false)
+  lastResentAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, purpose])
+  @@map("otp_verifications")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionTokenHash String    @unique
+  ipAddress        String?
+  userAgent        String?   @db.Text
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

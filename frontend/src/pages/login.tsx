@@ -1,20 +1,17 @@
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState, useEffect, useRef, useCallback, KeyboardEvent, ClipboardEvent } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { login, isAuthenticated } from "@/services/authService";
-import { Sparkles, ArrowRight, AlertCircle, X } from "lucide-react";
+import { login, verifyOtp, resendOtp, register, MfaChallenge, isAuthenticated } from "@/services/authService";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function EyeIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
-
 function EyeOffIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -23,96 +20,276 @@ function EyeOffIcon({ size = 18 }: { size?: number }) {
     </svg>
   );
 }
-
-function GoogleIcon() {
+function ArrowRight({ size = 15 }: { size?: number }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
     </svg>
   );
 }
-
-function LoadingSpinner() {
+function SpinnerIcon() {
   return (
-    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    <svg className="spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function AlertIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+function ShieldIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <polyline points="9 12 11 14 15 10" />
+    </svg>
+  );
+}
+function MailIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
     </svg>
   );
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
-function validateEmail(value: string): string {
-  if (!value.trim()) return "Email is required";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Enter a valid email address";
+function validateEmail(v: string) {
+  if (!v.trim()) return "Email address is required";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Enter a valid email address";
+  return "";
+}
+function validatePassword(v: string) {
+  if (!v) return "Password is required";
   return "";
 }
 
-function validatePassword(value: string): string {
-  if (!value) return "Password is required";
-  return "";
+// ─── OTP Input Component ──────────────────────────────────────────────────────
+function OtpInput({
+  value,
+  onChange,
+  disabled,
+  hasError,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  hasError?: boolean;
+}) {
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = value.padEnd(6, "").split("").slice(0, 6);
+
+  const handleChange = (idx: number, char: string) => {
+    const cleaned = char.replace(/\D/g, "").slice(-1);
+    const newDigits = [...digits];
+    newDigits[idx] = cleaned;
+    const next = newDigits.join("");
+    onChange(next);
+    if (cleaned && idx < 5) {
+      inputsRef.current[idx + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (idx: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!digits[idx] && idx > 0) {
+        const newDigits = [...digits];
+        newDigits[idx - 1] = "";
+        onChange(newDigits.join(""));
+        inputsRef.current[idx - 1]?.focus();
+      } else {
+        const newDigits = [...digits];
+        newDigits[idx] = "";
+        onChange(newDigits.join(""));
+      }
+    } else if (e.key === "ArrowLeft" && idx > 0) {
+      inputsRef.current[idx - 1]?.focus();
+    } else if (e.key === "ArrowRight" && idx < 5) {
+      inputsRef.current[idx + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    onChange(pasted.padEnd(6, "").slice(0, 6));
+    const focusIdx = Math.min(pasted.length, 5);
+    inputsRef.current[focusIdx]?.focus();
+  };
+
+  useEffect(() => {
+    inputsRef.current[0]?.focus();
+  }, []);
+
+  return (
+    <div className="otp-grid">
+      {Array.from({ length: 6 }).map((_, idx) => (
+        <input
+          key={idx}
+          ref={(el) => { inputsRef.current[idx] = el; }}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={1}
+          value={digits[idx] || ""}
+          onChange={(e) => handleChange(idx, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(idx, e)}
+          onPaste={handlePaste}
+          disabled={disabled}
+          className={`otp-box${hasError ? " otp-error" : ""}${digits[idx] ? " otp-filled" : ""}`}
+          aria-label={`Digit ${idx + 1} of 6`}
+          autoComplete="one-time-code"
+        />
+      ))}
+    </div>
+  );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Countdown Timer ──────────────────────────────────────────────────────────
+function useCountdown(initialSeconds: number, active: boolean) {
+  const [seconds, setSeconds] = useState(initialSeconds);
+
+  useEffect(() => {
+    if (!active) return;
+    setSeconds(initialSeconds);
+    const interval = setInterval(() => {
+      setSeconds((s) => {
+        if (s <= 1) { clearInterval(interval); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [active, initialSeconds]);
+
+  return seconds;
+}
+
+// ─── Page View Types ──────────────────────────────────────────────────────────
+type PageView = "login" | "otp" | "forgot";
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [view, setView] = useState<PageView>("login");
 
+  // Login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({ email: "", password: "" });
-  const [serverError, setServerError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [loginErrors, setLoginErrors] = useState({ email: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  // Redirect already-authenticated users ONLY when router is ready
+  // OTP state
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(60);
+  const [resendActive, setResendActive] = useState(true);
+  const cooldownLeft = useCountdown(resendCooldown, resendActive);
+
+  // Forgot state
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+
   useEffect(() => {
     setMounted(true);
-    if (router.isReady && isAuthenticated()) {
+    if (isAuthenticated()) {
       const redirect = (router.query.redirect as string) || "/";
       router.replace(redirect);
     }
-  }, [router.isReady, router.query.redirect]);
+  }, []);
 
-  function validateAll(): boolean {
+  // ── Login ──────────────────────────────────────────────────
+  async function handleLogin(e: FormEvent) {
+    e.preventDefault();
     const emailErr = validateEmail(email);
-    const passwordErr = validatePassword(password);
-    setErrors({ email: emailErr, password: passwordErr });
-    return !emailErr && !passwordErr;
-  }
+    const passErr = validatePassword(password);
+    setLoginErrors({ email: emailErr, password: passErr });
+    if (emailErr || passErr) return;
 
-  async function performLogin(loginEmail: string, loginPass: string) {
-    setServerError("");
-    setLoading(true);
+    setLoginError("");
+    setLoginLoading(true);
     try {
-      await login(loginEmail, loginPass, rememberMe);
-      const destination = (router.query.redirect as string) || "/";
-      router.push(destination);
+      const challenge = await login(email, password);
+      setMfaChallenge(challenge);
+      setResendCooldown(challenge.expiresInSeconds > 60 ? 60 : challenge.expiresInSeconds);
+      setResendActive(true);
+      setView("otp");
     } catch (err) {
-      setServerError(
-        err instanceof Error ? err.message : "Unable to sign in. Please try again."
-      );
+      setLoginError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  // ── OTP Verify ────────────────────────────────────────────
+  async function handleOtpVerify(e: FormEvent) {
     e.preventDefault();
-    if (!validateAll()) return;
-    await performLogin(email, password);
+    if (otp.replace(/\D/g, "").length !== 6) {
+      setOtpError("Please enter all 6 digits of your verification code.");
+      return;
+    }
+    setOtpError("");
+    setOtpLoading(true);
+    try {
+      await verifyOtp(mfaChallenge!.mfaToken, otp);
+      const destination = (router.query.redirect as string) || "/";
+      router.push(destination);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Verification failed. Please try again.");
+      setOtp("");
+    } finally {
+      setOtpLoading(false);
+    }
   }
 
-  // Quick 1-click Demo User Login
-  async function handleDemoLogin() {
-    setEmail("demo@falcon.app");
-    setPassword("password123");
-    setErrors({ email: "", password: "" });
-    await performLogin("demo@falcon.app", "password123");
+  // ── OTP Resend ────────────────────────────────────────────
+  async function handleResend() {
+    if (cooldownLeft > 0 || !mfaChallenge) return;
+    setResendLoading(true);
+    setOtpError("");
+    try {
+      const res = await resendOtp(mfaChallenge.mfaToken);
+      setResendCooldown(res.cooldownSeconds);
+      setResendActive(false);
+      setTimeout(() => setResendActive(true), 10);
+      setOtp("");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Failed to resend code. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+
+  // ── Forgot Password ───────────────────────────────────────
+  async function handleForgot(e: FormEvent) {
+    e.preventDefault();
+    const err = validateEmail(forgotEmail);
+    if (err) { setForgotError(err); return; }
+    setForgotError("");
+    setForgotLoading(true);
+    try {
+      await (await import("@/services/authService")).forgotPassword(forgotEmail);
+      setForgotSent(true);
+    } catch {
+      // Always show success to prevent email enumeration
+      setForgotSent(true);
+    } finally {
+      setForgotLoading(false);
+    }
   }
 
   if (!mounted) return null;
@@ -124,472 +301,638 @@ export default function LoginPage() {
         <meta name="description" content="Sign in to your Falcon design account." />
       </Head>
 
-      <style jsx>{`
-        .auth-root {
-          font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        .auth-page {
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 24px;
           position: relative;
-          background: transparent;
+          padding: 24px 16px;
+          background: #030507;
+          overflow: hidden;
         }
 
+        /* Ambient glow orbs */
+        .auth-bg-orb-1 {
+          position: fixed;
+          top: -180px;
+          right: -80px;
+          width: 600px;
+          height: 600px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(47,129,255,0.10) 0%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .auth-bg-orb-2 {
+          position: fixed;
+          bottom: -120px;
+          left: -60px;
+          width: 500px;
+          height: 500px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Subtle grid */
+        .auth-bg-grid {
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.024) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.024) 1px, transparent 1px);
+          background-size: 48px 48px;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Card */
         .auth-card {
           position: relative;
           z-index: 10;
           width: 100%;
           max-width: 440px;
-          background: rgba(10, 14, 20, 0.65);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 24px;
-          padding: 38px 36px;
-          box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+          background: rgba(8, 11, 18, 0.85);
+          backdrop-filter: blur(32px);
+          -webkit-backdrop-filter: blur(32px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
+          padding: 40px 36px 36px;
+          box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+            0 32px 80px rgba(0, 0, 0, 0.65),
+            0 0 40px rgba(47, 129, 255, 0.06);
+          animation: card-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
-        .auth-logo {
-          width: 46px;
-          height: 46px;
-          background: #f4f1eb;
-          border-radius: 50%;
+        @keyframes card-rise {
+          from { opacity: 0; transform: translateY(20px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Brand header */
+        .auth-brand {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
-          font-family: "Playfair Display", Georgia, serif;
-          font-size: 20px;
-          font-weight: 700;
-          color: #050708;
-          margin: 0 auto 18px;
-          box-shadow: 0 0 20px rgba(244, 241, 235, 0.15);
-          transition: transform 0.2s ease;
+          gap: 10px;
+          margin-bottom: 28px;
+          text-decoration: none;
         }
-        .auth-logo:hover {
-          transform: scale(1.05);
+        .auth-brand-logo {
+          width: 44px;
+          height: 44px;
+          object-fit: contain;
+          filter: drop-shadow(0 0 12px rgba(255,255,255,0.35));
+          transition: transform 0.3s ease;
+        }
+        .auth-brand:hover .auth-brand-logo { transform: scale(1.06); }
+        .auth-brand-name {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.3em;
+          color: #22D3EE;
+          text-transform: uppercase;
         }
 
-        .auth-title {
+        /* Headings */
+        .auth-heading {
           text-align: center;
-          font-family: "Playfair Display", Georgia, serif;
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: #f8f8f8;
-          letter-spacing: -0.5px;
+          letter-spacing: -0.4px;
           margin: 0 0 6px;
         }
-
-        .auth-subtitle {
+        .auth-sub {
           text-align: center;
           font-size: 13.5px;
-          color: rgba(255, 255, 255, 0.45);
-          margin: 0 0 24px;
-          font-family: "Plus Jakarta Sans", sans-serif;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 0 0 28px;
+          line-height: 1.5;
+        }
+        .auth-sub-highlight {
+          color: rgba(34, 211, 238, 0.8);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px;
         }
 
-        .auth-field {
-          margin-bottom: 16px;
+        /* Error banner */
+        .auth-error {
+          display: flex;
+          align-items: flex-start;
+          gap: 9px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.28);
+          border-radius: 10px;
+          padding: 11px 13px;
+          margin-bottom: 18px;
+          font-size: 13px;
+          color: #fca5a5;
+          line-height: 1.45;
+          animation: fade-in 0.2s ease;
         }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
 
+        /* Field */
+        .auth-field { margin-bottom: 14px; }
         .auth-label {
           display: block;
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.55);
-          margin-bottom: 7px;
-          letter-spacing: 0.5px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
-          font-family: "JetBrains Mono", monospace;
+          color: rgba(255, 255, 255, 0.45);
+          margin-bottom: 7px;
         }
-
-        .auth-input-wrap {
-          position: relative;
-        }
-
+        .auth-input-wrap { position: relative; }
         .auth-input {
           width: 100%;
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 12px;
-          padding: 13px 16px;
+          border-radius: 10px;
+          padding: 12px 14px;
           font-size: 14px;
-          font-family: "Plus Jakarta Sans", sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           color: #f0f0f0;
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
           box-sizing: border-box;
         }
-        .auth-input::placeholder {
-          color: rgba(255, 255, 255, 0.22);
-        }
+        .auth-input::placeholder { color: rgba(255, 255, 255, 0.2); }
         .auth-input:focus {
-          border-color: rgba(99, 102, 241, 0.6);
-          background: rgba(99, 102, 241, 0.06);
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+          border-color: rgba(47, 129, 255, 0.55);
+          background: rgba(47, 129, 255, 0.05);
+          box-shadow: 0 0 0 3px rgba(47, 129, 255, 0.12);
         }
-        .auth-input.error {
-          border-color: rgba(239, 68, 68, 0.6);
-          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        .auth-input.is-error {
+          border-color: rgba(239, 68, 68, 0.55);
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
         }
-        .auth-input.has-toggle {
-          padding-right: 48px;
-        }
-
-        .auth-toggle-btn {
+        .auth-input.has-toggle { padding-right: 46px; }
+        .auth-toggle {
           position: absolute;
-          right: 14px;
+          right: 13px;
           top: 50%;
           transform: translateY(-50%);
           background: none;
           border: none;
           cursor: pointer;
-          color: rgba(255, 255, 255, 0.35);
+          color: rgba(255, 255, 255, 0.3);
           padding: 4px;
           display: flex;
           transition: color 0.2s;
+          line-height: 0;
         }
-        .auth-toggle-btn:hover {
-          color: rgba(255, 255, 255, 0.75);
-        }
-
-        .auth-field-error {
-          font-size: 11.5px;
-          color: #f87171;
-          margin-top: 5px;
+        .auth-toggle:hover { color: rgba(255, 255, 255, 0.7); }
+        .auth-field-err {
           display: flex;
           align-items: center;
           gap: 4px;
+          font-size: 11.5px;
+          color: #f87171;
+          margin-top: 5px;
         }
 
+        /* Row: remember + forgot */
         .auth-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          margin: 6px 0 22px;
-          gap: 12px;
+          justify-content: flex-end;
+          margin-bottom: 20px;
         }
-
-        .auth-checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.5);
-          user-select: none;
-        }
-        .auth-checkbox-label input[type="checkbox"] {
-          width: 15px;
-          height: 15px;
-          accent-color: #6366f1;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-
-        .auth-forgot-link {
-          font-size: 13px;
-          color: rgba(165, 243, 252, 0.8);
+        .auth-link {
+          font-size: 12.5px;
+          color: rgba(34, 211, 238, 0.75);
           text-decoration: none;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          font-family: inherit;
           transition: color 0.2s;
-          white-space: nowrap;
         }
-        .auth-forgot-link:hover {
-          color: #ffffff;
-        }
+        .auth-link:hover { color: #fff; }
 
-        .auth-btn-primary {
+        /* Primary button */
+        .auth-btn {
           width: 100%;
-          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          background: linear-gradient(135deg, #2F81FF 0%, #1a5fd4 100%);
           color: #fff;
           border: none;
-          border-radius: 12px;
+          border-radius: 10px;
           padding: 13px;
           font-size: 14px;
           font-weight: 600;
-          font-family: "Plus Jakarta Sans", sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           cursor: pointer;
-          transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
-          letter-spacing: 0.2px;
+          box-shadow: 0 4px 20px rgba(47, 129, 255, 0.32);
+          transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+          letter-spacing: 0.1px;
         }
-        .auth-btn-primary:hover:not(:disabled) {
-          opacity: 0.94;
+        .auth-btn:hover:not(:disabled) {
+          opacity: 0.93;
           transform: translateY(-1px);
-          box-shadow: 0 8px 26px rgba(99, 102, 241, 0.45);
+          box-shadow: 0 8px 28px rgba(47, 129, 255, 0.42);
         }
-        .auth-btn-primary:active:not(:disabled) {
-          transform: translateY(0);
-        }
-        .auth-btn-primary:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-          transform: none;
-        }
+        .auth-btn:active:not(:disabled) { transform: translateY(0); }
+        .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+        /* Divider */
         .auth-divider {
           display: flex;
           align-items: center;
           gap: 12px;
-          margin: 20px 0;
+          margin: 24px 0 0;
         }
-        .auth-divider-line {
-          flex: 1;
-          height: 1px;
-          background: rgba(255, 255, 255, 0.08);
-        }
+        .auth-divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
         .auth-divider-text {
-          font-size: 10px;
-          letter-spacing: 2px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9.5px;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.3);
-          white-space: nowrap;
-          font-family: "JetBrains Mono", monospace;
+          color: rgba(255,255,255,0.28);
         }
 
-        .auth-btn-google {
-          width: 100%;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 12px;
-          padding: 12px;
-          font-size: 13.5px;
+        /* Footer */
+        .auth-footer {
+          text-align: center;
+          margin-top: 22px;
+          font-size: 13px;
+          color: rgba(255,255,255,0.38);
+        }
+        .auth-footer a, .auth-footer button {
+          color: rgba(255,255,255,0.7);
+          text-underline-offset: 2px;
           font-weight: 500;
-          font-family: "Plus Jakarta Sans", sans-serif;
-          color: rgba(255, 255, 255, 0.75);
+          text-decoration: none;
+          background: none;
+          border: none;
           cursor: pointer;
+          font-family: inherit;
+          font-size: inherit;
+          padding: 0;
+          transition: color 0.2s;
+        }
+        .auth-footer a:hover, .auth-footer button:hover { color: #fff; }
+
+        /* ── OTP Screen ── */
+        .otp-icon-wrap {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
-          transition: background 0.2s, border-color 0.2s, color 0.2s;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: rgba(47, 129, 255, 0.1);
+          border: 1px solid rgba(47, 129, 255, 0.25);
+          color: #22D3EE;
+          margin: 0 auto 20px;
+          box-shadow: 0 0 24px rgba(47, 129, 255, 0.14);
         }
-        .auth-btn-google:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.18);
-          color: #fff;
-        }
-
-        .auth-server-error {
-          background: rgba(239, 68, 68, 0.12);
-          border: 1px solid rgba(239, 68, 68, 0.35);
-          border-radius: 12px;
-          padding: 12px 14px;
-          font-size: 13px;
-          color: #fca5a5;
-          margin-bottom: 18px;
+        .otp-grid {
           display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
           gap: 8px;
-          line-height: 1.5;
+          justify-content: center;
+          margin: 24px 0 20px;
         }
-
-        .auth-footer {
+        .otp-box {
+          width: 46px;
+          height: 56px;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          color: #f8f8f8;
+          font-size: 22px;
+          font-weight: 700;
+          font-family: 'JetBrains Mono', monospace;
           text-align: center;
-          margin-top: 24px;
-          font-size: 13.5px;
-          color: rgba(255, 255, 255, 0.4);
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+          cursor: text;
+          appearance: textfield;
+          -moz-appearance: textfield;
         }
-        .auth-footer a {
-          color: #f4f1eb;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-          font-weight: 500;
+        .otp-box:focus {
+          border-color: rgba(47, 129, 255, 0.7);
+          background: rgba(47, 129, 255, 0.07);
+          box-shadow: 0 0 0 3px rgba(47, 129, 255, 0.15);
+        }
+        .otp-box.otp-filled {
+          border-color: rgba(34, 211, 238, 0.45);
+          background: rgba(34, 211, 238, 0.05);
+          color: #22D3EE;
+        }
+        .otp-box.otp-error {
+          border-color: rgba(239, 68, 68, 0.55) !important;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08) !important;
+          color: #fca5a5 !important;
+        }
+        .otp-box:disabled { opacity: 0.45; cursor: not-allowed; }
+        .otp-box::-webkit-outer-spin-button,
+        .otp-box::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        /* Timer & resend */
+        .otp-timer-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 14px;
+          font-size: 12.5px;
+          color: rgba(255,255,255,0.38);
+        }
+        .otp-timer { font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.5); }
+        .otp-timer.urgent { color: #f87171; }
+        .otp-resend {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 12.5px;
+          font-family: inherit;
+          color: rgba(47, 129, 255, 0.8);
+          padding: 0;
           transition: color 0.2s;
         }
-        .auth-footer a:hover {
-          color: #fff;
+        .otp-resend:disabled { color: rgba(255,255,255,0.22); cursor: not-allowed; }
+        .otp-resend:not(:disabled):hover { color: #22D3EE; }
+
+        /* Back arrow */
+        .auth-back {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 12px;
+          color: rgba(255,255,255,0.38);
+          font-family: 'JetBrains Mono', monospace;
+          letter-spacing: 0.06em;
+          padding: 0;
+          margin-bottom: 24px;
+          transition: color 0.2s;
+          text-transform: uppercase;
+        }
+        .auth-back:hover { color: rgba(255,255,255,0.75); }
+        .auth-back svg { flex-shrink: 0; }
+
+        /* Spinner */
+        .spin { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 480px) {
+          .auth-card { padding: 32px 20px 28px; }
+          .otp-box { width: 40px; height: 50px; font-size: 18px; }
+          .otp-grid { gap: 6px; }
         }
       `}</style>
 
-      <div className="auth-root">
-        <div className="auth-card">
-          {/* Logo */}
-          <Link href="/" className="mb-6 flex flex-col items-center justify-center gap-2.5 group">
-            <img
-              src="/falcon-logo-white.png"
-              alt="Falcon Logo"
-              className="h-12 w-12 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]"
-            />
-            <span className="text-sm font-black tracking-[0.2em] font-sans text-cyan-400">
-              FALCON
-            </span>
-          </Link>
+      <div className="auth-page">
+        <div className="auth-bg-grid" aria-hidden="true" />
+        <div className="auth-bg-orb-1" aria-hidden="true" />
+        <div className="auth-bg-orb-2" aria-hidden="true" />
 
-          {/* Heading */}
-          <h1 className="auth-title">Welcome back</h1>
-          <p className="auth-subtitle">Sign in to continue creating with Falcon</p>
+        <div className="auth-card" role="main">
+        {/* ── LOGIN VIEW ─────────────────────────────────────── */}
+        {view === "login" && (
+          <>
+            <Link href="/" className="auth-brand" aria-label="Back to Falcon home">
+              <img src="/falcon-logo-white.png" alt="Falcon" className="auth-brand-logo" />
+              <span className="auth-brand-name">FALCON</span>
+            </Link>
 
-          {/* Quick Demo Login Option */}
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="mb-5 flex w-full items-center justify-between rounded-xl border border-cyan-500/25 bg-cyan-950/20 px-3.5 py-2.5 text-left text-xs transition hover:border-cyan-400/50 hover:bg-cyan-900/30 group"
-          >
-            <div className="flex items-center gap-2 text-cyan-200">
-              <Sparkles size={14} className="text-cyan-400 animate-pulse" />
-              <span className="font-medium">1-Click Demo Sign-In</span>
-            </div>
-            <span className="font-mono text-[10px] text-cyan-400/70 group-hover:text-cyan-300">
-              demo@falcon.app →
-            </span>
-          </button>
+            <h1 className="auth-heading">Welcome back</h1>
+            <p className="auth-sub">Sign in to continue creating with Falcon</p>
 
-          {/* Server error */}
-          {serverError && (
-            <div className="auth-server-error" role="alert">
-              <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-400" />
-                <span>{serverError}</span>
+            {loginError && (
+              <div className="auth-error" role="alert">
+                <AlertIcon />
+                <span>{loginError}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setServerError("")}
-                className="text-red-300 hover:text-white"
-                aria-label="Dismiss error"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} noValidate>
-            {/* Email */}
-            <div className="auth-field">
-              <label htmlFor="login-email" className="auth-label">
-                Email address
-              </label>
-              <div className="auth-input-wrap">
-                <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setErrors((p) => ({ ...p, email: "" }));
-                  }}
-                  onBlur={() => setErrors((p) => ({ ...p, email: validateEmail(email) }))}
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  className={`auth-input${errors.email ? " error" : ""}`}
-                  aria-describedby={errors.email ? "login-email-err" : undefined}
-                  aria-invalid={!!errors.email}
-                />
+            <form onSubmit={handleLogin} noValidate>
+              <div className="auth-field">
+                <label htmlFor="login-email" className="auth-label">Email address</label>
+                <div className="auth-input-wrap">
+                  <input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setLoginErrors((p) => ({ ...p, email: "" })); }}
+                    onBlur={() => setLoginErrors((p) => ({ ...p, email: validateEmail(email) }))}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className={`auth-input${loginErrors.email ? " is-error" : ""}`}
+                    aria-invalid={!!loginErrors.email}
+                    aria-describedby={loginErrors.email ? "em-err" : undefined}
+                  />
+                </div>
+                {loginErrors.email && (
+                  <p id="em-err" className="auth-field-err" role="alert">
+                    <AlertIcon size={12} /> {loginErrors.email}
+                  </p>
+                )}
               </div>
-              {errors.email && (
-                <p id="login-email-err" className="auth-field-error" role="alert">
-                  {errors.email}
-                </p>
-              )}
-            </div>
 
-            {/* Password */}
-            <div className="auth-field">
-              <label htmlFor="login-password" className="auth-label">
-                Password
-              </label>
-              <div className="auth-input-wrap">
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setErrors((p) => ({ ...p, password: "" }));
-                  }}
-                  onBlur={() => setErrors((p) => ({ ...p, password: validatePassword(password) }))}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className={`auth-input has-toggle${errors.password ? " error" : ""}`}
-                  aria-describedby={errors.password ? "login-pw-err" : undefined}
-                  aria-invalid={!!errors.password}
-                />
-                <button
-                  type="button"
-                  className="auth-toggle-btn"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  tabIndex={0}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              <div className="auth-field">
+                <label htmlFor="login-password" className="auth-label">Password</label>
+                <div className="auth-input-wrap">
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setLoginErrors((p) => ({ ...p, password: "" })); }}
+                    onBlur={() => setLoginErrors((p) => ({ ...p, password: validatePassword(password) }))}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className={`auth-input has-toggle${loginErrors.password ? " is-error" : ""}`}
+                    aria-invalid={!!loginErrors.password}
+                    aria-describedby={loginErrors.password ? "pw-err" : undefined}
+                  />
+                  <button
+                    type="button"
+                    className="auth-toggle"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                {loginErrors.password && (
+                  <p id="pw-err" className="auth-field-err" role="alert">
+                    <AlertIcon size={12} /> {loginErrors.password}
+                  </p>
+                )}
+              </div>
+
+              <div className="auth-row">
+                <button type="button" className="auth-link" onClick={() => setView("forgot")}>
+                  Forgot password?
                 </button>
               </div>
-              {errors.password && (
-                <p id="login-pw-err" className="auth-field-error" role="alert">
-                  {errors.password}
+
+              <button id="login-submit" type="submit" disabled={loginLoading} className="auth-btn">
+                {loginLoading ? <><SpinnerIcon /> Verifying…</> : <>Sign in to Falcon <ArrowRight /></>}
+              </button>
+            </form>
+
+            <div className="auth-footer" style={{ marginTop: 24 }}>
+              Don&apos;t have an account?{" "}
+              <Link href="/register">Create one free</Link>
+            </div>
+          </>
+        )}
+
+        {/* ── OTP VIEW ───────────────────────────────────────── */}
+        {view === "otp" && mfaChallenge && (
+          <>
+            <button className="auth-back" onClick={() => { setView("login"); setOtp(""); setOtpError(""); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+              </svg>
+              Back
+            </button>
+
+            <div className="otp-icon-wrap" aria-hidden="true">
+              <ShieldIcon />
+            </div>
+
+            <h1 className="auth-heading">Verify your identity</h1>
+            <p className="auth-sub">
+              Enter the 6-digit code sent to{" "}
+              <span className="auth-sub-highlight">{mfaChallenge.email}</span>
+            </p>
+
+            {otpError && (
+              <div className="auth-error" role="alert">
+                <AlertIcon /> <span>{otpError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleOtpVerify} noValidate>
+              <OtpInput
+                value={otp}
+                onChange={(v) => { setOtp(v); setOtpError(""); }}
+                disabled={otpLoading}
+                hasError={!!otpError}
+              />
+
+              <div className="otp-timer-row">
+                <span className={`otp-timer${cooldownLeft <= 30 && cooldownLeft > 0 ? " urgent" : ""}`}>
+                  {cooldownLeft > 0 ? `Expires in ${Math.floor(cooldownLeft / 60)}:${String(cooldownLeft % 60).padStart(2, "0")}` : "Code expired"}
+                </span>
+                <button
+                  type="button"
+                  className="otp-resend"
+                  disabled={cooldownLeft > 0 || resendLoading}
+                  onClick={handleResend}
+                >
+                  {resendLoading ? "Sending…" : cooldownLeft > 0 ? `Resend in ${cooldownLeft}s` : "Resend code"}
+                </button>
+              </div>
+
+              <button
+                id="otp-submit"
+                type="submit"
+                disabled={otpLoading || otp.replace(/\D/g, "").length !== 6}
+                className="auth-btn"
+                style={{ marginTop: 20 }}
+              >
+                {otpLoading ? <><SpinnerIcon /> Verifying…</> : <>Confirm & Continue <ArrowRight /></>}
+              </button>
+            </form>
+
+            <div className="auth-footer">
+              Wrong account?{" "}
+              <button onClick={() => { setView("login"); setOtp(""); setOtpError(""); }}>
+                Sign in differently
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── FORGOT PASSWORD VIEW ────────────────────────────── */}
+        {view === "forgot" && (
+          <>
+            <button className="auth-back" onClick={() => { setView("login"); setForgotSent(false); setForgotEmail(""); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+              </svg>
+              Back to sign in
+            </button>
+
+            {!forgotSent ? (
+              <>
+                <div className="otp-icon-wrap" aria-hidden="true">
+                  <MailIcon />
+                </div>
+
+                <h1 className="auth-heading">Reset password</h1>
+                <p className="auth-sub">
+                  Enter your email address and we&apos;ll send you a secure reset link.
                 </p>
-              )}
-            </div>
 
-            {/* Remember Me + Forgot Password */}
-            <div className="auth-row">
-              <label className="auth-checkbox-label">
-                <input
-                  type="checkbox"
-                  id="login-remember"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                Remember me
-              </label>
-              <Link href="/forgot-password" className="auth-forgot-link">
-                Forgot password?
-              </Link>
-            </div>
+                {forgotError && (
+                  <div className="auth-error" role="alert">
+                    <AlertIcon /> <span>{forgotError}</span>
+                  </div>
+                )}
 
-            {/* Submit */}
-            <button
-              id="login-submit"
-              type="submit"
-              disabled={loading}
-              className="auth-btn-primary"
-            >
-              {loading ? (
-                <>
-                  <LoadingSpinner />
-                  Signing in…
-                </>
-              ) : (
-                <>
-                  Sign in to Falcon
-                  <ArrowRight size={15} />
-                </>
-              )}
-            </button>
+                <form onSubmit={handleForgot} noValidate>
+                  <div className="auth-field">
+                    <label htmlFor="forgot-email" className="auth-label">Email address</label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      className={`auth-input${forgotError ? " is-error" : ""}`}
+                    />
+                  </div>
 
-            {/* Divider */}
-            <div className="auth-divider">
-              <div className="auth-divider-line" />
-              <span className="auth-divider-text">or continue with</span>
-              <div className="auth-divider-line" />
-            </div>
-
-            {/* Google */}
-            <button
-              id="login-google"
-              type="button"
-              className="auth-btn-google"
-              onClick={() => {
-                setServerError("Google sign-in coming soon. Please use email/password for now.");
-              }}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-          </form>
-
-          {/* Footer */}
-          <div className="auth-footer">
-            Don&apos;t have an account?{" "}
-            <Link href="/register">Create one free</Link>
-          </div>
+                  <button type="submit" disabled={forgotLoading} className="auth-btn" style={{ marginTop: 8 }}>
+                    {forgotLoading ? <><SpinnerIcon /> Sending…</> : <>Send reset link <ArrowRight /></>}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "8px 0" }}>
+                <div className="otp-icon-wrap" aria-hidden="true" style={{ margin: "0 auto 20px" }}>
+                  <MailIcon />
+                </div>
+                <h2 className="auth-heading">Check your inbox</h2>
+                <p className="auth-sub" style={{ marginBottom: 0 }}>
+                  If an account with <span className="auth-sub-highlight">{forgotEmail}</span> exists,
+                  we&apos;ve sent a secure reset link that expires in 15 minutes.
+                </p>
+                <button
+                  style={{ marginTop: 28 }}
+                  className="auth-btn"
+                  onClick={() => { setView("login"); setForgotSent(false); setForgotEmail(""); }}
+                >
+                  Return to sign in
+                </button>
+              </div>
+            )}
+          </>
+        )}
         </div>
       </div>
     </>

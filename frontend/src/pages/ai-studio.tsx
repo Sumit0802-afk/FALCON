@@ -165,19 +165,6 @@ export default function AIStudioPage() {
           {/* Bottom atmosphere */}
           <div className="absolute bottom-[-20%] left-[8%] h-[550px] w-[800px] rounded-full bg-cyan-500/[0.012] blur-[200px]" />
 
-          {/* Grid */}
-          <div
-            className="absolute inset-0 opacity-[0.16]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)",
-              backgroundSize: "76px 76px",
-              maskImage:
-                "radial-gradient(circle at center, black 20%, transparent 82%)",
-              WebkitMaskImage:
-                "radial-gradient(circle at center, black 20%, transparent 82%)",
-            }}
-          />
 
           {/* Center light */}
           <div className="absolute left-1/2 top-[46%] h-[550px] w-[1000px] -translate-x-1/2 rounded-full bg-cyan-400/[0.012] blur-[180px]" />

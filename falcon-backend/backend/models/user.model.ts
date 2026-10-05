@@ -21,9 +21,34 @@ export interface LoginInput {
   password: string;
 }
 
+export interface LoginMfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+  email: string;
+  expiresInSeconds: number;
+}
+
+export interface VerifyOtpInput {
+  mfaToken: string;
+  otp: string;
+}
+
+export interface ResendOtpInput {
+  mfaToken: string;
+}
+
 export interface AuthResult {
   user: PublicUser;
   token: string;
+}
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
 }
 
 /** Strips the password hash before a User row is ever sent to a client. */

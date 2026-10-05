@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/router";
-import { isAuthenticated, getCurrentUser } from "@/services/authService";
+import { isAuthenticated, getToken } from "@/services/authService";
 
 import {
   ArrowRight,
@@ -32,6 +32,7 @@ import {
 import { projectService } from "@/services/projectService";
 import { generateId } from "@/utils/id";
 import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
+import FinalCtaSection from "@/components/FinalCtaSection";
 import { PageSize } from "@/types";
 
 export default function Home() {
@@ -82,8 +83,8 @@ export default function Home() {
     setPendingTemplate(null);
 
     try {
-      const currentUser = getCurrentUser();
-      const ownerId = currentUser?.id || "guest-user";
+      // ownerId falls back to guest; the backend will validate the session via cookie
+      const ownerId = "guest-user";
 
       if (templateToUse) {
         const project = await projectService.create(
@@ -217,7 +218,7 @@ const openTemplateByName = (name: string) => {
             inset: 0;
             z-index: 50 !important;
             pointer-events: none;
-            border: 1px solid rgba(55, 145, 255, 0.24);
+            border: 1px solid rgba(47, 129, 255, 0.22);
             border-radius: inherit;
             overflow: visible;
           }
@@ -235,9 +236,9 @@ const openTemplateByName = (name: string) => {
 
             box-shadow:
               inset 0 0 22px
-                rgba(25, 115, 255, 0.035),
+                rgba(47, 129, 255, 0.025),
               inset 0 0 60px
-                rgba(15, 90, 255, 0.018);
+                rgba(34, 211, 238, 0.012);
           }
 
           /* ===================================================
@@ -268,24 +269,24 @@ const openTemplateByName = (name: string) => {
               linear-gradient(
                 90deg,
                 transparent 0%,
-                rgba(15, 90, 255, 0.04) 8%,
-                rgba(25, 110, 255, 0.18) 28%,
-                rgba(65, 160, 255, 0.55) 55%,
-                rgba(130, 210, 255, 0.9) 76%,
+                rgba(47, 129, 255, 0.04) 8%,
+                rgba(47, 129, 255, 0.18) 28%,
+                rgba(77, 163, 255, 0.55) 55%,
+                rgba(34, 211, 238, 0.9) 76%,
                 #ffffff 91%,
-                rgba(100, 190, 255, 0.8) 96%,
+                rgba(77, 163, 255, 0.8) 96%,
                 transparent 100%
               );
 
             box-shadow:
               0 0 4px
-                rgba(140, 220, 255, 1),
+                rgba(34, 211, 238, 1),
               0 0 10px
-                rgba(70, 175, 255, 0.95),
+                rgba(77, 163, 255, 0.95),
               0 0 22px
-                rgba(25, 120, 255, 0.8),
+                rgba(47, 129, 255, 0.8),
               0 0 42px
-                rgba(15, 90, 255, 0.42);
+                rgba(47, 129, 255, 0.35);
 
             animation:
               falconLaserTop
@@ -323,24 +324,24 @@ const openTemplateByName = (name: string) => {
               linear-gradient(
                 180deg,
                 transparent 0%,
-                rgba(15, 90, 255, 0.04) 8%,
-                rgba(25, 110, 255, 0.18) 28%,
-                rgba(65, 160, 255, 0.55) 55%,
-                rgba(130, 210, 255, 0.9) 76%,
+                rgba(47, 129, 255, 0.04) 8%,
+                rgba(47, 129, 255, 0.18) 28%,
+                rgba(77, 163, 255, 0.55) 55%,
+                rgba(34, 211, 238, 0.9) 76%,
                 #ffffff 91%,
-                rgba(100, 190, 255, 0.8) 96%,
+                rgba(77, 163, 255, 0.8) 96%,
                 transparent 100%
               );
 
             box-shadow:
               0 0 4px
-                rgba(140, 220, 255, 1),
+                rgba(34, 211, 238, 1),
               0 0 10px
-                rgba(70, 175, 255, 0.95),
+                rgba(77, 163, 255, 0.95),
               0 0 22px
-                rgba(25, 120, 255, 0.8),
+                rgba(47, 129, 255, 0.8),
               0 0 42px
-                rgba(15, 90, 255, 0.42);
+                rgba(47, 129, 255, 0.35);
 
             animation:
               falconLaserRight
@@ -380,24 +381,24 @@ const openTemplateByName = (name: string) => {
               linear-gradient(
                 270deg,
                 transparent 0%,
-                rgba(15, 90, 255, 0.04) 8%,
-                rgba(25, 110, 255, 0.18) 28%,
-                rgba(65, 160, 255, 0.55) 55%,
-                rgba(130, 210, 255, 0.9) 76%,
+                rgba(47, 129, 255, 0.04) 8%,
+                rgba(47, 129, 255, 0.18) 28%,
+                rgba(77, 163, 255, 0.55) 55%,
+                rgba(34, 211, 238, 0.9) 76%,
                 #ffffff 91%,
-                rgba(100, 190, 255, 0.8) 96%,
+                rgba(77, 163, 255, 0.8) 96%,
                 transparent 100%
               );
 
             box-shadow:
               0 0 4px
-                rgba(140, 220, 255, 1),
+                rgba(34, 211, 238, 1),
               0 0 10px
-                rgba(70, 175, 255, 0.95),
+                rgba(77, 163, 255, 0.95),
               0 0 22px
-                rgba(25, 120, 255, 0.8),
+                rgba(47, 129, 255, 0.8),
               0 0 42px
-                rgba(15, 90, 255, 0.42);
+                rgba(47, 129, 255, 0.35);
 
             animation:
               falconLaserBottom
@@ -437,24 +438,24 @@ const openTemplateByName = (name: string) => {
               linear-gradient(
                 0deg,
                 transparent 0%,
-                rgba(15, 90, 255, 0.04) 8%,
-                rgba(25, 110, 255, 0.18) 28%,
-                rgba(65, 160, 255, 0.55) 55%,
-                rgba(130, 210, 255, 0.9) 76%,
+                rgba(47, 129, 255, 0.04) 8%,
+                rgba(47, 129, 255, 0.18) 28%,
+                rgba(77, 163, 255, 0.55) 55%,
+                rgba(34, 211, 238, 0.9) 76%,
                 #ffffff 91%,
-                rgba(100, 190, 255, 0.8) 96%,
+                rgba(77, 163, 255, 0.8) 96%,
                 transparent 100%
               );
 
             box-shadow:
               0 0 4px
-                rgba(140, 220, 255, 1),
+                rgba(34, 211, 238, 1),
               0 0 10px
-                rgba(70, 175, 255, 0.95),
+                rgba(77, 163, 255, 0.95),
               0 0 22px
-                rgba(25, 120, 255, 0.8),
+                rgba(47, 129, 255, 0.8),
               0 0 42px
-                rgba(15, 90, 255, 0.42);
+                rgba(47, 129, 255, 0.35);
 
             animation:
               falconLaserLeft
@@ -484,17 +485,17 @@ const openTemplateByName = (name: string) => {
              =================================================== */
 
           .falcon-laser:hover {
-            border-color: rgba(65, 155, 255, 0.38);
+            border-color: rgba(47, 129, 255, 0.32);
           }
 
           .falcon-laser:hover .falcon-laser-border {
-            border-color: rgba(75, 170, 255, 0.48);
+            border-color: rgba(77, 163, 255, 0.42);
 
             box-shadow:
               inset 0 0 28px
-                rgba(30, 125, 255, 0.045),
+                rgba(47, 129, 255, 0.045),
               0 0 20px
-                rgba(30, 125, 255, 0.08);
+                rgba(47, 129, 255, 0.08);
           }
 
           .falcon-laser:hover .falcon-laser-beam {
@@ -527,20 +528,20 @@ const openTemplateByName = (name: string) => {
               linear-gradient(
                 90deg,
                 transparent,
-                rgba(40, 130, 255, 0.25),
-                rgba(100, 190, 255, 0.85),
+                rgba(47, 129, 255, 0.25),
+                rgba(34, 211, 238, 0.85),
                 #ffffff,
-                rgba(80, 170, 255, 0.65),
+                rgba(77, 163, 255, 0.65),
                 transparent
               );
 
             box-shadow:
               0 0 5px
-                rgba(80, 180, 255, 0.9),
+                rgba(34, 211, 238, 0.9),
               0 0 14px
-                rgba(30, 120, 255, 0.65),
+                rgba(47, 129, 255, 0.65),
               0 0 26px
-                rgba(20, 100, 255, 0.35);
+                rgba(47, 129, 255, 0.35);
 
             animation:
               falconScoreLaser
@@ -561,88 +562,6 @@ const openTemplateByName = (name: string) => {
             }
           }
 
-          /* ===================================================
-             ORBIT
-             =================================================== */
-
-          .falcon-orbit {
-            position: absolute;
-            border-radius: 9999px;
-          }
-
-          .falcon-orbit::after {
-            content: "";
-
-            position: absolute;
-            top: -3px;
-            left: 50%;
-
-            width: 6px;
-            height: 6px;
-
-            margin-left: -3px;
-
-            border-radius: 50%;
-            background: #ffffff;
-
-            box-shadow:
-              0 0 5px
-                rgba(180, 230, 255, 1),
-              0 0 12px
-                rgba(60, 170, 255, 1),
-              0 0 25px
-                rgba(30, 120, 255, 0.85),
-              0 0 40px
-                rgba(30, 100, 255, 0.45);
-          }
-
-          .falcon-orbit-one::after {
-            animation:
-              falconOrbitOne
-              6s
-              linear
-              infinite;
-          }
-
-          .falcon-orbit-two::after {
-            animation:
-              falconOrbitTwo
-              8s
-              linear
-              infinite;
-          }
-
-          @keyframes falconOrbitOne {
-            from {
-              transform:
-                translateX(-50%)
-                rotate(0deg)
-                translateY(-165px);
-            }
-
-            to {
-              transform:
-                translateX(-50%)
-                rotate(360deg)
-                translateY(-165px);
-            }
-          }
-
-          @keyframes falconOrbitTwo {
-            from {
-              transform:
-                translateX(-50%)
-                rotate(180deg)
-                translateY(-125px);
-            }
-
-            to {
-              transform:
-                translateX(-50%)
-                rotate(540deg)
-                translateY(-125px);
-            }
-          }
 
           /* ===================================================
              REDUCED MOTION
@@ -655,8 +574,10 @@ const openTemplateByName = (name: string) => {
             .falcon-laser-left,
             .falcon-score-line::after,
             .falcon-orbit-one::after,
-            .falcon-orbit-two::after {
-              animation: none;
+            .falcon-orbit-two::after,
+            .animate-ping,
+            .animate-pulse {
+              animation: none !important;
             }
           }
 
@@ -694,21 +615,21 @@ const openTemplateByName = (name: string) => {
         <header
           className="
             fixed
-            left-4
-            right-4
-            top-4
+            left-3
+            right-3
+            top-3
             z-[100]
             rounded-2xl
             border
-            border-white/[0.08]
-            bg-black/90
+            border-white/[0.06]
+            bg-[#05070A]/90
             backdrop-blur-xl
-            md:left-6
-            md:right-6
-            lg:left-8
-            lg:right-8
-            xl:left-[5%]
-            xl:right-[5%]
+            md:left-4
+            md:right-4
+            lg:left-6
+            lg:right-6
+            xl:left-[4%]
+            xl:right-[4%]
           "
         >
           <div
@@ -716,13 +637,13 @@ const openTemplateByName = (name: string) => {
               falcon-navbar-inner
               mx-auto
               grid
-              h-[72px]
+              h-[53px]
               w-full
               max-w-[1400px]
               grid-cols-[1fr_auto_1fr]
               items-center
-              px-5
-              lg:px-7
+              px-4
+              lg:px-5
             "
           >
 
@@ -733,14 +654,14 @@ const openTemplateByName = (name: string) => {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="group flex shrink-0 items-center gap-2.5 justify-self-start cursor-pointer"
+              className="group flex shrink-0 items-center gap-2 justify-self-start cursor-pointer"
             >
               <img
                 src="/falcon-logo-white.png"
                 alt="Falcon Logo"
-                className="h-8 w-8 object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]"
+                className="h-[23px] w-[23px] object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]"
               />
-              <span className="text-[13px] font-semibold tracking-[0.2em]">
+              <span className="text-[11px] font-semibold tracking-[0.2em]">
                 FALCON
               </span>
             </button>
@@ -755,29 +676,17 @@ const openTemplateByName = (name: string) => {
                 hidden
                 items-center
                 justify-self-center
-                gap-8
+                gap-6
                 lg:flex
               "
             >
-              <a
-                href="#product"
-                className="
-                  whitespace-nowrap
-                  text-[13px]
-                  text-zinc-500
-                  transition-colors
-                  hover:text-white
-                "
-              >
-                Product
-              </a>
 
               <button
                 type="button"
                 onClick={openAIStudio}
                 className="
                   whitespace-nowrap
-                  text-[13px]
+                  text-[11px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -791,7 +700,7 @@ const openTemplateByName = (name: string) => {
                 onClick={openTemplatesPage}
                 className="
                   whitespace-nowrap
-                  text-[13px]
+                  text-[11px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -800,11 +709,25 @@ const openTemplateByName = (name: string) => {
                 Templates
               </button>
 
+              <button
+                type="button"
+                onClick={() => router.push("/email-designer")}
+                className="
+                  whitespace-nowrap
+                  text-[11px]
+                  text-zinc-500
+                  transition-colors
+                  hover:text-white
+                "
+              >
+                Email Designer
+              </button>
+
               <a
                 href="#how"
                 className="
                   whitespace-nowrap
-                  text-[13px]
+                  text-[11px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -836,9 +759,9 @@ const openTemplateByName = (name: string) => {
                 onClick={() => router.push("/login")}
                 className="
                   whitespace-nowrap
-                  px-4
-                  py-2
-                  text-[13px]
+                  px-3
+                  py-1.5
+                  text-[11px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -853,24 +776,25 @@ const openTemplateByName = (name: string) => {
                 type="button"
                 className="
                   flex
-                  h-10
+                  h-[34px]
                   shrink-0
                   items-center
-                  gap-2
+                  gap-1.5
                   whitespace-nowrap
                   rounded-full
                   border
-                  border-white/[0.12]
-                  bg-white/[0.04]
-                  px-5
-                  text-[12px]
+                  border-white/[0.10]
+                  bg-white/[0.03]
+                  px-4
+                  text-[11px]
                   font-medium
+                  text-zinc-400
                   transition-all
-                  hover:border-white/25
-                  hover:bg-white/[0.08]
+                  hover:border-[#2F81FF]/40
+                  hover:text-[#22D3EE]
                 "
               >
-                <Play size={12} />
+                <Play size={10} />
                 Watch demo
               </button>
 
@@ -881,23 +805,27 @@ const openTemplateByName = (name: string) => {
                 onClick={createDesign}
                 className="
                   flex
-                  h-10
+                  h-[34px]
                   shrink-0
                   items-center
-                  gap-3
+                  gap-2
                   whitespace-nowrap
                   rounded-full
-                  bg-[#f4f1eb]
-                  px-6
-                  text-[12px]
+                  border
+                  border-[#2F81FF]/60
+                  bg-[#2F81FF]/[0.08]
+                  px-4
+                  text-[11px]
                   font-medium
-                  text-black
+                  text-[#4DA3FF]
                   transition-all
-                  hover:bg-white
+                  hover:border-[#2F81FF]
+                  hover:bg-[#2F81FF]/[0.14]
+                  hover:shadow-[0_0_20px_rgba(47,129,255,0.18)]
                 "
               >
                 Get started
-                <ArrowRight size={14} />
+                <ArrowRight size={12} />
               </button>
             </div>
 
@@ -949,17 +877,6 @@ const openTemplateByName = (name: string) => {
             >
               <div className="flex flex-col gap-5">
 
-                <a
-                  href="#product"
-                  onClick={closeMenu}
-                  className="
-                    text-sm
-                    text-zinc-400
-                    hover:text-white
-                  "
-                >
-                  Product
-                </a>
 
                 <button
                   type="button"
@@ -985,6 +902,19 @@ const openTemplateByName = (name: string) => {
                   "
                 >
                   Templates
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { closeMenu(); router.push("/email-designer"); }}
+                  className="
+                    text-left
+                    text-sm
+                    text-zinc-400
+                    hover:text-white
+                  "
+                >
+                  Email Designer
                 </button>
 
                 <a
@@ -1068,7 +998,7 @@ const openTemplateByName = (name: string) => {
           )}
         </header>
 
-        {/* =====================================================
+{/* =====================================================
             HERO
             ===================================================== */}
 
@@ -1082,111 +1012,125 @@ const openTemplateByName = (name: string) => {
             overflow-hidden
             border-b
             border-white/[0.07]
-            pt-[80px]
+            pt-[62px]
           "
         >
-          <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_center,transparent_15%,rgba(8,8,8,0.18)_45%,rgba(8,8,8,0.72)_100%)]" />
 
-          <div className="pointer-events-none absolute -right-[300px] top-[30%] z-[2] h-[600px] w-[600px] rounded-full bg-indigo-950/20 blur-[130px]" />
+          {/* Center mega-glow */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[2] h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2F81FF]/[0.06] blur-[140px]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[2] h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#22D3EE]/[0.04] blur-[80px]" />
 
-          <div
-            className="pointer-events-none absolute right-[-260px] top-[18%] z-[2] h-[650px] w-[650px] rounded-full border border-indigo-300/[0.035]"
-            style={{
-              transform:
-                "rotateX(65deg) rotateY(-18deg)",
-            }}
-          />
+          {/* Right glow */}
+          <div className="pointer-events-none absolute -right-[100px] top-[25%] z-[2] h-[350px] w-[350px] rounded-full bg-[#2F81FF]/[0.05] blur-[120px]" />
+          {/* Left glow */}
+          <div className="pointer-events-none absolute -left-[100px] top-[40%] z-[2] h-[280px] w-[280px] rounded-full bg-[#22D3EE]/[0.03] blur-[100px]" />
 
-          <div className="pointer-events-none absolute left-[7%] top-[23%] z-[5] hidden lg:block">
-            <div className="font-mono text-[12px] font-medium uppercase leading-[1.9] tracking-[0.32em] text-white/55">
+          {/* Horizontal scan line */}
+          <div className="pointer-events-none absolute left-0 right-0 top-[48%] z-[3] h-px bg-gradient-to-r from-transparent via-[#2F81FF]/20 to-transparent" />
+
+          {/* Corner accents */}
+          <div className="pointer-events-none absolute left-8 top-[80px] z-[4] hidden lg:block">
+            <div className="h-12 w-px bg-gradient-to-b from-[#2F81FF]/40 to-transparent" />
+            <div className="h-px w-12 bg-gradient-to-r from-[#2F81FF]/40 to-transparent" />
+          </div>
+          <div className="pointer-events-none absolute right-8 top-[80px] z-[4] hidden lg:block">
+            <div className="ml-auto h-12 w-px bg-gradient-to-b from-[#2F81FF]/40 to-transparent" />
+            <div className="h-px w-12 bg-gradient-to-l from-[#2F81FF]/40 to-transparent" />
+          </div>
+          <div className="pointer-events-none absolute bottom-[60px] left-8 z-[4] hidden lg:block">
+            <div className="h-px w-12 bg-gradient-to-r from-[#2F81FF]/40 to-transparent" />
+            <div className="h-12 w-px bg-gradient-to-t from-[#2F81FF]/40 to-transparent" />
+          </div>
+          <div className="pointer-events-none absolute bottom-[60px] right-8 z-[4] hidden lg:block">
+            <div className="ml-auto h-px w-12 bg-gradient-to-l from-[#2F81FF]/40 to-transparent" />
+            <div className="ml-auto h-12 w-px bg-gradient-to-t from-[#2F81FF]/40 to-transparent" />
+          </div>
+
+          <div className="pointer-events-none absolute left-[5%] xl:left-[7%] top-[26%] z-[5] hidden lg:block text-left">
+            <div className="font-mono text-[11px] font-medium uppercase leading-[1.85] tracking-[0.3em] text-white/50">
               <div>INTELLIGENT</div>
               <div>DESIGN</div>
               <div>SYSTEM</div>
             </div>
 
-            <div className="mt-5 flex items-center gap-3">
-              <span className="h-px w-8 bg-white/30" />
-
-              <span className="font-mono text-[10px] tracking-[0.22em] text-zinc-700">
+            <div className="mt-4 flex items-center gap-3">
+              <span className="h-px w-7 bg-white/20" />
+              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-600">
                 001
               </span>
             </div>
           </div>
 
-          <div className="pointer-events-none absolute right-[7%] top-[23%] z-[5] hidden text-right lg:block">
-            <div className="font-mono text-[12px] font-medium uppercase leading-[1.9] tracking-[0.32em] text-white/55">
+          <div className="pointer-events-none absolute left-[5%] xl:left-[7%] top-[56%] z-[5] hidden items-center gap-2.5 font-mono text-[9px] tracking-[0.22em] text-zinc-500 lg:flex">
+            <span className="text-[10px] text-zinc-500">◇</span>
+            <span>VISUAL INTELLIGENCE</span>
+          </div>
+
+          <div className="pointer-events-none absolute right-[5%] xl:right-[7%] top-[26%] z-[5] hidden text-right lg:block">
+            <div className="font-mono text-[11px] font-medium uppercase leading-[1.85] tracking-[0.3em] text-white/50">
               <div>IDEAS</div>
               <div>DESIGN</div>
               <div>INTELLIGENCE</div>
             </div>
 
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <span className="font-mono text-[10px] tracking-[0.22em] text-zinc-700">
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-600">
                 FALCON
               </span>
-
-              <span className="h-px w-8 bg-white/30" />
+              <span className="h-px w-7 bg-white/20" />
             </div>
           </div>
 
-          <div className="pointer-events-none absolute left-[7%] top-[51%] z-[5] hidden items-center gap-3 lg:flex">
-            <span className="h-1.5 w-1.5 rotate-45 border border-white/30" />
-
-            <span className="font-mono text-[10px] tracking-[0.25em] text-zinc-700">
-              VISUAL INTELLIGENCE
-            </span>
-          </div>
-
-          <div className="pointer-events-none absolute right-[7%] top-[51%] z-[5] hidden items-center gap-3 lg:flex">
-            <span className="font-mono text-[10px] tracking-[0.25em] text-zinc-700">
-              CREATIVE SYSTEM
-            </span>
-
-            <span className="h-1.5 w-1.5 rotate-45 border border-white/30" />
+          <div className="pointer-events-none absolute right-[5%] xl:right-[7%] top-[56%] z-[5] hidden items-center justify-end gap-2.5 font-mono text-[9px] tracking-[0.22em] text-zinc-500 lg:flex">
+            <span>CREATIVE SYSTEM</span>
+            <span className="text-[10px] text-zinc-500">◇</span>
           </div>
 
           <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col items-center justify-center px-6 py-20 text-center lg:px-12">
-            <div className="mb-8 flex items-center gap-2 rounded-full border border-white/[0.13] bg-black/40 px-5 py-2.5 backdrop-blur-md">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.7)]" />
-
-              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-400">
+            {/* Glowing badge matching Image 1 */}
+            <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/60 px-4 py-1.5 shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
+              <span className="font-mono text-[10px] font-medium tracking-[0.2em] text-cyan-200/90">
                 INTELLIGENT DESIGN SYSTEM
               </span>
             </div>
 
-            <h1 className="max-w-[1200px] text-[clamp(4.2rem,8.5vw,8.5rem)] font-bold leading-[0.92] tracking-[-0.035em] text-[#f4f1eb]">
-              Ideas become
-              <span className="block font-bold bg-gradient-to-r from-zinc-100 via-cyan-100 to-zinc-300 bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(165,243,252,0.15)]">
+            {/* Headline matching Image 1 */}
+            <h1 className="max-w-[1150px] text-[clamp(4.2rem,8.5vw,8.5rem)] font-bold leading-[0.92] tracking-[-0.04em]">
+              <span className="block text-white">Ideas become</span>
+              <span className="block text-[#a8cdfc] drop-shadow-[0_0_40px_rgba(77,163,255,0.25)]">
                 intelligent
               </span>
-              <span className="block text-white/95">
-                designs.
-              </span>
+              <span className="block text-white">designs.</span>
             </h1>
 
-            <p className="mt-8 max-w-[680px] font-sans text-[16px] leading-8 text-zinc-400 md:text-[18px]">
-              Falcon helps you turn an idea into a visual system — create it,
-              improve it, remix it and carry it across an entire campaign.
+            {/* Subtext matching Image 1 */}
+            <p className="mt-10 max-w-[660px] font-sans text-[17px] leading-[1.8] text-zinc-400 md:text-[18px]">
+              Falcon helps you turn an idea into a visual system — create it, improve it, remix it
+              <span className="block">and carry it across an entire campaign.</span>
             </p>
 
+            {/* CTAs */}
             <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={createDesign}
-                className="group flex h-14 items-center gap-4 rounded-full bg-[#f4f1eb] px-8 text-[13px] font-medium text-black transition-all duration-300 hover:gap-5 hover:bg-white"
+                className="group relative flex h-14 items-center gap-3 overflow-hidden rounded-full border border-[#2F81FF]/60 bg-[#2F81FF]/[0.1] px-8 text-[13px] font-semibold text-[#4DA3FF] shadow-[0_0_0_1px_rgba(47,129,255,0.1),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:gap-4 hover:border-[#2F81FF]/80 hover:bg-[#2F81FF]/[0.18] hover:shadow-[0_0_40px_rgba(47,129,255,0.25)]"
               >
-                Start creating
-                <ArrowRight size={16} />
+                <span className="relative z-10">Start creating</span>
+                <ArrowRight size={15} className="relative z-10 transition-transform group-hover:translate-x-0.5" />
               </button>
 
               <button
                 type="button"
-                className="flex h-14 items-center gap-3 rounded-full border border-white/[0.14] bg-black/30 px-8 text-[13px] backdrop-blur-md hover:border-white/30 hover:bg-white/[0.06]"
+                className="flex h-14 items-center gap-3 rounded-full border border-white/[0.08] bg-white/[0.02] px-8 text-[13px] text-zinc-400 backdrop-blur-md transition-all hover:border-white/[0.14] hover:bg-white/[0.04] hover:text-white"
               >
-                <Play size={13} />
-                Explore Falcon
+                <Play size={12} className="text-[#22D3EE]" />
+                Watch demo
               </button>
             </div>
+
+
 
             <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[8px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
               <span>
@@ -1233,61 +1177,300 @@ const openTemplateByName = (name: string) => {
         </section>
 
         {/* =====================================================
+            EMAIL DESIGNER SECTION
+            ===================================================== */}
+
+        <section
+          id="email-design"
+          className="relative overflow-hidden border-b border-white/[0.08] bg-transparent py-20 lg:py-28"
+        >
+          <div className="relative mx-auto max-w-[1440px] px-4 lg:px-8">
+
+            <div className="mb-8 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+                    Email Designer
+                  </span>
+                </div>
+                <h2 className="text-[28px] font-bold tracking-tight text-white lg:text-[36px]">
+                  Design emails visually. Export production HTML.
+                </h2>
+              </div>
+              <div className="flex shrink-0 gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push("/email-designer")}
+                  className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-5 py-2.5 text-[13px] font-semibold text-accent transition-all hover:bg-accent hover:text-black"
+                >
+                  Open Email Designer
+                  <ArrowRight size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={openTemplatesPage}
+                  className="rounded-xl border border-white/[0.08] px-5 py-2.5 text-[13px] font-medium text-zinc-400 transition-all hover:border-white/20 hover:text-white"
+                >
+                  Explore Templates
+                </button>
+              </div>
+            </div>
+
+            {/* ─── THREE-PANEL EDITOR PREVIEW ─────────────────────── */}
+            <div className="relative mb-10 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#0B0D12] shadow-[0_32px_80px_rgba(0,0,0,0.55)]">
+
+              {/* Editor top bar */}
+              <div className="flex items-center gap-3 border-b border-white/[0.08] bg-[#0B0D12] px-4 py-3">
+                <div className="flex gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-[#FFBD2E]" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
+                </div>
+                <div className="flex-1 text-center text-[12px] text-zinc-500">Untitled Email — Falcon Email Designer</div>
+                <div className="hidden items-center gap-2 text-[10px] sm:flex">
+                  <span className="rounded border border-white/[0.10] px-2 py-0.5 text-zinc-500">Desktop</span>
+                  <span className="rounded border border-white/[0.10] px-2 py-0.5 text-zinc-500">Mobile</span>
+                  <span className="rounded bg-accent/15 px-2 py-0.5 text-accent">Export HTML</span>
+                </div>
+              </div>
+
+              {/* Three panels */}
+              <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr_340px]" style={{ minHeight: 620 }}>
+
+                {/* LEFT: BLOCKS PANEL */}
+                <div className="border-b border-white/[0.08] bg-[#0B0D12] lg:border-b-0 lg:border-r">
+                  <div className="border-b border-white/[0.08] px-4 py-2.5">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Content Blocks</span>
+                  </div>
+                  <div className="space-y-0.5 overflow-y-auto p-3">
+                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <span className="text-[10px] text-zinc-700">Search blocks…</span>
+                    </div>
+                    <div className="mb-1 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Basic</div>
+                    {["Text","Heading","Image","Button","Divider","Spacer","Social"].map((b, i) => (
+                      <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-white/[0.04]" style={{ opacity: i === 3 ? 1 : 0.65 }}>
+                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-[9px] ${i === 3 ? "bg-accent/20 text-accent" : "bg-white/[0.05] text-zinc-500"}`}>
+                          {["T","H","🖼","◉","—","↕","🔗"][i]}
+                        </div>
+                        <span className={`text-[11px] ${i === 3 ? "font-medium text-white" : "text-zinc-500"}`}>{b}</span>
+                        {i === 3 && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent" />}
+                      </div>
+                    ))}
+                    <div className="mb-1 mt-3 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Layout</div>
+                    {["1 Column","2 Columns","3 Columns"].map((b) => (
+                      <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50 transition-colors hover:bg-white/[0.04]">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[9px] text-zinc-500">⫿</div>
+                        <span className="text-[11px] text-zinc-500">{b}</span>
+                      </div>
+                    ))}
+                    <div className="mb-1 mt-3 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Marketing</div>
+                    {["Hero","Feature","CTA","Footer"].map((b) => (
+                      <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50 transition-colors hover:bg-white/[0.04]">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[9px] text-zinc-500">◈</div>
+                        <span className="text-[11px] text-zinc-500">{b}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CENTER: EMAIL CANVAS - LAPTOP FRAME */}
+                <div className="flex items-center justify-center overflow-auto border-r border-white/[0.08] bg-[#12141A] p-6 sm:p-8">
+                  <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+                    <div style={{ backgroundColor: "#0B1220", padding: "14px 22px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2F81FF,#22D3EE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>F</div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.12em" }}>FALCON</span>
+                    </div>
+                    <div style={{ background: "linear-gradient(180deg,#0B1B33 0%,#102A4A 100%)", padding: "36px 28px 32px", textAlign: "center" }}>
+                      <div style={{ fontSize: 9, fontFamily: "monospace", color: "#7EB6FF", letterSpacing: "0.22em", marginBottom: 12, textTransform: "uppercase" }}>Intelligent Design System</div>
+                      <h1 style={{ margin: "0 0 10px", fontSize: 26, fontWeight: 800, color: "#ffffff", lineHeight: 1.15, letterSpacing: "-0.03em" }}>Turn ideas into<br /><span style={{ color: "#22D3EE" }}>intelligent designs.</span></h1>
+                      <p style={{ margin: "0 0 20px", fontSize: 12, color: "#9BB0C7", lineHeight: 1.55 }}>Create beautiful campaigns with a visual email builder.</p>
+                      <a href="#" onClick={(e) => e.preventDefault()} style={{ display: "inline-block", padding: "10px 22px", background: "#2F81FF", color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Start Creating →</a>
+                    </div>
+                    <div style={{ backgroundColor: "#ffffff", padding: "22px 18px 18px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
+                        {[["⚡","AI Powered"],["🎨","Brand DNA"],["📤","Multi-Format"]].map(([icon, title]) => (
+                          <div key={title} style={{ textAlign: "center", padding: "14px 6px", border: "1px solid #ECEFF3", borderRadius: 10, background: "#fff" }}>
+                            <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#111" }}>{title}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ background: "#0A0A0A", borderRadius: 10, padding: "18px 16px", textAlign: "center" }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Ready to get started?</div>
+                        <div style={{ fontSize: 10, color: "#8A8A8A", marginBottom: 14 }}>Join thousands of teams already using Falcon.</div>
+                        <a href="#" onClick={(e) => e.preventDefault()} style={{ display: "inline-block", padding: "8px 18px", background: "#2F81FF", color: "#fff", borderRadius: 7, fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Start for free →</a>
+                      </div>
+                      <div style={{ marginTop: 16, textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: "#B0B4BA" }}>Falcon Inc. · San Francisco, CA</div>
+                        <div style={{ fontSize: 9, color: "#B0B4BA", marginTop: 3 }}><a href="#" onClick={(e) => e.preventDefault()} style={{ color: "#B0B4BA" }}>Unsubscribe</a></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                {/* RIGHT: HTML CODE PANEL */}
+                <div className="flex flex-col">
+                  <div className="flex shrink-0 items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#FF4D4D]" />
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500">HTML Email Code</span>
+                      <span className="rounded bg-[#FF4D4D]/10 px-1.5 py-0.5 font-mono text-[8px] font-semibold text-[#FF4D4D]">HTML</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button className="rounded border border-white/[0.08] px-2 py-1 font-mono text-[9px] text-zinc-500 hover:text-zinc-300">Copy</button>
+                      <button className="rounded bg-accent/10 px-2 py-1 font-mono text-[9px] text-accent hover:bg-accent hover:text-black">Export</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-auto p-3" style={{ fontFamily: "'JetBrains Mono','Courier New',monospace", fontSize: 10, lineHeight: 1.75 }}>
+                    {[
+                      { n:1,  i:0, t:[{s:"<!DOCTYPE html>",c:"#FF4D4D"}] },
+                      { n:2,  i:0, t:[{s:"<html",c:"#FF4D4D"},{s:" lang=",c:"#79B8FF"},{s:'"en"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:3,  i:0, t:[{s:"<head>",c:"#FF4D4D"}] },
+                      { n:4,  i:1, t:[{s:"<meta",c:"#FF4D4D"},{s:" charset=",c:"#79B8FF"},{s:'"UTF-8"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:5,  i:1, t:[{s:"<title>",c:"#FF4D4D"},{s:"Falcon Email",c:"#e2e8f0"},{s:"</title>",c:"#FF4D4D"}] },
+                      { n:6,  i:0, t:[{s:"</head>",c:"#FF4D4D"}] },
+                      { n:7,  i:0, t:[{s:"<body",c:"#FF4D4D"},{s:" style=",c:"#79B8FF"},{s:'"background:#f4f4f4"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:8,  i:1, t:[{s:"<table",c:"#FF4D4D"},{s:" width=",c:"#79B8FF"},{s:'"600"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:9,  i:2, t:[{s:"<tr>",c:"#FF4D4D"}] },
+                      { n:10, i:3, t:[{s:"<td",c:"#FF4D4D"},{s:" align=",c:"#79B8FF"},{s:'"center"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:11, i:4, t:[{s:"<h1",c:"#FF4D4D"},{s:" style=",c:"#79B8FF"},{s:'"color:#fff"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:12, i:5, t:[{s:"Turn ideas into intelligent",c:"#e2e8f0"}] },
+                      { n:13, i:4, t:[{s:"</h1>",c:"#FF4D4D"}] },
+                      { n:14, i:4, t:[{s:"<p",c:"#FF4D4D"},{s:" style=",c:"#79B8FF"},{s:'"color:#8899aa"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:15, i:5, t:[{s:"Create beautiful campaigns.",c:"#e2e8f0"}] },
+                      { n:16, i:4, t:[{s:"</p>",c:"#FF4D4D"}] },
+                      { n:17, i:4, t:[{s:"<a",c:"#FF4D4D"},{s:" href=",c:"#79B8FF"},{s:'"#"',c:"#9ECBFF"},{s:" style=",c:"#79B8FF"},{s:'"background:#2F81FF"',c:"#9ECBFF"},{s:">",c:"#FF4D4D"}] },
+                      { n:18, i:5, t:[{s:"Start Creating →",c:"#e2e8f0"}] },
+                      { n:19, i:4, t:[{s:"</a>",c:"#FF4D4D"}] },
+                      { n:20, i:3, t:[{s:"</td>",c:"#FF4D4D"}] },
+                      { n:21, i:2, t:[{s:"</tr>",c:"#FF4D4D"}] },
+                      { n:22, i:1, t:[{s:"</table>",c:"#FF4D4D"}] },
+                      { n:23, i:0, t:[{s:"</body>",c:"#FF4D4D"}] },
+                      { n:24, i:0, t:[{s:"</html>",c:"#FF4D4D"}] },
+                    ].map(({ n, i, t }) => (
+                      <div key={n} className="flex">
+                        <span className="mr-3 w-5 shrink-0 select-none text-right text-[9px] text-zinc-700">{n}</span>
+                        <span>{"  ".repeat(i)}{t.map((tok, idx) => <span key={idx} style={{ color: tok.c }}>{tok.s}</span>)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex shrink-0 items-center justify-between border-t border-white/[0.05] px-4 py-1.5">
+                    <span className="font-mono text-[9px] text-zinc-700">24 lines · email-safe HTML</span>
+                    <span className="font-mono text-[9px] text-[#FF4D4D]">⬤ Live</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* ─── FLOW LABEL ─────────────────────────────────────── */}
+            <div className="mb-12 hidden items-center justify-center gap-3 text-[11px] text-zinc-700 lg:flex">
+              <span>Design visually</span>
+              <span className="max-w-[60px] flex-1 border-t border-dashed border-zinc-800" />
+              <span className="text-accent">→</span>
+              <span className="max-w-[60px] flex-1 border-t border-dashed border-zinc-800" />
+              <span>Live canvas preview</span>
+              <span className="max-w-[60px] flex-1 border-t border-dashed border-zinc-800" />
+              <span className="text-accent">→</span>
+              <span className="max-w-[60px] flex-1 border-t border-dashed border-zinc-800" />
+              <span>Generate production HTML</span>
+            </div>
+
+            {/* ─── FEATURE CARDS ──────────────────────────────────── */}
+            <div className="mb-14 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[
+                { icon: "⊞", title: "Drag & Drop", desc: "Build emails visually without code." },
+                { icon: "◱", title: "Responsive by Default", desc: "Design once. Optimize for every screen." },
+                { icon: "◉", title: "Live Preview", desc: "See exactly how your email will look." },
+                { icon: "</>", title: "Export HTML", desc: "Generate production-ready email HTML." },
+              ].map((f) => (
+                <div key={f.title} className="group rounded-xl border border-white/[0.05] bg-white/[0.02] p-5 transition-all hover:border-accent/20 hover:bg-accent/[0.03]">
+                  <div className="mb-3 font-mono text-[20px] text-zinc-600 group-hover:text-accent">{f.icon}</div>
+                  <div className="mb-1.5 text-[13px] font-semibold text-white">{f.title}</div>
+                  <div className="text-[12px] leading-relaxed text-zinc-600">{f.desc}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ─── TEMPLATE STRIP ─────────────────────────────────── */}
+            <div>
+              <div className="mb-4 flex items-center gap-4">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Email Templates</span>
+                <div className="h-px flex-1 bg-white/[0.04]" />
+                <button type="button" onClick={() => router.push("/email-designer")} className="text-[11px] text-accent hover:text-white">Browse all →</button>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {["Welcome","Newsletter","Product Launch","Event","Promotional","Announcement","SaaS Update"].map((t, i) => (
+                  <button key={t} type="button" onClick={() => router.push("/email-designer")} className="group shrink-0 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 transition-all hover:border-accent/30 hover:bg-accent/[0.05]">
+                    <div className="mb-1.5 h-1 w-full rounded-full opacity-60" style={{ backgroundColor: ["#2F81FF","#22D3EE","#FF6B6B","#FFD93D","#C77DFF","#FF8C42","#00D084"][i] }} />
+                    <div className="text-[11px] text-zinc-500 group-hover:text-white">{t}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+
+
+        {/* =====================================================
             WHY FALCON
             ===================================================== */}
 
         <section
           id="why"
-          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-[#000000]"
+          className="relative overflow-hidden border-b border-white/[0.10] bg-[#050505] py-20 lg:py-28"
         >
-          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-12">
-            <div>
-              <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
+          <div className="pointer-events-none absolute inset-0 falcon-noise" />
+          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:items-end lg:gap-10 lg:px-12 xl:grid-cols-[minmax(420px,0.85fr)_minmax(560px,1.15fr)] xl:gap-16">
+            <div className="min-w-0">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-[#2F81FF]">
                 WHY FALCON
               </span>
 
-              <h2 className="mt-6 max-w-[700px] text-[clamp(3.5rem,6.5vw,6.5rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
-                Not another canvas.
-                <span className="block text-gradient">
-                  An intelligent system.
-                </span>
+              <h2 className="mt-6 max-w-[16ch] text-[clamp(2.4rem,5.4vw,5.4rem)] font-bold leading-[0.96] tracking-[-0.04em] text-white">
+                Not another
+                <span className="block">canvas.</span>
+                <span className="mt-1 block text-[#A1A1AA]">An intelligent</span>
+                <span className="block text-[#A1A1AA]">system.</span>
               </h2>
 
-              <p className="mt-7 max-w-[520px] text-[15px] leading-relaxed text-zinc-400">
+              <p className="mt-7 max-w-[480px] text-[15px] leading-[1.75] text-[#8B8F98]">
                 Traditional tools start with pixels. Falcon starts with intent — then gives you real-time intelligence to make sharper, faster visual decisions.
               </p>
 
-              <div className="mt-10 grid grid-cols-2 gap-4">
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-blue-500/30">
-                  <div className="text-2xl font-bold text-white">10×</div>
-                  <div className="mt-1 text-[13px] text-zinc-400">Faster multi-format output</div>
-                </div>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-blue-500/30">
-                  <div className="text-2xl font-bold text-white">AAA</div>
-                  <div className="mt-1 text-[13px] text-zinc-400">Auto WCAG contrast checks</div>
-                </div>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-blue-500/30">
-                  <div className="text-2xl font-bold text-white">∞</div>
-                  <div className="mt-1 text-[13px] text-zinc-400">Vector-lossless scaling</div>
-                </div>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-emerald-500/30">
-                  <div className="text-2xl font-bold text-emerald-400">Live</div>
-                  <div className="mt-1 text-[13px] text-zinc-400">Real-time design scoring</div>
-                </div>
+              <div className="mt-10 grid max-w-[520px] grid-cols-2 gap-3">
+                {[
+                  { k: "10×", c: "text-white", d: "Faster multi-format output" },
+                  { k: "AAA", c: "text-[#22D3EE]", d: "Auto WCAG contrast checks" },
+                  { k: "∞", c: "text-white", d: "Vector-lossless scaling" },
+                  { k: "Live", c: "text-[#22D3EE]", d: "Real-time design scoring" },
+                ].map((m) => (
+                  <div
+                    key={m.d}
+                    className="flex min-h-[108px] flex-col justify-between rounded-[6px] border border-white/[0.10] bg-[#0A0D12] p-4 transition-all duration-500 hover:border-[#22D3EE]/30 hover:shadow-[0_0_24px_rgba(47,129,255,0.08)]"
+                  >
+                    <div className={`text-[22px] font-bold tracking-tight ${m.c}`}>{m.k}</div>
+                    <div className="text-[12px] leading-snug text-[#8B8F98]">{m.d}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="falcon-laser relative min-h-[580px] overflow-hidden border border-blue-400/[0.18] bg-[#07090e] shadow-[0_20px_60px_-15px_rgba(20,80,220,0.15)]">
+            <div className="falcon-laser relative mx-auto w-full min-h-[480px] max-w-[836px] overflow-hidden rounded-[8px] border border-white/[0.10] bg-[#0A0D12] shadow-[0_20px_60px_-15px_rgba(47,129,255,0.10)] lg:min-h-[540px] lg:self-end">
               <LaserBorder />
 
-              {/* Ambient Radiant Glow & Cyber Grid */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(37,99,235,0.16),rgba(6,182,212,0.06)_40%,transparent_75%)]" />
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(56,189,248,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.03)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_45%,#000_70%,transparent_100%)] pointer-events-none" />
+              {/* Ambient Blue Glow */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(47,129,255,0.06),rgba(34,211,238,0.02)_40%,transparent_75%)]" />
 
               {/* TOP TELEMETRY BAR */}
-              <div className="relative z-10 flex items-center justify-between border-b border-white/[0.08] bg-[#07090e]/90 backdrop-blur-md px-6 py-4">
+              <div className="relative z-10 flex items-center justify-between border-b border-white/[0.06] bg-[#05070A]/95 backdrop-blur-md px-6 py-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-5 w-5 items-center justify-center rounded bg-white/[0.03] border border-white/[0.1] text-blue-300">
+                  <div className="flex h-5 w-5 items-center justify-center rounded bg-[#2F81FF]/[0.08] border border-[#2F81FF]/20 text-[#2F81FF]">
                     <Cpu size={12} />
                   </div>
                   <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-300 font-medium uppercase">
@@ -1296,32 +1479,27 @@ const openTemplateByName = (name: string) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 px-3 py-1 font-mono text-[8px] text-blue-300 font-medium">
-                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <div className="flex items-center gap-1.5 rounded-full bg-[#2F81FF]/[0.07] border border-[#2F81FF]/20 px-3 py-1 font-mono text-[8px] text-[#4DA3FF] font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
                     <span>ENGINE SYNCHRONIZED</span>
                   </div>
                 </div>
               </div>
 
               {/* CENTER RADAR & NEURAL ORBIT ENGINE */}
-              <div className="relative flex min-h-[420px] items-center justify-center p-6">
-                {/* Outer Dashed Orbit Ring */}
-                <div className="absolute h-[380px] w-[380px] rounded-full border border-dashed border-blue-400/20 animate-[spin_60s_linear_infinite]" />
-
-                {/* Middle Dotted Orbit Ring */}
-                <div className="absolute h-[290px] w-[290px] rounded-full border border-dotted border-cyan-400/25 animate-[spin_35s_linear_infinite_reverse]" />
-
-                {/* Inner Glow Ring */}
-                <div className="absolute h-[200px] w-[200px] rounded-full border border-blue-400/30 bg-blue-500/[0.02]" />
-
-                {/* Wave Pulse */}
-                <div className="absolute h-[130px] w-[130px] rounded-full border border-cyan-400/40 animate-ping opacity-20 pointer-events-none" />
+              <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden p-6 sm:min-h-[400px] lg:min-h-[420px]">
+                <div className="absolute h-[min(72vw,340px)] w-[min(72vw,340px)] rounded-full border border-dashed border-[#2F81FF]/18 animate-[spin_60s_linear_infinite]" />
+                <div className="absolute h-[min(56vw,260px)] w-[min(56vw,260px)] rounded-full border border-dotted border-[#22D3EE]/20 animate-[spin_35s_linear_infinite_reverse]" />
+                <div className="absolute h-[min(38vw,180px)] w-[min(38vw,180px)] rounded-full border border-[#2F81FF]/25 bg-[#2F81FF]/[0.015]" />
+                <div className="pointer-events-none absolute h-[min(24vw,120px)] w-[min(24vw,120px)] rounded-full border border-[#22D3EE]/25 animate-ping opacity-20" />
+                <div className="pointer-events-none absolute h-px w-[70%] bg-gradient-to-r from-transparent via-[#2F81FF]/20 to-transparent" />
+                <div className="pointer-events-none absolute h-[70%] w-px bg-gradient-to-b from-transparent via-[#22D3EE]/15 to-transparent" />
 
                 {/* CENTER CORE: FALCON INTELLIGENCE */}
-                <div className="relative z-20 flex h-[130px] w-[130px] flex-col items-center justify-center rounded-full border border-blue-400/40 bg-[#090b12] shadow-[0_0_50px_rgba(56,189,248,0.25)] transition-transform duration-500 hover:scale-105">
-                  <div className="absolute inset-1 rounded-full bg-gradient-to-b from-blue-500/15 via-transparent to-cyan-500/10" />
+                <div className="relative z-20 flex h-[100px] w-[100px] flex-col items-center justify-center rounded-full border border-[#2F81FF]/35 bg-[#050505] shadow-[0_0_50px_rgba(47,129,255,0.12)] transition-transform duration-500 hover:scale-105 sm:h-[130px] sm:w-[130px]">
+                  <div className="absolute inset-1 rounded-full bg-gradient-to-b from-[#2F81FF]/08 via-transparent to-[#22D3EE]/06" />
 
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 border border-blue-400/40 text-cyan-300 mb-1.5 shadow-sm">
+                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#2F81FF]/15 border border-[#2F81FF]/35 text-[#22D3EE] mb-1.5 shadow-sm">
                     <Brain size={18} />
                   </div>
 
@@ -1329,58 +1507,58 @@ const openTemplateByName = (name: string) => {
                     Falcon
                   </span>
 
-                  <span className="font-mono text-[7px] tracking-[0.25em] text-cyan-400/90 font-medium">
+                  <span className="font-mono text-[7px] tracking-[0.25em] text-[#4DA3FF] font-medium">
                     INTELLIGENCE
                   </span>
                 </div>
 
                 {/* ORBITAL NODE 1: TOP-RIGHT (INTENT) */}
-                <div className="absolute top-10 right-4 sm:right-10 z-20 flex items-center gap-2 rounded-xl border border-blue-400/30 bg-[#0b0e17]/90 px-3.5 py-2 shadow-lg backdrop-blur-md transition-all hover:border-blue-400 hover:scale-105">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
+                <div className="absolute top-8 right-3 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:right-8">
+                  <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                   <div>
                     <div className="font-mono text-[8px] font-bold text-white tracking-wider">
                       ✦ CREATIVE INTENT
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-400">
+                    <div className="font-mono text-[7px] text-zinc-500">
                       Natural language prompt
                     </div>
                   </div>
                 </div>
 
                 {/* ORBITAL NODE 2: BOTTOM-RIGHT (DESIGN DNA) */}
-                <div className="absolute bottom-8 right-6 sm:right-12 z-20 flex items-center gap-2 rounded-xl border border-blue-400/30 bg-[#0b0e17]/90 px-3.5 py-2 shadow-lg backdrop-blur-md transition-all hover:border-blue-400 hover:scale-105">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]" />
+                <div className="absolute bottom-6 right-4 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:right-10">
+                  <span className="h-2 w-2 rounded-full bg-[#4DA3FF] shadow-[0_0_8px_rgba(77,163,255,0.7)]" />
                   <div>
                     <div className="font-mono text-[8px] font-bold text-white tracking-wider">
                       ⚡ DESIGN DNA
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-400">
+                    <div className="font-mono text-[7px] text-zinc-500">
                       Brand kit & typography
                     </div>
                   </div>
                 </div>
 
                 {/* ORBITAL NODE 3: BOTTOM-LEFT (COMPOSITION) */}
-                <div className="absolute bottom-8 left-6 sm:left-12 z-20 flex items-center gap-2 rounded-xl border border-blue-400/30 bg-[#0b0e17]/90 px-3.5 py-2 shadow-lg backdrop-blur-md transition-all hover:border-blue-400 hover:scale-105">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                <div className="absolute bottom-6 left-4 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:left-10">
+                  <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_rgba(34,211,238,0.7)]" />
                   <div>
                     <div className="font-mono text-[8px] font-bold text-white tracking-wider">
                       ◈ COMPOSITION
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-400">
+                    <div className="font-mono text-[7px] text-zinc-500">
                       Golden ratio & balance
                     </div>
                   </div>
                 </div>
 
                 {/* ORBITAL NODE 4: TOP-LEFT (SYSTEM) */}
-                <div className="absolute top-10 left-4 sm:left-10 z-20 flex items-center gap-2 rounded-xl border border-blue-400/30 bg-[#0b0e17]/90 px-3.5 py-2 shadow-lg backdrop-blur-md transition-all hover:border-blue-400 hover:scale-105">
-                  <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa]" />
+                <div className="absolute top-8 left-3 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:left-8">
+                  <span className="h-2 w-2 rounded-full bg-[#2F81FF] shadow-[0_0_8px_rgba(47,129,255,0.7)]" />
                   <div>
                     <div className="font-mono text-[8px] font-bold text-white tracking-wider">
                       ⬡ ADAPTIVE CANVAS
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-400">
+                    <div className="font-mono text-[7px] text-zinc-500">
                       Vector layout engine
                     </div>
                   </div>
@@ -1388,10 +1566,10 @@ const openTemplateByName = (name: string) => {
               </div>
 
               {/* BOTTOM TELEMETRY PIPELINE */}
-              <div className="relative z-10 border-t border-blue-400/[0.12] bg-[#07090e]/90 backdrop-blur-md px-6 py-4">
-                <div className="flex items-center justify-between text-zinc-400">
+              <div className="relative z-10 overflow-x-auto border-t border-white/[0.10] bg-[#050505]/95 px-4 py-4 backdrop-blur-md sm:px-6">
+                <div className="flex min-w-[520px] items-center justify-between text-zinc-400">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[9px] font-bold">
                       1
                     </span>
                     <span className="font-mono text-[9px] text-zinc-300 font-medium">
@@ -1399,30 +1577,30 @@ const openTemplateByName = (name: string) => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-blue-400">
-                    <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-cyan-400 to-blue-500" />
-                    <ArrowRight size={13} className="text-blue-300" />
+                  <div className="flex items-center gap-1.5 text-[#2F81FF]">
+                    <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-[#22D3EE] to-[#2F81FF]" />
+                    <ArrowRight size={13} className="text-[#4DA3FF]" />
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500/20 text-blue-300 font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#2F81FF]/15 text-[#2F81FF] font-mono text-[9px] font-bold">
                       2
                     </span>
-                    <span className="font-mono text-[9px] text-blue-200 font-medium">
+                    <span className="font-mono text-[9px] text-[#4DA3FF] font-medium">
                       NEURAL VISUAL SYSTEM
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-blue-400">
-                    <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-blue-500 to-emerald-400" />
-                    <ArrowRight size={13} className="text-emerald-300" />
+                  <div className="flex items-center gap-1.5 text-[#2F81FF]">
+                    <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-[#2F81FF] to-[#22D3EE]" />
+                    <ArrowRight size={13} className="text-[#22D3EE]" />
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[9px] font-bold">
                       3
                     </span>
-                    <span className="font-mono text-[9px] text-emerald-300 font-medium">
+                    <span className="font-mono text-[9px] text-[#22D3EE] font-medium">
                       MULTI-FORMAT OUTPUT
                     </span>
                   </div>
@@ -1438,7 +1616,7 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="how"
-          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-[#000000]"
+          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent"
         >
           <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
             <div className="mb-14">
@@ -1487,7 +1665,7 @@ const openTemplateByName = (name: string) => {
             HOW IT WORKS
             ===================================================== */}
 
-        <section className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-[#000000]">
+        <section className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
           <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
             <div className="mb-14">
               <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
@@ -1545,7 +1723,7 @@ const openTemplateByName = (name: string) => {
         >
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             <div>
-              <span className="font-mono text-[9px] tracking-[0.25em] text-blue-400 font-medium uppercase">
+              <span className="font-mono text-[9px] tracking-[0.25em] text-[#00D084] font-medium uppercase">
                 DESIGN INTELLIGENCE
               </span>
 
@@ -1563,26 +1741,24 @@ const openTemplateByName = (name: string) => {
               <button
                 type="button"
                 onClick={createDesign}
-                className="mt-8 inline-flex items-center gap-2.5 rounded-full border border-blue-400/30 bg-blue-500/10 px-6 py-3 font-mono text-[11px] font-medium text-blue-200 transition-all hover:bg-blue-500/20 hover:border-blue-400/50 hover:gap-3.5 shadow-lg"
+                className="mt-8 inline-flex items-center gap-2.5 rounded-full border border-[#00D084]/40 bg-[#00D084]/10 px-6 py-3 font-mono text-[11px] font-medium text-white transition-all hover:bg-[#00D084]/20 hover:border-[#00D084] hover:text-[#00D084] hover:gap-3.5 shadow-lg"
               >
                 <span>Try the system</span>
-                <ArrowUpRight size={14} className="text-blue-300" />
+                <ArrowUpRight size={14} className="text-[#00D084]" />
               </button>
             </div>
 
-            <div className="falcon-laser relative rounded-2xl border border-white/[0.12] bg-[#07080d]/95 p-7 sm:p-9 backdrop-blur-xl shadow-[0_24px_70px_-15px_rgba(0,0,0,0.85)]">
-              <LaserBorder />
-
+            <div className="relative rounded-2xl border border-white/[0.10] bg-[#080808] p-7 sm:p-9 backdrop-blur-xl shadow-[0_24px_70px_-15px_rgba(0,0,0,0.85)]">
               {/* TOP HEADER */}
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                  <span className="h-2 w-2 rounded-full bg-[#00D084] shadow-[0_0_8px_#00D084]" />
                   <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-400 uppercase font-medium">
                     LIVE DESIGN ANALYSIS
                   </span>
                 </div>
 
-                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 font-mono text-[8px] font-bold text-emerald-400 tracking-wider">
+                <span className="rounded-full bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-0.5 font-mono text-[8px] font-bold text-[#00D084] tracking-wider">
                   ACTIVE
                 </span>
               </div>
@@ -1605,18 +1781,12 @@ const openTemplateByName = (name: string) => {
                       cy="50"
                       r="42"
                       fill="none"
-                      stroke="url(#scoreGradient)"
+                      stroke="#00D084"
                       strokeWidth="5"
                       strokeDasharray="264"
                       strokeDashoffset="21"
                       strokeLinecap="round"
                     />
-                    <defs>
-                      <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" />
-                        <stop offset="100%" stopColor="#34d399" />
-                      </linearGradient>
-                    </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
@@ -1629,7 +1799,7 @@ const openTemplateByName = (name: string) => {
                 </div>
 
                 <div>
-                  <span className="inline-block rounded bg-blue-500/10 border border-blue-400/20 px-2 py-0.5 font-mono text-[8px] tracking-[0.16em] text-blue-300 font-semibold uppercase">
+                  <span className="inline-block rounded bg-[#00D084]/10 border border-[#00D084]/30 px-2 py-0.5 font-mono text-[8px] tracking-[0.16em] text-[#00D084] font-semibold uppercase">
                     DESIGN SCORE
                   </span>
                   <h3 className="mt-1.5 text-2xl sm:text-3xl text-white font-semibold tracking-[-0.02em]">
@@ -1669,11 +1839,11 @@ const openTemplateByName = (name: string) => {
               </div>
 
               {/* COACH ADVISORY */}
-              <div className="mt-7 flex items-center justify-between rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3.5 sm:p-4 backdrop-blur-md">
+              <div className="mt-7 flex items-center justify-between rounded-xl border border-[#00D084]/25 bg-[#00D084]/[0.05] p-3.5 sm:p-4 backdrop-blur-md">
                 <div className="flex items-start gap-3">
-                  <Sparkles size={16} className="mt-0.5 text-amber-400 shrink-0" />
+                  <Sparkles size={16} className="mt-0.5 text-[#00D084] shrink-0" />
                   <div>
-                    <span className="font-mono text-[8px] tracking-[0.16em] uppercase font-bold text-amber-300">
+                    <span className="font-mono text-[8px] tracking-[0.16em] uppercase font-bold text-[#00D084]">
                       COACH ADVISORY
                     </span>
                     <p className="mt-0.5 text-[11px] leading-snug text-zinc-300 font-light">
@@ -1681,7 +1851,7 @@ const openTemplateByName = (name: string) => {
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-md bg-amber-400/15 border border-amber-400/30 px-2.5 py-1 font-mono text-[8px] font-semibold text-amber-300">
+                <span className="shrink-0 rounded-md bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-1 font-mono text-[8px] font-semibold text-[#00D084]">
                   QUICK TUNE
                 </span>
               </div>
@@ -1693,7 +1863,7 @@ const openTemplateByName = (name: string) => {
             DESIGN DNA (NEXT.JS STYLE TOKEN ENGINE)
             ===================================================== */}
 
-        <section id="dna" className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-[#000000]">
+        <section id="dna" className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             {/* LEFT: NEXT.JS TOKEN MATRIX BENTO */}
             <div className="next-card relative overflow-hidden p-8 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9)]">
@@ -1910,7 +2080,7 @@ const openTemplateByName = (name: string) => {
             ONE → MANY (NEXT.JS MULTI-CHANNEL ENGINE)
             ===================================================== */}
 
-        <section id="remix" className="relative flex min-h-[100dvh] items-center overflow-hidden border-b border-white/[0.08] bg-[#000000]">
+        <section id="remix" className="relative flex min-h-[100dvh] items-center overflow-hidden border-b border-white/[0.08] bg-transparent">
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             {/* LEFT CONTENT */}
             <div>
@@ -1957,41 +2127,83 @@ const openTemplateByName = (name: string) => {
               {/* THREE LIVE FORMAT PREVIEW CARDS */}
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {/* 1:1 SQUARE */}
-                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-blue-500/40 hover:bg-blue-500/[0.02]">
-                  <div className="aspect-square w-full rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-950 p-3.5 flex flex-col justify-between border border-white/[0.06]">
-                    <span className="text-[10px] font-mono text-zinc-400">1:1 POST</span>
-                    <div className="text-center font-bold text-sm text-white">Falcon</div>
-                    <span className="text-[8px] font-mono text-zinc-500">1080 × 1080</span>
+                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#2F81FF]/40 hover:bg-[#2F81FF]/[0.02]">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                    <img
+                      src="/campaign/campaign-post.jpg"
+                      alt="1:1 Campaign Post"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 p-3.5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">1:1 POST</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
+                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Autonomous Reflow</div>
+                      </div>
+                      <span className="text-[8px] font-mono text-zinc-400">1080 × 1080</span>
+                    </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Instagram</span>
-                    <span className="font-mono text-[9px] text-emerald-400">Ready</span>
+                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
 
                 {/* 9:16 VERTICAL */}
-                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/[0.02]">
-                  <div className="aspect-[9/14] w-full rounded-lg bg-gradient-to-br from-zinc-800 via-indigo-950/40 to-zinc-950 p-3.5 flex flex-col justify-between border border-white/[0.06]">
-                    <span className="text-[10px] font-mono text-zinc-400">9:16 STORY</span>
-                    <div className="text-center font-bold text-sm text-white">Falcon</div>
-                    <span className="text-[8px] font-mono text-zinc-500">1080 × 1920</span>
+                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#22D3EE]/40 hover:bg-[#22D3EE]/[0.02]">
+                  <div className="relative aspect-[9/14] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                    <img
+                      src="/campaign/campaign-story.jpg"
+                      alt="9:16 Campaign Story"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/60 p-3.5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">9:16 STORY</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
+                      </div>
+                      <div className="text-center my-auto py-4">
+                        <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
+                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Vertical Story</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-mono text-zinc-400">1080 × 1920</span>
+                        <span className="text-[8px] font-mono text-zinc-300 bg-white/10 rounded px-1.5 py-0.5">TAP TO VIEW</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Reels & Story</span>
-                    <span className="font-mono text-[9px] text-emerald-400">Ready</span>
+                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
 
                 {/* 16:9 WIDESCREEN */}
-                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/[0.02]">
-                  <div className="aspect-[16/10] w-full rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-950 p-3.5 flex flex-col justify-between border border-white/[0.06]">
-                    <span className="text-[10px] font-mono text-zinc-400">16:9 BANNER</span>
-                    <div className="text-center font-bold text-sm text-white">Falcon</div>
-                    <span className="text-[8px] font-mono text-zinc-500">1920 × 1080</span>
+                <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#2F81FF]/40 hover:bg-[#2F81FF]/[0.02]">
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                    <img
+                      src="/campaign/campaign-banner.jpg"
+                      alt="16:9 Campaign Banner"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 p-3.5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">16:9 BANNER</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
+                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Display Billboard</div>
+                      </div>
+                      <span className="text-[8px] font-mono text-zinc-400">1920 × 1080</span>
+                    </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Landscape</span>
-                    <span className="font-mono text-[9px] text-emerald-400">Ready</span>
+                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
               </div>
@@ -2011,43 +2223,10 @@ const openTemplateByName = (name: string) => {
         </section>
 
         {/* =====================================================
-            FINAL CTA
+            FINAL CTA (LAST PAGE - EXACTLY LIKE IMAGE 2)
             ===================================================== */}
 
-        <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 h-[650px] w-[650px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/[0.05]" />
-
-            <div className="absolute left-1/2 top-1/2 h-[450px] w-[450px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/[0.06]" />
-          </div>
-
-          <div className="relative z-10 px-6 text-center">
-            <span className="font-mono text-[9px] tracking-[0.3em] text-zinc-600">
-              THE NEXT CREATIVE SYSTEM
-            </span>
-
-            <h2 className="mx-auto mt-8 max-w-[1100px] text-[clamp(4.2rem,8.5vw,8.2rem)] font-bold leading-[0.9] tracking-[-0.04em]">
-              Design with
-              <span className="block text-zinc-400 font-normal">
-                intelligence.
-              </span>
-            </h2>
-
-            <p className="mx-auto mt-10 max-w-[600px] text-[16px] leading-8 text-zinc-500">
-              Start with an idea. Build a system. Make every design feel
-              intentional.
-            </p>
-
-            <button
-              type="button"
-              onClick={createDesign}
-              className="mx-auto mt-10 flex h-14 items-center gap-4 rounded-full bg-[#f4f1eb] px-9 text-[13px] font-medium text-black transition-all hover:gap-5 hover:bg-white"
-            >
-              Enter Falcon Studio
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </section>
+        <FinalCtaSection onEnter={createDesign} />
 
         {/* =====================================================
             FOOTER (CLEAN GEOMETRIC SANS ARCHITECTURE)
@@ -2093,6 +2272,7 @@ const openTemplateByName = (name: string) => {
                   <ul className="space-y-3 font-normal text-zinc-400">
                     <li><button type="button" onClick={createDesign} className="hover:text-white transition-colors">Design Studio</button></li>
                     <li><button type="button" onClick={openTemplatesPage} className="hover:text-white transition-colors">Templates</button></li>
+                    <li><button type="button" onClick={() => router.push("/email-designer")} className="hover:text-white transition-colors text-[#00D084]">Email Designer</button></li>
                     <li><button type="button" onClick={openAIStudio} className="hover:text-white transition-colors">AI Studio</button></li>
                     <li><a href="#intelligence" className="hover:text-white transition-colors">Design Intelligence</a></li>
                     <li><a href="#dna" className="hover:text-white transition-colors">Brand DNA</a></li>
@@ -2594,14 +2774,14 @@ function ScoreRow({
           )}
         </div>
 
-        <span className="font-mono text-[10px] font-bold text-blue-300">
+        <span className="font-mono text-[10px] font-bold text-[#2F81FF]">
           {score}%
         </span>
       </div>
 
       <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 shadow-[0_0_8px_rgba(56,189,248,0.4)] transition-all duration-700"
+          className="h-full rounded-full bg-[#2F81FF] shadow-[0_0_8px_rgba(47,129,255,0.4)] transition-all duration-700"
           style={{
             width: `${score}%`,
           }}

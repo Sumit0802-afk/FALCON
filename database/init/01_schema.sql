@@ -63,3 +63,64 @@ CREATE TABLE IF NOT EXISTS `pages` (
     FOREIGN KEY (`projectId`) REFERENCES `projects` (`id`)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------
+-- otp_verifications
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `otp_verifications` (
+  `id`           VARCHAR(36)   NOT NULL,
+  `userId`       VARCHAR(36)   NOT NULL,
+  `otpHash`      VARCHAR(191)  NOT NULL,
+  `purpose`      VARCHAR(32)   NOT NULL DEFAULT 'LOGIN_MFA',
+  `expiresAt`    DATETIME(3)   NOT NULL,
+  `attempts`     INT           NOT NULL DEFAULT 0,
+  `maxAttempts`  INT           NOT NULL DEFAULT 5,
+  `used`         TINYINT(1)    NOT NULL DEFAULT 0,
+  `lastResentAt` DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `createdAt`    DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt`    DATETIME(3)   NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `otp_verifications_userId_purpose_idx` (`userId`, `purpose`),
+  CONSTRAINT `otp_verifications_userId_fkey`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------
+-- sessions
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sessions` (
+  `id`               VARCHAR(36)   NOT NULL,
+  `userId`           VARCHAR(36)   NOT NULL,
+  `sessionTokenHash` VARCHAR(191)  NOT NULL,
+  `ipAddress`        VARCHAR(64)   NULL,
+  `userAgent`        TEXT          NULL,
+  `expiresAt`        DATETIME(3)   NOT NULL,
+  `revokedAt`        DATETIME(3)   NULL,
+  `createdAt`        DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt`        DATETIME(3)   NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `sessions_sessionTokenHash_key` (`sessionTokenHash`),
+  KEY `sessions_userId_idx` (`userId`),
+  CONSTRAINT `sessions_userId_fkey`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------
+-- password_reset_tokens
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `password_reset_tokens` (
+  `id`        VARCHAR(36)   NOT NULL,
+  `userId`    VARCHAR(36)   NOT NULL,
+  `tokenHash` VARCHAR(191)  NOT NULL,
+  `expiresAt` DATETIME(3)   NOT NULL,
+  `used`      TINYINT(1)    NOT NULL DEFAULT 0,
+  `createdAt` DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `password_reset_tokens_tokenHash_key` (`tokenHash`),
+  KEY `password_reset_tokens_userId_idx` (`userId`),
+  CONSTRAINT `password_reset_tokens_userId_fkey`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

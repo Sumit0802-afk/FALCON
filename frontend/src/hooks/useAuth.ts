@@ -1,17 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import {
-  AuthUser,
-  getCurrentUser,
-  getToken,
-  isAuthenticated,
-  logout,
-} from "@/services/authService";
-
-interface UseAuthOptions {
-  /** If true, redirects to /login when not authenticated. */
-  requireAuth?: boolean;
-}
+import { AuthUser, fetchCurrentUser, logout as doLogout } from "@/services/authService";
 
 interface UseAuthReturn {
   user: AuthUser | null;
@@ -20,33 +9,37 @@ interface UseAuthReturn {
   logout: () => void;
 }
 
-export function useAuth({ requireAuth: require = false }: UseAuthOptions = {}): UseAuthReturn {
+export function useAuth({ requireAuth = false }: { requireAuth?: boolean } = {}): UseAuthReturn {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-    const currentUser = getCurrentUser();
+    let cancelled = false;
+    fetchCurrentUser()
+      .then((u) => {
+        if (!cancelled) {
+          setUser(u);
+          if (!u && requireAuth) {
+            router.replace(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [requireAuth, router.asPath]);
 
-    if (token && currentUser) {
-      setUser(currentUser);
-    } else if (require) {
-      router.replace(`/login?redirect=${encodeURIComponent(router.asPath)}`);
-    }
-
-    setIsLoading(false);
-  }, [require, router]);
-
-  const handleLogout = () => {
-    logout();
+  const handleLogout = useCallback(async () => {
+    await doLogout();
     setUser(null);
     router.push("/login");
-  };
+  }, [router]);
 
   return {
     user,
-    isAuthenticated: isAuthenticated(),
+    isAuthenticated: Boolean(user),
     isLoading,
     logout: handleLogout,
   };

@@ -8,59 +8,9 @@ export function getApiBaseUrl(): string {
   return "http://localhost:4000/api";
 }
 
-
-const API_BASE_URL = getApiBaseUrl();
-
 interface ApiErrorResponse {
   message?: string;
   error?: string;
-}
-
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const possibleKeys = [
-    "falcon_token",
-    "falcon:accessToken",
-    "falcon:token",
-    "accessToken",
-    "access_token",
-    "token",
-    "authToken",
-  ];
-
-  for (const key of possibleKeys) {
-    const value = window.localStorage.getItem(key);
-
-    if (!value || !value.trim()) {
-      continue;
-    }
-
-    let token = value.trim();
-
-    if (
-      (token.startsWith('"') && token.endsWith('"')) ||
-      (token.startsWith("'") && token.endsWith("'"))
-    ) {
-      token = token.slice(1, -1).trim();
-    }
-
-    if (!token) {
-      continue;
-    }
-
-    if (token.startsWith("Bearer ")) {
-      token = token.slice(7).trim();
-    }
-
-    if (token) {
-      return token;
-    }
-  }
-
-  return null;
 }
 
 export async function apiFetch<T>(
@@ -71,35 +21,34 @@ export async function apiFetch<T>(
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${cleanPath}`;
 
-  const token = getAuthToken();
-
   const headers = new Headers(options.headers);
 
-  if (!headers.has("Content-Type")) {
+  if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  } else {
-    headers.delete("Authorization");
+  // Send Bearer token if stored (hybrid support alongside HttpOnly cookies)
+  if (typeof window !== "undefined") {
+    const storedToken = localStorage.getItem("falcon_token");
+    if (storedToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${storedToken}`);
+    }
   }
 
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: "include",  // Always send cookies for session-based auth
     });
 
     const contentType = response.headers.get("content-type") || "";
-
     let data: T | ApiErrorResponse | null = null;
 
     if (contentType.includes("application/json")) {
       data = await response.json();
     } else {
       const text = await response.text();
-
       data = text ? ({ message: text } as ApiErrorResponse) : null;
     }
 
@@ -107,16 +56,16 @@ export async function apiFetch<T>(
       if (
         response.status === 401 &&
         !url.includes("/auth/login") &&
-        !url.includes("/auth/register")
+        !url.includes("/auth/register") &&
+        !url.includes("/auth/verify-otp") &&
+        !url.includes("/auth/me")
       ) {
         if (typeof window !== "undefined") {
-          window.localStorage.removeItem("falcon_token");
-          window.localStorage.removeItem("falcon_user");
+          localStorage.removeItem("falcon_token");
         }
       }
 
       const errorData = data as ApiErrorResponse | null;
-
       throw new Error(
         errorData?.message ||
           errorData?.error ||
@@ -126,22 +75,18 @@ export async function apiFetch<T>(
 
     return data as T;
   } catch (error) {
-    console.error("API request failed:", {
-      url,
-      error,
-    });
+    // Only log at debug level — never log auth tokens or request bodies
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[api] Request failed:", url, error instanceof Error ? error.message : error);
+    }
 
-    // Handle low-level fetch/network failures (server down or CORS error)
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        `Unable to connect to backend at ${baseUrl}. Please ensure the server is running on port 4000 (cd falcon-backend/backend && npm run dev) and CORS is enabled.`
+        `Unable to connect to Falcon backend at ${baseUrl}. Please ensure the server is running (cd falcon-backend/backend && npm run dev).`
       );
     }
 
-    if (error instanceof Error) {
-      throw error;
-    }
-
+    if (error instanceof Error) throw error;
     throw new Error("Unable to connect to Falcon backend.");
   }
 }

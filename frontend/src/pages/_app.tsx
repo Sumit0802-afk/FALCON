@@ -7,7 +7,13 @@ export default function App({
   pageProps,
 }: AppProps) {
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white">
+    <div
+      className="relative min-h-screen bg-cover bg-center bg-no-repeat text-white"
+      style={{
+        backgroundImage: "url('/site-bg.jpg')",
+        backgroundAttachment: "fixed",
+      }}
+    >
 
       {/* GLOBAL FALCON ATMOSPHERE */}
       <div className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
