@@ -11,7 +11,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "ts-node database/seed.ts"
+    "seed": "ts-node database/seed.ts",
+    "templates:seed": "ts-node scripts/generate-templates.ts --count 168 --publish",
+    "templates:generate": "ts-node scripts/generate-templates.ts",
+    "templates:import": "ts-node scripts/import-templates.ts",
+    "test:auth": "ts-node tests/auth.test.ts",
+    "test:templates": "ts-node tests/templates.test.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

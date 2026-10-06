@@ -22,6 +22,7 @@ model User {
   otpVerifications    OtpVerification[]
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  templateFavorites   TemplateFavorite[]
 
   @@map("users")
 }
@@ -103,4 +104,148 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model TemplateCategory {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  parentId    String?
+  sortOrder   Int     @default(0)
+
+  parent   TemplateCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children TemplateCategory[] @relation("CategoryTree")
+
+  templates     DesignTemplate[] @relation("TemplatePrimaryCategory")
+  subTemplates  DesignTemplate[] @relation("TemplateSubcategory")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId, sortOrder])
+  @@map("template_categories")
+}
+
+model TemplateTag {
+  id   String @id @default(uuid())
+  slug String @unique
+  name String
+
+  templates TemplateTagOnTemplate[]
+
+  @@map("template_tags")
+}
+
+model DesignTemplate {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String  @db.Text
+  status      String  @default("draft")
+  featured    Boolean @default(false)
+
+  categoryId    String
+  subcategoryId String
+  category      TemplateCategory @relation("TemplatePrimaryCategory", fields: [categoryId], references: [id])
+  subcategory   TemplateCategory @relation("TemplateSubcategory", fields: [subcategoryId], references: [id])
+
+  style        String
+  industry     String
+  audience     String
+  platform     String
+  orientation  String
+  width        Int
+  height       Int
+  colorFamily  String
+  theme        String
+  language     String  @default("en")
+  thumbnailUrl String? @db.Text
+  previewUrl   String? @db.Text
+  fingerprint  String  @unique
+  searchDocument String @db.Text
+
+  usageCount    Int       @default(0)
+  favoriteCount Int       @default(0)
+  viewCount     Int       @default(0)
+  lastUsedAt    DateTime?
+  publishedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  design    TemplateDesign?
+  tags      TemplateTagOnTemplate[]
+  favorites TemplateFavorite[]
+
+  @@index([status, featured, createdAt])
+  @@index([status, usageCount])
+  @@index([status, viewCount])
+  @@index([categoryId, subcategoryId, status])
+  @@index([slug])
+  @@index([style])
+  @@index([industry])
+  @@index([platform])
+  @@index([orientation, width, height])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@index([featured])
+  @@fulltext([name, description, searchDocument])
+  @@map("design_templates")
+}
+
+model TemplateDesign {
+  templateId    String         @id
+  template      DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  designData    String         @db.LongText
+  schemaVersion Int            @default(1)
+  assetRefs     String         @db.Text
+
+  updatedAt DateTime @updatedAt
+
+  @@map("template_designs")
+}
+
+model TemplateTagOnTemplate {
+  templateId String
+  tagId      String
+  template   DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tag        TemplateTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, tagId])
+  @@index([tagId])
+  @@map("template_tags_on_templates")
+}
+
+model TemplateFavorite {
+  userId     String
+  templateId String
+  createdAt  DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([templateId])
+  @@index([userId, createdAt])
+  @@map("template_favorites")
+}
+
+model TemplateImportJob {
+  id          String    @id @default(uuid())
+  status      String    @default("pending")
+  sourceType  String
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  imported    Int       @default(0)
+  skipped     Int       @default(0)
+  failed      Int       @default(0)
+  errorLog    String    @db.LongText
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("template_import_jobs")
 }
