@@ -1,7 +1,7 @@
 # Falcon — Database
 
 Local MySQL setup for Falcon, plus raw SQL and backup/restore tooling. The
-source of truth for the schema is `falcon-backend/prisma/schema.prisma`
+source of truth for the schema is `falcon-backend/backend/prisma/schema.prisma`
 (Prisma manages migrations from there) — `init/01_schema.sql` here is a
 plain-SQL mirror of the same three tables, for quick manual bootstrap or
 review without needing the Prisma CLI.
@@ -34,7 +34,7 @@ This starts MySQL on `localhost:3306` and, **only on the very first boot**
 Adminer (a web DB browser) is at `http://localhost:8080` — system: MySQL,
 server: `mysql`, user/password from `.env`, database: `falcon`.
 
-Point `falcon-backend/.env`'s `DATABASE_URL` at it:
+Point `falcon-backend/backend/.env`'s `DATABASE_URL` at it:
 ```
 DATABASE_URL="mysql://falcon:falcon@localhost:3306/falcon"
 ```
@@ -51,7 +51,7 @@ mysql -u root -p < init/02_seed.sql   # optional demo data
 If you'd rather Prisma create the tables (recommended once you're past
 initial setup, since it also tracks migration history):
 ```bash
-cd ../falcon-backend
+cd ../falcon-backend/backend
 npm run prisma:migrate
 npm run seed
 ```
