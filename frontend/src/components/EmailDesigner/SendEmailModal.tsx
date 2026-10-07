@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { EmailDesign } from "@/types/email";
-import { exportEmailHtml } from "@/utils/emailUtils";
+import { designToDocument, exportEmailHtml } from "@/utils/emailUtils";
+import { exactHtmlOf } from "@/lib/emailCore/schema";
 import { ApiError } from "@/services/api";
 import { parseRecipients, sendDesignEmail } from "@/services/emailTemplateService";
 
@@ -50,6 +51,10 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
   // Generated email HTML
   const emailHtml = exportEmailHtml(design);
 
+  // A design written in HTML uses effects mail apps cannot draw, so by default it is sent as a picture of itself
+  const isHtmlDesign = exactHtmlOf(designToDocument(design)) !== null;
+  const [exact, setExact] = useState(isHtmlDesign);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && view !== "sending") onClose();
@@ -80,6 +85,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
         html: emailHtml,
         fromName: fromName.trim() || undefined,
         replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
+        exact,
       });
       setTestResult({ success: true, message: `Test email sent to ${recipients.join(", ")}.` });
     } catch (err) {
@@ -90,10 +96,12 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
   };
 
   // Send main email
-  const handleSendEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendEmail = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
+    // Anything missing is asked for on the details tab, where it can be filled in
     if (!to.trim()) {
+      setActiveTab("compose");
       setErrorMessage("Please enter at least one recipient email address.");
       return;
     }
@@ -103,10 +111,12 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
     const bccList = parseRecipients(bcc);
     const invalid = [...toList, ...ccList, ...bccList].find((r) => !VALID_EMAIL.test(r));
     if (invalid) {
+      setActiveTab("compose");
       setErrorMessage(`"${invalid}" is not a valid email address.`);
       return;
     }
     if (!subject.trim()) {
+      setActiveTab("compose");
       setErrorMessage("Please enter a subject.");
       return;
     }
@@ -123,6 +133,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
         html: emailHtml,
         fromName: fromName.trim() || undefined,
         replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
+        exact,
       });
       setStatusMessage(result.message || "Your email has been sent to the selected recipients.");
       setView("success");
@@ -282,6 +293,11 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === "compose" && (
                 <form id="send-email-form" onSubmit={handleSendEmail} className="space-y-4">
+                  {errorMessage && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                      {errorMessage}
+                    </div>
+                  )}
                   {/* From Section */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -372,6 +388,22 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                       />
                     </div>
                   </div>
+
+                  {/* How the design travels */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <input
+                      type="checkbox"
+                      checked={exact}
+                      onChange={(e) => setExact(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#00D084]"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-semibold text-zinc-300">Send an exact copy of the design</span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500">
+                        The email is sent as a picture of the design, so glow, outlined text, 3D and layered effects arrive just as you see them, and buttons and links still work. Animations are shown still, and the text cannot be selected. Turn this off to send ordinary HTML, which Gmail and other apps simplify.
+                      </span>
+                    </span>
+                  </label>
 
                   {/* ── Test Email Quick Panel ── */}
                   <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -468,11 +500,12 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                 <button
                   type="button"
                   onClick={() => {
+                    // The form is not on screen while previewing, so the send is started directly
                     if (activeTab === "compose") {
+                      setErrorMessage("");
                       setActiveTab("preview");
                     } else {
-                      const form = document.getElementById("send-email-form") as HTMLFormElement;
-                      if (form) form.requestSubmit();
+                      void handleSendEmail();
                     }
                   }}
                   className="flex items-center gap-2 rounded-lg bg-[#00D084] px-5 py-2 text-[12px] font-bold text-black shadow-lg transition-all hover:bg-[#00b872] active:scale-[0.98]"

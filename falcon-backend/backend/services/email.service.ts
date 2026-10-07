@@ -12,6 +12,7 @@
 
 import nodemailer, { Transporter } from "nodemailer";
 import { inlineEmailStyles } from "./emailInliner";
+import { EmailAttachment, snapshotEmail } from "./emailSnapshot";
 
 export interface SendOtpOptions {
   to: string;
@@ -37,6 +38,26 @@ interface OutgoingEmail {
   html: string;
   text: string;
   fromName?: string;
+  /** Pictures the HTML refers to by content id */
+  attachments?: EmailAttachment[];
+}
+
+/**
+ * The body of a designed email as it will be sent. A design sent as a picture
+ * is drawn by a browser so it arrives exactly as made; if that cannot be done,
+ * or it was not asked for, the design goes as HTML with its styles inlined.
+ */
+async function designBody(html: string, subject: string, asPicture: boolean | undefined, fallbackText: string) {
+  if (asPicture && process.env.NODE_ENV !== "test") {
+    try {
+      const shot = await snapshotEmail(html, subject);
+      return { html: shot.html, text: shot.text, attachments: shot.attachments, picture: true };
+    } catch (err: any) {
+      console.error(`[email.service] Could not draw the design as a picture (${err?.name || "Error"}); sending it as HTML`);
+    }
+  }
+  // Mail clients drop stylesheets, so the styles travel on the elements themselves
+  return { html: inlineEmailStyles(html), text: fallbackText, attachments: undefined, picture: false };
 }
 
 function maskEmail(email: string): string {
@@ -171,6 +192,7 @@ async function dispatchEmail(email: OutgoingEmail): Promise<void> {
     subject: email.subject,
     text: email.text,
     html: email.html,
+    attachments: email.attachments?.map((a) => ({ ...a, contentDisposition: "inline" as const })),
   };
 
   try {
@@ -312,9 +334,9 @@ export const emailService = {
   },
 
   /** Send a rendered email design to its author as a test */
-  async sendDesignTest(opts: { to: string; subject: string; html: string }): Promise<void> {
-    // Mail clients drop stylesheets, so the styles travel on the elements themselves
-    opts = { ...opts, html: inlineEmailStyles(opts.html) };
+  async sendDesignTest(opts: { to: string; subject: string; html: string; asPicture?: boolean }): Promise<{ picture: boolean }> {
+    const body = await designBody(opts.html, opts.subject, opts.asPicture, "This is a test of your Falcon email design. Open it in an HTML-capable mail client to see the layout.");
+    opts = { ...opts, html: body.html };
     if (process.env.NODE_ENV === "test") {
       _testInbox.set(opts.to.toLowerCase(), { designSubject: opts.subject, designHtml: opts.html });
     }
@@ -323,9 +345,11 @@ export const emailService = {
       to: opts.to,
       fromName: "Falcon",
       subject: opts.subject,
-      text: "This is a test of your Falcon email design. Open it in an HTML-capable mail client to see the layout.",
+      text: body.text,
       html: opts.html,
+      attachments: body.attachments,
     });
+    return { picture: body.picture };
   },
 
   /** Send a finished email design to the recipients its author chose */
@@ -337,8 +361,10 @@ export const emailService = {
     html: string;
     fromName?: string;
     replyTo?: string;
-  }): Promise<void> {
-    opts = { ...opts, html: inlineEmailStyles(opts.html) };
+    asPicture?: boolean;
+  }): Promise<{ picture: boolean }> {
+    const body = await designBody(opts.html, opts.subject, opts.asPicture, "This email was designed in Falcon. Open it in an HTML-capable mail client to see it.");
+    opts = { ...opts, html: body.html };
     if (process.env.NODE_ENV === "test") {
       for (const address of opts.to) {
         _testInbox.set(address.toLowerCase(), { designSubject: opts.subject, designHtml: opts.html });
@@ -352,9 +378,11 @@ export const emailService = {
       replyTo: opts.replyTo,
       fromName: opts.fromName || "Falcon",
       subject: opts.subject,
-      text: "This email was designed in Falcon. Open it in an HTML-capable mail client to see it.",
+      text: body.text,
       html: opts.html,
+      attachments: body.attachments,
     });
+    return { picture: body.picture };
   },
 
   /**

@@ -5,6 +5,7 @@ import {
   createDocument, createSection, normalizeDocument,
 } from "../templates/email/core/schema";
 import { renderEmailHtml } from "../templates/email/core/renderHtml";
+import { exactHtmlOf } from "../templates/email/core/schema";
 import { estimateEmailHeight, renderThumbnailSvg } from "../templates/email/core/renderThumbnail";
 import { emailService, EmailDeliveryError, EmailFailureReason } from "./email.service";
 
@@ -152,7 +153,7 @@ export const userEmailTemplateService = {
    */
   async sendEmail(
     userId: string,
-    input: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; html: string; fromName?: string; replyTo?: string }
+    input: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; html: string; fromName?: string; replyTo?: string; exact?: boolean }
   ) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
     if (!user) throw AppError.unauthorized("Authentication required");
@@ -161,8 +162,9 @@ export const userEmailTemplateService = {
     if (recipients > MAX_RECIPIENTS) {
       throw AppError.badRequest(`You can send to at most ${MAX_RECIPIENTS} recipients at a time.`);
     }
+    let picture = false;
     try {
-      await emailService.sendDesignEmail({
+      ({ picture } = await emailService.sendDesignEmail({
         to: input.to,
         cc: input.cc,
         bcc: input.bcc,
@@ -170,11 +172,14 @@ export const userEmailTemplateService = {
         html: input.html,
         fromName: cleanName(input.fromName, user.name),
         replyTo: input.replyTo || user.email,
-      });
+        asPicture: input.exact,
+      }));
     } catch (err) {
       throw deliveryError(err, "email");
     }
-    return { success: true, recipients, message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.` };
+    // Said plainly when an exact copy was asked for but could not be made
+    const note = input.exact && !picture ? " It went as ordinary HTML, because this server has no browser to draw an exact copy with, so some effects may look simpler." : "";
+    return { success: true, recipients, exact: picture, message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.${note}` };
   },
 
   /**
@@ -187,7 +192,7 @@ export const userEmailTemplateService = {
     const document = parseUserDocument(input.templateData);
     const subject = cleanName(input.subject, document.document.settings.subject || "Falcon email").slice(0, 200);
     try {
-      await emailService.sendDesignTest({ to: user.email, subject: `[Test] ${subject}`, html: renderEmailHtml(document) });
+      await emailService.sendDesignTest({ to: user.email, subject: `[Test] ${subject}`, html: renderEmailHtml(document), asPicture: exactHtmlOf(document) !== null });
     } catch (err) {
       throw deliveryError(err, "test email");
     }

@@ -169,6 +169,8 @@ export interface SendEmailInput {
   html: string;
   fromName?: string;
   replyTo?: string;
+  /** Send the design as a picture of itself, so it arrives exactly as made */
+  exact?: boolean;
 }
 
 /** Sends a finished design to the given recipients through Falcon's mail server. */
