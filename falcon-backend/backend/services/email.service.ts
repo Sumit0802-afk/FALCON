@@ -11,6 +11,7 @@
  */
 
 import nodemailer, { Transporter } from "nodemailer";
+import { inlineEmailStyles } from "./emailInliner";
 
 export interface SendOtpOptions {
   to: string;
@@ -279,6 +280,8 @@ export const emailService = {
 
   /** Send a rendered email design to its author as a test */
   async sendDesignTest(opts: { to: string; subject: string; html: string }): Promise<void> {
+    // Mail clients drop stylesheets, so the styles travel on the elements themselves
+    opts = { ...opts, html: inlineEmailStyles(opts.html) };
     if (process.env.NODE_ENV === "test") {
       _testInbox.set(opts.to.toLowerCase(), { designSubject: opts.subject, designHtml: opts.html });
     }
@@ -302,6 +305,7 @@ export const emailService = {
     fromName?: string;
     replyTo?: string;
   }): Promise<void> {
+    opts = { ...opts, html: inlineEmailStyles(opts.html) };
     if (process.env.NODE_ENV === "test") {
       for (const address of opts.to) {
         _testInbox.set(address.toLowerCase(), { designSubject: opts.subject, designHtml: opts.html });
