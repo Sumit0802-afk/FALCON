@@ -21,20 +21,22 @@ export interface LoginInput {
   password: string;
 }
 
-export interface LoginMfaChallenge {
-  mfaRequired: true;
-  mfaToken: string;
-  email: string;
+export interface RegisterResult {
+  success: true;
+  message: string;
+}
+
+/** Response to a successful code request. Never contains the code itself. */
+export interface OtpChallenge {
+  success: true;
+  message: string;
   expiresInSeconds: number;
+  resendInSeconds: number;
 }
 
 export interface VerifyOtpInput {
-  mfaToken: string;
+  email: string;
   otp: string;
-}
-
-export interface ResendOtpInput {
-  mfaToken: string;
 }
 
 export interface AuthResult {

@@ -23,7 +23,9 @@ export interface BaseElement {
   flipX?: boolean;
   flipY?: boolean;
   blendMode?: string;
-  blendMask?: "none" | "circular" | "linear" | "linear-top" | "linear-bottom";
+  blendMask?: "none" | "circular" | "linear" | "linear-top" | "linear-bottom" | "linear-left" | "linear-right";
+  /** How much of the element the fade covers, 5 to 100 */
+  blendSoftness?: number;
   effect?: "none" | "shadow" | "glow" | "blur" | "duotone" | "outline";
 }
 

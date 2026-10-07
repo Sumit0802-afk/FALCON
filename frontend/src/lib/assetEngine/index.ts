@@ -12,3 +12,6 @@ export * from "./threeDEngine";
 export * from "./animationsEngine";
 export * from "./framesEngine";
 export * from "./remainingEngines";
+export * from "./stickersEngine";
+export * from "./realEngine";
+export * from "./artEngine";

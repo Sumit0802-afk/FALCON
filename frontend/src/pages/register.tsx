@@ -118,7 +118,7 @@ export default function RegisterPage() {
     try {
       await register(name, email, password, confirmPassword);
       setSuccess(true);
-      setTimeout(() => router.push("/"), 2000);
+      setTimeout(() => router.push("/login"), 2000);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Unable to create account. Please try again.");
     } finally {
@@ -339,7 +339,7 @@ export default function RegisterPage() {
                 </svg>
               </div>
               <h1 className="auth-success-title">Account created!</h1>
-              <p className="auth-success-desc">You&apos;re being redirected to your workspace…</p>
+              <p className="auth-success-desc">Taking you to sign in. We&apos;ll email you a verification code…</p>
             </div>
           ) : (
             <>

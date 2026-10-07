@@ -59,27 +59,9 @@ export interface TemplateListQuery {
   theme?: string;
   language?: string;
   featured?: boolean;
-export interface TemplateListQuery {
-  q?: string;
-  category?: string;
-  subcategory?: string;
-  style?: string;
-  industry?: string;
-  platform?: string;
-  orientation?: string;
-  tag?: string;
-  audience?: string;
-  colorFamily?: string;
-  theme?: string;
-  language?: string;
-  featured?: boolean;
   favoritesOnly?: boolean;
   status?: TemplateStatus | "all";
   sort?: TemplateSort;
-  limit?: number;
-  cursor?: string;
-  includeDesign?: boolean;
-}
   limit?: number;
   cursor?: string;
   includeDesign?: boolean;

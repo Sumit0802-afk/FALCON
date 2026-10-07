@@ -10,6 +10,8 @@ interface SelectionBoxProps {
   onRotateStart: (
     e: React.PointerEvent
   ) => void;
+  /** The canvas zoom; handles are scaled against it so they stay a steady size on screen */
+  zoom?: number;
 }
 
 interface HandleConfig {
@@ -80,13 +82,20 @@ const HANDLES: HandleConfig[] = [
 export function SelectionBox({
   onResizeStart,
   onRotateStart,
+  zoom = 1,
 }: SelectionBoxProps) {
+  // Handles live inside the zoomed page, so without this they shrink to specks on a large page
+  const scale = Math.min(6, Math.max(0.5, 1 / (zoom || 1)));
+
   return (
-    <div className="pointer-events-none absolute inset-0 rounded-[1px] outline outline-2 outline-indigo-500">
+    <div className="pointer-events-none absolute inset-0 rounded-[1px] outline outline-indigo-500" style={{ outlineWidth: 2 * scale }}>
       {/* ================================================= */}
       {/* ROTATE HANDLE (Positioned cleanly above top edge) */}
       {/* ================================================= */}
-      <div className="pointer-events-none absolute left-1/2 -top-12 -translate-x-1/2 flex flex-col items-center">
+      <div
+        className="pointer-events-none absolute bottom-full left-1/2 flex flex-col items-center"
+        style={{ transform: `translateX(-50%) scale(${scale})`, transformOrigin: "bottom center" }}
+      >
         {/* Rotate button */}
         <button
           type="button"
@@ -103,7 +112,7 @@ export function SelectionBox({
         </button>
 
         {/* Subtle connector stem linking rotate button to top edge */}
-        <div className="h-3 w-[1.5px] bg-indigo-500/80" />
+        <div className="h-5 w-[1.5px] bg-indigo-500/80" />
       </div>
 
       {/* ================================================= */}
@@ -113,10 +122,11 @@ export function SelectionBox({
         <div
           key={h.id}
           onPointerDown={onResizeStart(h.id)}
-          className={`pointer-events-auto absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center ${h.positionClass}`}
+          className={`pointer-events-auto absolute flex h-7 w-7 items-center justify-center ${h.positionClass}`}
           style={{
             cursor: h.cursor,
             touchAction: "none",
+            transform: `translate(-50%, -50%) scale(${scale})`,
           }}
           title={h.isSideHandle ? "Drag to resize edge" : "Drag to resize"}
         >

@@ -1,62 +1,129 @@
 import React, { useState } from "react";
-import { EmailBlock, BlockType } from "@/types/email";
+import { PaletteItem } from "@/types/email";
 
-// ─── Sidebar Category Types ───────────────────────────────────────────────────
+// ─── Palette Entries ──────────────────────────────────────────────────────────
 
-interface BlockEntry {
-  type: BlockType;
+interface PaletteEntry {
+  id: string;
+  item: PaletteItem;
   label: string;
   icon: string;
   description: string;
 }
 
-const BASIC_BLOCKS: BlockEntry[] = [
-  { type: "text",    label: "Text",        icon: "T",  description: "Paragraph text" },
-  { type: "heading", label: "Heading",     icon: "H",  description: "H1, H2, H3 heading" },
-  { type: "image",   label: "Image",       icon: "🖼", description: "Image with link" },
-  { type: "button",  label: "Button",      icon: "◉",  description: "CTA button" },
-  { type: "divider", label: "Divider",     icon: "—",  description: "Horizontal rule" },
-  { type: "spacer",  label: "Spacer",      icon: "↕",  description: "Vertical space" },
-  { type: "social",  label: "Social",      icon: "🔗", description: "Social icon links" },
-  { type: "logo",    label: "Logo",        icon: "⬡",  description: "Brand logo" },
-  { type: "html",    label: "HTML",        icon: "<>", description: "Custom HTML" },
+const block = (type: Extract<PaletteItem, { kind: "block" }>["type"], label: string, icon: string, description: string): PaletteEntry => ({
+  id: `block-${type}`, item: { kind: "block", type }, label, icon, description,
+});
+
+const layout = (id: string, widths: number[], label: string, description: string): PaletteEntry => ({
+  id: `layout-${id}`, item: { kind: "layout", widths }, label, icon: "", description,
+});
+
+const preset = (name: string, label: string, icon: string, description: string): PaletteEntry => ({
+  id: `preset-${name}`, item: { kind: "preset", preset: name }, label, icon, description,
+});
+
+const CONTENT: PaletteEntry[] = [
+  block("text", "Text", "T", "Paragraph text"),
+  block("heading", "Heading", "H", "H1, H2, H3 heading"),
+  block("image", "Image", "🖼", "Image with link"),
+  block("button", "Button", "◉", "CTA button"),
+  block("divider", "Divider", "—", "Horizontal rule"),
+  block("spacer", "Spacer", "↕", "Vertical space"),
+  block("social", "Social", "🔗", "Social profile links"),
+  block("video", "Video", "▶", "Linked video poster"),
+  block("logo", "Logo", "⬡", "Brand logo or wordmark"),
+  block("icons", "Icons", "★", "Icon list with labels"),
+  block("menu", "Menu", "≡", "Navigation links"),
+  block("html", "HTML", "<>", "Custom HTML"),
 ];
 
-const LAYOUT_BLOCKS: BlockEntry[] = [
-  { type: "columns2", label: "2 Columns",  icon: "⫿", description: "Two equal columns" },
-  { type: "columns3", label: "3 Columns",  icon: "⫿⫿", description: "Three equal columns" },
+const LAYOUTS: PaletteEntry[] = [
+  layout("1", [100], "1 Column", "Full-width row"),
+  layout("2", [50, 50], "2 Columns", "Two equal columns"),
+  layout("3", [33.33, 33.33, 33.34], "3 Columns", "Three equal columns"),
+  layout("4", [25, 25, 25, 25], "4 Columns", "Four equal columns"),
+  layout("1-2", [33.33, 66.67], "1/3 + 2/3", "Narrow left, wide right"),
+  layout("2-1", [66.67, 33.33], "2/3 + 1/3", "Wide left, narrow right"),
+  layout("1-3", [25, 75], "1/4 + 3/4", "Sidebar left"),
+  layout("3-1", [75, 25], "3/4 + 1/4", "Sidebar right"),
 ];
 
-const MARKETING_BLOCKS: BlockEntry[] = [
-  { type: "hero",         label: "Hero",         icon: "◈", description: "Full-width hero section" },
-  { type: "feature",      label: "Feature",      icon: "★", description: "Image + text feature" },
-  { type: "product",      label: "Product Card", icon: "🛍", description: "Product with buy button" },
-  { type: "cta",          label: "CTA",          icon: "🎯", description: "Call to action block" },
-  { type: "footer_block", label: "Footer",       icon: "⬚", description: "Email footer" },
+const BLOCKS: PaletteEntry[] = [
+  preset("header", "Header", "▔", "Logo with navigation links"),
+  block("hero", "Hero", "◈", "Full-width hero section"),
+  preset("imageText", "Image + Text", "◧", "Picture beside copy"),
+  block("feature", "Feature", "★", "Image + text feature"),
+  block("product", "Product Card", "🛍", "Product with buy button"),
+  preset("productRow", "Product Row", "▥", "Two products side by side"),
+  block("cta", "CTA", "🎯", "Call to action block"),
+  preset("footer", "Footer", "▁", "Social links and address"),
 ];
 
-// ─── Draggable Block Item ──────────────────────────────────────────────────────
+const GROUPS: { id: string; label: string; entries: PaletteEntry[] }[] = [
+  { id: "content", label: "Content", entries: CONTENT },
+  { id: "layout", label: "Layout", entries: LAYOUTS },
+  { id: "blocks", label: "Blocks", entries: BLOCKS },
+];
 
-interface BlockItemProps {
-  entry: BlockEntry;
-  onDragStart: (type: BlockType) => void;
+// ─── Draggable Items ──────────────────────────────────────────────────────────
+
+interface ItemProps {
+  entry: PaletteEntry;
+  onDragStart: (item: PaletteItem) => void;
+  onAdd: (item: PaletteItem) => void;
 }
 
-function BlockItem({ entry, onDragStart }: BlockItemProps) {
+function startDrag(e: React.DragEvent, entry: PaletteEntry, onDragStart: (item: PaletteItem) => void) {
+  e.dataTransfer.effectAllowed = "copy";
+  e.dataTransfer.setData("text/plain", "falcon-email");
+  onDragStart(entry.item);
+}
+
+/** Phones and tablets cannot drag from the palette, so there a single tap adds the item. */
+function tapAdds(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 1023px), (pointer: coarse)").matches;
+}
+
+function BlockItem({ entry, onDragStart, onAdd }: ItemProps) {
   return (
     <div
       draggable
-      onDragStart={() => onDragStart(entry.type)}
+      onDragStart={(e) => startDrag(e, entry, onDragStart)}
+      onClick={() => { if (tapAdds()) onAdd(entry.item); }}
+      onDoubleClick={() => { if (!tapAdds()) onAdd(entry.item); }}
       className="group flex cursor-grab items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 transition-all hover:border-[#00D084]/30 hover:bg-[#00D084]/[0.05] active:cursor-grabbing"
-      title={entry.description}
+      title={`${entry.description}. Drag onto the email, or double-click to add at the end.`}
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-white/[0.05] font-mono text-[11px] text-zinc-300 group-hover:bg-[#00D084]/20 group-hover:text-[#00D084]">
         {entry.icon}
       </span>
-      <div>
+      <div className="min-w-0">
         <div className="text-[12px] font-medium text-zinc-200 group-hover:text-white">{entry.label}</div>
-        <div className="text-[10px] text-zinc-500 group-hover:text-zinc-400">{entry.description}</div>
+        <div className="truncate text-[10px] text-zinc-500 group-hover:text-zinc-400">{entry.description}</div>
       </div>
+    </div>
+  );
+}
+
+/** Layout rows preview their column proportions instead of using an icon. */
+function LayoutItem({ entry, onDragStart, onAdd }: ItemProps) {
+  const widths = entry.item.kind === "layout" ? entry.item.widths : [100];
+  return (
+    <div
+      draggable
+      onDragStart={(e) => startDrag(e, entry, onDragStart)}
+      onClick={() => { if (tapAdds()) onAdd(entry.item); }}
+      onDoubleClick={() => { if (!tapAdds()) onAdd(entry.item); }}
+      className="group cursor-grab rounded-lg border border-white/[0.06] bg-white/[0.03] p-2 transition-all hover:border-[#00D084]/30 hover:bg-[#00D084]/[0.05] active:cursor-grabbing"
+      title={`${entry.description}. Drag onto the email, or double-click to add at the end.`}
+    >
+      <div className="mb-1.5 flex h-7 gap-1">
+        {widths.map((w, i) => (
+          <div key={i} className="rounded-sm border border-dashed border-zinc-600 bg-white/[0.04] group-hover:border-[#00D084]/60" style={{ flex: w }} />
+        ))}
+      </div>
+      <div className="text-center text-[10px] font-medium text-zinc-400 group-hover:text-white">{entry.label}</div>
     </div>
   );
 }
@@ -64,42 +131,27 @@ function BlockItem({ entry, onDragStart }: BlockItemProps) {
 // ─── Main BlockSidebar ────────────────────────────────────────────────────────
 
 interface BlockSidebarProps {
-  onBlockAdd: (block: EmailBlock, insertIndex?: number) => void;
-  onDragBlockType: (type: BlockType | null) => void;
+  /** Adds the item at the end of the email (double-click) */
+  onAdd: (item: PaletteItem) => void;
+  /** Reports the palette item being dragged, or null when the drag ends */
+  onDragItem: (item: PaletteItem | null) => void;
   onDesignByHtml?: () => void;
 }
 
-export default function BlockSidebar({
-  onBlockAdd,
-  onDragBlockType,
-  onDesignByHtml,
-}: BlockSidebarProps) {
+export default function BlockSidebar({ onAdd, onDragItem, onDesignByHtml }: BlockSidebarProps) {
   const [search, setSearch] = useState("");
 
-  const handleDragStart = (type: BlockType) => {
-    onDragBlockType(type);
-  };
-
-  const handleDragEnd = () => {
-    onDragBlockType(null);
-  };
-
-  const filterEntries = (entries: BlockEntry[]) =>
-    search
-      ? entries.filter(
-          (e) =>
-            e.label.toLowerCase().includes(search.toLowerCase()) ||
-            e.description.toLowerCase().includes(search.toLowerCase())
-        )
-      : entries;
-
-  const basicFiltered    = filterEntries(BASIC_BLOCKS);
-  const layoutFiltered   = filterEntries(LAYOUT_BLOCKS);
-  const marketingFiltered = filterEntries(MARKETING_BLOCKS);
+  const term = search.trim().toLowerCase();
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    entries: term
+      ? group.entries.filter((e) => e.label.toLowerCase().includes(term) || e.description.toLowerCase().includes(term))
+      : group.entries,
+  })).filter((group) => group.entries.length > 0);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden" onDragEnd={handleDragEnd}>
-      {/* ─── FEATURED RED CARD: DESIGN BY HTML (Section 2 & 24) ─── */}
+    <div className="flex h-full flex-col overflow-hidden" onDragEnd={() => onDragItem(null)}>
+      {/* ─── FEATURED RED CARD: DESIGN BY HTML ─── */}
       <div className="p-3 pb-2 shrink-0">
         <div
           onClick={onDesignByHtml}
@@ -141,67 +193,32 @@ export default function BlockSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
-        {/* Basic */}
-        {basicFiltered.length > 0 && (
-          <div className="mb-4">
+        {groups.map((group) => (
+          <div key={group.id} className="mb-4">
             <div className="mb-2 px-1 font-mono text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
-              Basic
+              {group.label}
             </div>
-            <div className="space-y-1.5">
-              {basicFiltered.map((entry) => (
-                <BlockItem
-                  key={entry.type}
-                  entry={entry}
-                  onDragStart={handleDragStart}
-                />
-              ))}
-            </div>
+            {group.id === "layout" ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {group.entries.map((entry) => (
+                  <LayoutItem key={entry.id} entry={entry} onDragStart={onDragItem} onAdd={onAdd} />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {group.entries.map((entry) => (
+                  <BlockItem key={entry.id} entry={entry} onDragStart={onDragItem} onAdd={onAdd} />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {groups.length === 0 && (
+          <div className="py-8 text-center text-[12px] text-zinc-600">
+            No blocks match "{search}"
           </div>
         )}
-
-        {/* Layout */}
-        {layoutFiltered.length > 0 && (
-          <div className="mb-4">
-            <div className="mb-2 px-1 font-mono text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
-              Layout
-            </div>
-            <div className="space-y-1.5">
-              {layoutFiltered.map((entry) => (
-                <BlockItem
-                  key={entry.type}
-                  entry={entry}
-                  onDragStart={handleDragStart}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Marketing */}
-        {marketingFiltered.length > 0 && (
-          <div className="mb-4">
-            <div className="mb-2 px-1 font-mono text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
-              Marketing
-            </div>
-            <div className="space-y-1.5">
-              {marketingFiltered.map((entry) => (
-                <BlockItem
-                  key={entry.type}
-                  entry={entry}
-                  onDragStart={handleDragStart}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {basicFiltered.length === 0 &&
-          layoutFiltered.length === 0 &&
-          marketingFiltered.length === 0 && (
-            <div className="py-8 text-center text-[12px] text-zinc-600">
-              No blocks match "{search}"
-            </div>
-          )}
       </div>
     </div>
   );

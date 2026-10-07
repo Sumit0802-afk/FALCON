@@ -111,7 +111,7 @@ export function Toolbar({
 
   return (
     <aside
-      className={`flex w-[76px] shrink-0 flex-col items-center justify-between border-r select-none z-30 transition-colors duration-200 ${
+      className={`falcon-tool-rail flex w-[76px] shrink-0 flex-col items-center justify-between border-r select-none z-30 transition-colors duration-200 ${
         isDark
           ? "border-white/[0.06] bg-[#090b0e] text-white"
           : "border-slate-200 bg-slate-50 text-slate-900"

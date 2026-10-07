@@ -1,9 +1,11 @@
 import { Html, Head, Main, NextScript } from "next/document";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

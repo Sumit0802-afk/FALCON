@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { EmailBlock, EmailSettings } from "@/types/email";
+import { LegacyEmailBlock as EmailBlock, EmailSettings } from "@/types/email";
 import { parseHtmlToEmailBlocks } from "@/utils/htmlToBlocks";
+import { importHtmlExact, shouldImportExact } from "@/utils/htmlImportExact";
+import { EmailSection } from "@/lib/emailCore/schema";
 import HtmlCodeEditor from "./HtmlCodeEditor";
 
 interface HtmlCodePanelProps {
   initialHtml: string;
   onApplyHtmlToCanvas: (blocks: EmailBlock[], settings?: Partial<EmailSettings>) => void;
+  /** Applies HTML that is kept exactly as written */
+  onApplyExact: (sections: EmailSection[], settings?: Partial<EmailSettings>) => void;
   onExportHtml: () => void;
   onSwitchToVisual: () => void;
 }
@@ -13,6 +17,7 @@ interface HtmlCodePanelProps {
 export default function HtmlCodePanel({
   initialHtml,
   onApplyHtmlToCanvas,
+  onApplyExact,
   onExportHtml,
   onSwitchToVisual,
 }: HtmlCodePanelProps) {
@@ -24,15 +29,32 @@ export default function HtmlCodePanel({
     setCode(initialHtml);
   }, [initialHtml]);
 
-  const handleApply = () => {
+  /** Puts the edited code on the canvas. Returns false when nothing usable was found. */
+  const applyCode = async (): Promise<boolean> => {
+    if (shouldImportExact(code)) {
+      const { sections, settings } = await importHtmlExact(code);
+      onApplyExact(sections, settings);
+      return true;
+    }
+    const { blocks, settings } = parseHtmlToEmailBlocks(code);
+    if (!blocks || blocks.length === 0) return false;
+    onApplyHtmlToCanvas(blocks, settings);
+    return true;
+  };
+
+  const handleApply = async () => {
+    // Unedited code already matches the canvas; re-importing it would only lose detail
+    if (code === initialHtml) {
+      setApplied(true);
+      setTimeout(() => setApplied(false), 2500);
+      return;
+    }
     try {
       setError(null);
-      const { blocks, settings } = parseHtmlToEmailBlocks(code);
-      if (!blocks || blocks.length === 0) {
+      if (!(await applyCode())) {
         setError("Could not parse valid visual blocks from HTML.");
         return;
       }
-      onApplyHtmlToCanvas(blocks, settings);
       setApplied(true);
       setTimeout(() => setApplied(false), 2500);
     } catch (err: any) {
@@ -40,13 +62,14 @@ export default function HtmlCodePanel({
     }
   };
 
-  const handleApplyAndSwitch = () => {
+  const handleApplyAndSwitch = async () => {
+    if (code === initialHtml) {
+      onSwitchToVisual();
+      return;
+    }
     try {
       setError(null);
-      const { blocks, settings } = parseHtmlToEmailBlocks(code);
-      if (blocks && blocks.length > 0) {
-        onApplyHtmlToCanvas(blocks, settings);
-      }
+      await applyCode();
       onSwitchToVisual();
     } catch (err: any) {
       setError(err?.message || "Failed to parse HTML code.");

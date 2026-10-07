@@ -1,3 +1,5 @@
+import { generateTextStyles } from "./textStyleGenerator";
+
 export interface TextDesignStyle {
   id: string;
   name: string;
@@ -55,7 +57,8 @@ export interface TextDesignStyle {
   };
 }
 
-export const TEXT_DESIGN_STYLES: TextDesignStyle[] = [
+/** Styles designed one by one. They come first in the panel. */
+const HAND_MADE_STYLES: TextDesignStyle[] = [
   /* =========================================================================
      1. EXACT REFERENCE DEMO MATCHES (from provided screenshots)
      ========================================================================= */
@@ -2172,3 +2175,8 @@ export const TEXT_DESIGN_STYLES: TextDesignStyle[] = [
     textShadow: "-2px 0 #00ffff, 2px 0 #ff007f",
   },
 ];
+
+/** How many generated styles follow the hand-made ones */
+const GENERATED_STYLES = 1950;
+
+export const TEXT_DESIGN_STYLES: TextDesignStyle[] = [...HAND_MADE_STYLES, ...generateTextStyles(GENERATED_STYLES)];

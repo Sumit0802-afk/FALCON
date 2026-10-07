@@ -40,7 +40,7 @@ export const projectController = {
   }),
 
   addPage: asyncHandler(async (req: Request, res: Response) => {
-    const page = await projectService.addPage(req.params.projectId, userId(req));
+    const page = await projectService.addPage(req.params.projectId, userId(req), req.body || {});
     res.status(201).json({ page });
   }),
 

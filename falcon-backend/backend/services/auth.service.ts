@@ -5,217 +5,115 @@ import { AppError } from "../utils/AppError";
 import {
   AuthResult,
   LoginInput,
-  LoginMfaChallenge,
+  OtpChallenge,
   RegisterInput,
+  RegisterResult,
   ResetPasswordInput,
   toPublicUser,
   VerifyOtpInput,
 } from "../models/user.model";
 import { tokenService } from "./token.service";
 import { emailService } from "./email.service";
+import { otpService, OTP_EXPIRY_SECONDS, OTP_RESEND_COOLDOWN_SECONDS } from "./otp.service";
 
 const SALT_ROUNDS = 12;
 const DUMMY_HASH = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
-const OTP_EXPIRY_MINUTES = 5;
-const RESEND_COOLDOWN_SECONDS = 60;
-const MAX_OTP_ATTEMPTS = 5;
 
 function hashSecret(secret: string): string {
   return crypto.createHash("sha256").update(secret).digest("hex");
 }
 
-function safeCompareHashes(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+/** Same error for an unknown email and a wrong password, so accounts can't be enumerated */
+function invalidCredentialsError() {
+  return new AppError("Invalid email or password", 401, "INVALID_CREDENTIALS");
 }
 
-function maskEmail(email: string): string {
-  const parts = email.split("@");
-  if (parts.length !== 2) return email;
-  const [local, domain] = parts;
-  const maskedLocal =
-    local.length <= 2 ? `${local[0]}*` : `${local[0]}${"*".repeat(Math.max(1, local.length - 2))}${local.slice(-1)}`;
-  return `${maskedLocal}@${domain}`;
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
+/** Issues a login code for the user and emails it. The code never leaves this function except by email. */
+async function dispatchLoginOtp(user: { id: string; email: string; name: string }): Promise<OtpChallenge> {
+  const issued = await otpService.issue(user.id);
+
+  try {
+    await emailService.sendOtpEmail({
+      to: user.email,
+      name: user.name,
+      otp: issued.otp,
+      expiresInMinutes: OTP_EXPIRY_SECONDS / 60,
+    });
+  } catch {
+    // email.service has already logged the (redacted) cause
+    await otpService.discard(issued.id).catch(() => undefined);
+    throw new AppError(
+      "We couldn't send your verification code. Please try again in a moment.",
+      502,
+      "EMAIL_DELIVERY_FAILED"
+    );
+  }
+
+  return {
+    success: true,
+    message: "OTP sent successfully",
+    expiresInSeconds: OTP_EXPIRY_SECONDS,
+    resendInSeconds: OTP_RESEND_COOLDOWN_SECONDS,
+  };
 }
 
 export const authService = {
-  /** Register a new user with secure password hash */
-  async register(input: RegisterInput): Promise<LoginMfaChallenge> {
-    const existing = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
+  /** Register a new user with secure password hash. The user then signs in with an emailed code. */
+  async register(input: RegisterInput): Promise<RegisterResult> {
+    const email = normalizeEmail(input.email);
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw AppError.conflict("An account with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name: input.name.trim(),
-        email: input.email.toLowerCase().trim(),
+        email,
         passwordHash,
       },
     });
 
-    // Directly trigger OTP verification for new registration
-    return this.initiateMfa(user.id, user.email, user.name);
+    return { success: true, message: "Account created. Sign in to continue." };
   },
 
-  /** Initiate MFA flow: creates cryptographically secure OTP and emails it */
-  async initiateMfa(userId: string, email: string, name?: string): Promise<LoginMfaChallenge> {
-    console.log(`[auth.service] OTP generation started for userId=${userId}`);
-
-    // Invalidate existing unused login OTPs for this user
-    await prisma.otpVerification.updateMany({
-      where: {
-        userId,
-        purpose: "LOGIN_MFA",
-        used: false,
-      },
-      data: { used: true },
-    });
-
-    // Generate cryptographically secure 6-digit OTP
-    const rawOtp = crypto.randomInt(100000, 1000000).toString();
-    const otpHash = hashSecret(rawOtp);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-    await prisma.otpVerification.create({
-      data: {
-        userId,
-        otpHash,
-        purpose: "LOGIN_MFA",
-        expiresAt,
-        attempts: 0,
-        maxAttempts: MAX_OTP_ATTEMPTS,
-        used: false,
-        lastResentAt: new Date(),
-      },
-    });
-
-    console.log(`[auth.service] OTP persistence successful for userId=${userId}, expires=${expiresAt.toISOString()}`);
-
-    // Send the OTP via email to user's real address
-    console.log(`[auth.service] OTP email sending started for userId=${userId}`);
-    try {
-      await emailService.sendOtpEmail({
-        to: email,
-        name,
-        otp: rawOtp,
-        expiresInMinutes: OTP_EXPIRY_MINUTES,
-      });
-      console.log(`[auth.service] OTP email sent successfully for userId=${userId}`);
-    } catch (err: any) {
-      console.error(`[auth.service] OTP email delivery failed for userId=${userId}:`, err.message);
-      if (process.env.NODE_ENV === "production") {
-        throw AppError.internalError(
-          `Unable to deliver verification code to ${maskEmail(email)}: ${err.message}`
-        );
-      }
-      console.warn(`[auth.service] Dev mode: continuing to verification view despite email error.`);
-    }
-
-    const mfaToken = tokenService.signMfa(userId, email);
-
-    return {
-      mfaRequired: true,
-      mfaToken,
-      email: maskEmail(email),
-      expiresInSeconds: OTP_EXPIRY_MINUTES * 60,
-    };
-  },
-
-  /** Phase 1 Login: verify password, then generate & email short-lived OTP */
-  async login(input: LoginInput): Promise<LoginMfaChallenge> {
+  /** Login, step 1: verify email & password, then email a one-time code. Also used to resend. */
+  async login(input: LoginInput): Promise<OtpChallenge> {
     const user = await prisma.user.findUnique({
-      where: { email: input.email.toLowerCase().trim() },
+      where: { email: normalizeEmail(input.email) },
     });
 
     // Constant-time mitigation against user enumeration
     if (!user) {
       await bcrypt.compare(input.password, DUMMY_HASH);
-      throw AppError.unauthorized("Invalid email or password");
+      throw invalidCredentialsError();
     }
 
     const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
     if (!passwordMatches) {
-      throw AppError.unauthorized("Invalid email or password");
+      throw invalidCredentialsError();
     }
 
-    return this.initiateMfa(user.id, user.email, user.name);
+    return dispatchLoginOtp(user);
   },
 
-  /** Phase 2 OTP Verification: verify 6-digit OTP, issue session */
+  /** Login, step 2: verify the 6-digit code and issue a session */
   async verifyOtp(
     input: VerifyOtpInput,
     meta?: { ipAddress?: string; userAgent?: string }
   ): Promise<AuthResult> {
-    const { userId, email } = tokenService.verifyMfa(input.mfaToken);
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.email !== email) {
-      throw AppError.unauthorized("Invalid or expired verification session.");
+    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(input.email) } });
+    if (!user) {
+      throw new AppError("Incorrect verification code. Please try again.", 401, "OTP_INVALID");
     }
 
-    // Find the latest active OTP record
-    const otpRecord = await prisma.otpVerification.findFirst({
-      where: {
-        userId,
-        purpose: "LOGIN_MFA",
-        used: false,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!otpRecord) {
-      throw AppError.unauthorized("Invalid or expired verification code.");
-    }
-
-    const now = new Date();
-
-    // Check expiry
-    if (otpRecord.expiresAt < now) {
-      await prisma.otpVerification.update({
-        where: { id: otpRecord.id },
-        data: { used: true },
-      });
-      throw AppError.unauthorized("Invalid or expired verification code.");
-    }
-
-    // Check max attempts
-    if (otpRecord.attempts >= otpRecord.maxAttempts) {
-      await prisma.otpVerification.update({
-        where: { id: otpRecord.id },
-        data: { used: true },
-      });
-      throw AppError.unauthorized("Too many failed attempts. Please sign in again to request a new code.");
-    }
-
-    const submittedHash = hashSecret(input.otp.trim());
-    const isMatch = safeCompareHashes(submittedHash, otpRecord.otpHash);
-
-    if (!isMatch) {
-      const nextAttempts = otpRecord.attempts + 1;
-      const isExhausted = nextAttempts >= otpRecord.maxAttempts;
-
-      await prisma.otpVerification.update({
-        where: { id: otpRecord.id },
-        data: {
-          attempts: nextAttempts,
-          used: isExhausted,
-        },
-      });
-
-      if (isExhausted) {
-        throw AppError.unauthorized("Too many failed attempts. Verification code has been invalidated.");
-      }
-
-      throw AppError.unauthorized("Invalid or expired verification code.");
-    }
-
-    // MATCH: Invalidate OTP immediately to prevent reuse
-    await prisma.otpVerification.update({
-      where: { id: otpRecord.id },
-      data: { used: true },
-    });
+    // Throws unless the code is correct; a correct code is consumed here
+    await otpService.verify(user.id, input.otp.trim());
 
     // Update user status
     const updatedUser = await prisma.user.update({
@@ -227,9 +125,11 @@ export const authService = {
     });
 
     // Create session in database
+    // sessionId keeps tokens unique even when two sign-ins land in the same second
     const sessionToken = tokenService.sign({
       userId: updatedUser.id,
       role: updatedUser.role,
+      sessionId: crypto.randomUUID(),
     });
     const sessionTokenHash = hashSecret(sessionToken);
 
@@ -246,83 +146,6 @@ export const authService = {
     return {
       user: toPublicUser(updatedUser),
       token: sessionToken,
-    };
-  },
-
-  /** Resend OTP with rate-limiting cooldown */
-  async resendOtp(mfaToken: string): Promise<{ message: string; cooldownSeconds: number }> {
-    const { userId, email } = tokenService.verifyMfa(mfaToken);
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw AppError.unauthorized("Invalid or expired verification session.");
-    }
-
-    const latestOtp = await prisma.otpVerification.findFirst({
-      where: {
-        userId,
-        purpose: "LOGIN_MFA",
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (latestOtp) {
-      const elapsed = Date.now() - latestOtp.lastResentAt.getTime();
-      const cooldownMs = RESEND_COOLDOWN_SECONDS * 1000;
-      if (elapsed < cooldownMs) {
-        const remaining = Math.ceil((cooldownMs - elapsed) / 1000);
-        throw new AppError(`Please wait ${remaining} second(s) before requesting a new code.`, 429);
-      }
-    }
-
-    // Invalidate previous OTPs
-    await prisma.otpVerification.updateMany({
-      where: {
-        userId,
-        purpose: "LOGIN_MFA",
-        used: false,
-      },
-      data: { used: true },
-    });
-
-    // Generate fresh OTP
-    const rawOtp = crypto.randomInt(100000, 1000000).toString();
-    const otpHash = hashSecret(rawOtp);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-    await prisma.otpVerification.create({
-      data: {
-        userId,
-        otpHash,
-        purpose: "LOGIN_MFA",
-        expiresAt,
-        attempts: 0,
-        maxAttempts: MAX_OTP_ATTEMPTS,
-        used: false,
-        lastResentAt: new Date(),
-      },
-    });
-
-    try {
-      await emailService.sendOtpEmail({
-        to: email,
-        name: user.name,
-        otp: rawOtp,
-        expiresInMinutes: OTP_EXPIRY_MINUTES,
-      });
-    } catch (err: any) {
-      console.error(`[auth.service] OTP resend email failed for userId=${userId}:`, err.message);
-      if (process.env.NODE_ENV === "production") {
-        throw AppError.internalError(
-          `Unable to deliver new verification code to ${maskEmail(email)}: ${err.message}`
-        );
-      }
-      console.warn(`[auth.service] Dev mode: continuing despite email resend error.`);
-    }
-
-    return {
-      message: "A new 6-digit verification code has been dispatched to your email.",
-      cooldownSeconds: RESEND_COOLDOWN_SECONDS,
     };
   },
 
@@ -433,6 +256,73 @@ export const authService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw AppError.notFound("User not found");
     return toPublicUser(user);
+  },
+
+  /** Update the signed-in user's own profile */
+  async updateProfile(userId: string, input: { name: string }) {
+    const name = input.name.trim();
+    if (!name) throw AppError.badRequest("Name is required");
+    const user = await prisma.user.update({ where: { id: userId }, data: { name } });
+    return toPublicUser(user);
+  },
+
+  /**
+   * Change password for a signed-in user who knows the current one.
+   * Every other session is revoked; the session making the request stays.
+   */
+  async changePassword(
+    userId: string,
+    input: { currentPassword: string; newPassword: string },
+    currentToken?: string
+  ): Promise<{ message: string }> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw AppError.unauthorized("Authentication required");
+
+    const matches = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!matches) {
+      throw new AppError("Your current password is incorrect.", 400, "WRONG_PASSWORD");
+    }
+    if (input.currentPassword === input.newPassword) {
+      throw AppError.badRequest("Choose a new password that is different from your current one.");
+    }
+
+    const passwordHash = await bcrypt.hash(input.newPassword, SALT_ROUNDS);
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    await this.revokeOtherSessions(userId, currentToken);
+
+    return { message: "Your password has been changed." };
+  },
+
+  /** Active sessions for the account, newest first. Token hashes never leave the server. */
+  async listSessions(userId: string, currentToken?: string) {
+    const currentHash = currentToken ? hashSecret(currentToken) : null;
+    const sessions = await prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    return sessions.map((session) => ({
+      id: session.id,
+      current: session.sessionTokenHash === currentHash,
+      userAgent: session.userAgent ? session.userAgent.slice(0, 300) : null,
+      ipAddress: session.ipAddress,
+      createdAt: session.createdAt.toISOString(),
+      expiresAt: session.expiresAt.toISOString(),
+    }));
+  },
+
+  /** Sign out everywhere except the session making the request */
+  async revokeOtherSessions(userId: string, currentToken?: string): Promise<{ revoked: number }> {
+    const currentHash = currentToken ? hashSecret(currentToken) : null;
+    const result = await prisma.session.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(currentHash ? { sessionTokenHash: { not: currentHash } } : {}),
+      },
+      data: { revokedAt: new Date() },
+    });
+    return { revoked: result.count };
   },
 
   /** Validate active session in database */

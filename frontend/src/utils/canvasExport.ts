@@ -8,6 +8,7 @@ import {
   isFrame,
 } from "@/types";
 import { getFrameById } from "@/data/frameDefinitions";
+import { blendMaskOf, blendSoftnessOf, hasBlend } from "@/utils/blend";
 
 /**
  * Rasterizes a design page to a PNG data URL by drawing every element
@@ -48,22 +49,11 @@ export async function renderPageToDataUrl(
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   } else if (page.background && page.background.includes("gradient")) {
-    try {
-      const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;background:${page.background.replace(/"/g, "'")};"></div></foreignObject></svg>`;
-      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-      const blobUrl = URL.createObjectURL(svgBlob);
-      const bgImg = new Image();
-      await new Promise<void>((resolve) => {
-        bgImg.onload = () => resolve();
-        bgImg.onerror = () => resolve();
-        bgImg.src = blobUrl;
-      });
-      ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    // Drawn with the canvas's own gradients. Rendering the CSS through an SVG
+    // image would work visually but marks the canvas as unsafe to export.
+    const gradient = cssGradient(ctx, page.background, canvas.width, canvas.height);
+    ctx.fillStyle = gradient ?? firstCssColor(page.background);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   } else {
     try {
       ctx.fillStyle = page.background || "#ffffff";
@@ -96,6 +86,100 @@ export async function renderPageToDataUrl(
   );
 }
 
+/** Splits on commas that are not inside brackets, so "rgba(0, 0, 0, 1)" stays whole */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of text) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+function firstCssColor(background: string): string {
+  return /#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)/.exec(background)?.[0] || "#ffffff";
+}
+
+/**
+ * Builds a canvas gradient from a CSS linear-gradient() or radial-gradient().
+ * Returns null for anything it does not understand, and the caller falls back
+ * to a flat colour.
+ */
+function cssGradient(
+  ctx: CanvasRenderingContext2D,
+  css: string,
+  width: number,
+  height: number
+): CanvasGradient | null {
+  const match = /(linear|radial)-gradient\((.*)\)\s*$/s.exec(css.trim());
+  if (!match) return null;
+  const parts = splitTopLevel(match[2]);
+  if (parts.length < 2) return null;
+
+  let gradient: CanvasGradient;
+  let stops = parts;
+
+  if (match[1] === "linear") {
+    let angle = 180;
+    const first = parts[0];
+    const degrees = /^(-?[\d.]+)deg$/.exec(first);
+    const sides: Record<string, number> = {
+      "to top": 0, "to right": 90, "to bottom": 180, "to left": 270,
+      "to top right": 45, "to bottom right": 135, "to bottom left": 225, "to top left": 315,
+    };
+    if (degrees) {
+      angle = parseFloat(degrees[1]);
+      stops = parts.slice(1);
+    } else if (first in sides) {
+      angle = sides[first];
+      stops = parts.slice(1);
+    }
+    // CSS angles turn clockwise from "up"; the line is long enough to reach both far corners
+    const rad = (angle * Math.PI) / 180;
+    const dx = Math.sin(rad);
+    const dy = -Math.cos(rad);
+    const half = (Math.abs(width * dx) + Math.abs(height * dy)) / 2;
+    gradient = ctx.createLinearGradient(
+      width / 2 - dx * half, height / 2 - dy * half,
+      width / 2 + dx * half, height / 2 + dy * half
+    );
+  } else {
+    let cx = width / 2;
+    let cy = height / 2;
+    const at = /at\s+([\d.]+)%\s+([\d.]+)%/.exec(parts[0]);
+    if (at) {
+      cx = (parseFloat(at[1]) / 100) * width;
+      cy = (parseFloat(at[2]) / 100) * height;
+    }
+    if (at || /circle|ellipse|closest|farthest/.test(parts[0])) stops = parts.slice(1);
+    // The default size reaches the farthest corner
+    const radius = Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy));
+    gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  }
+
+  if (stops.length < 2) return null;
+  try {
+    stops.forEach((stop, index) => {
+      const position = /\s([\d.]+)%\s*$/.exec(stop);
+      const color = position ? stop.slice(0, position.index).trim() : stop.trim();
+      const offset = position ? parseFloat(position[1]) / 100 : index / (stops.length - 1);
+      gradient.addColorStop(Math.min(1, Math.max(0, offset)), color);
+    });
+  } catch {
+    return null;
+  }
+  return gradient;
+}
+
 /**
  * Draw one element onto the canvas.
  */
@@ -103,6 +187,50 @@ async function drawElement(
   ctx: CanvasRenderingContext2D,
   el: CanvasElement
 ): Promise<void> {
+  // A fading or blended element is drawn on its own sheet first, faded there,
+  // and then laid over the page with its blend mode
+  if (hasBlend(el)) {
+    const sheet = document.createElement("canvas");
+    sheet.width = ctx.canvas.width;
+    sheet.height = ctx.canvas.height;
+    const sctx = sheet.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(ctx.getTransform());
+      await drawElement(sctx, { ...el, blendMask: "none", blendMode: "normal", opacity: 1 } as CanvasElement);
+      const mask = blendMaskOf(el);
+      if (mask !== "none") {
+        const cx = el.x + el.width / 2;
+        const cy = el.y + el.height / 2;
+        const solid = 1 - blendSoftnessOf(el) / 100;
+        sctx.save();
+        sctx.translate(cx, cy);
+        sctx.rotate((el.rotation * Math.PI) / 180);
+        // Stretching a unit square over the element lets one gradient serve any proportions
+        sctx.scale(el.width / 2, el.height / 2);
+        const ends: Record<string, [number, number, number, number]> = {
+          "linear-bottom": [0, -1, 0, 1], "linear-top": [0, 1, 0, -1], "linear-left": [1, 0, -1, 0], "linear-right": [-1, 0, 1, 0],
+        };
+        const fade = mask === "circular"
+          ? sctx.createRadialGradient(0, 0, 0, 0, 0, 1)
+          : sctx.createLinearGradient(...ends[mask]);
+        fade.addColorStop(0, "rgba(0,0,0,1)");
+        fade.addColorStop(Math.min(0.999, solid), "rgba(0,0,0,1)");
+        fade.addColorStop(1, "rgba(0,0,0,0)");
+        sctx.globalCompositeOperation = "destination-in";
+        sctx.fillStyle = fade;
+        sctx.fillRect(-1, -1, 2, 2);
+        sctx.restore();
+      }
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = el.opacity;
+      if (el.blendMode && el.blendMode !== "normal") ctx.globalCompositeOperation = el.blendMode as GlobalCompositeOperation;
+      ctx.drawImage(sheet, 0, 0);
+      ctx.restore();
+      return;
+    }
+  }
+
   ctx.save();
 
   ctx.globalAlpha = el.opacity;
@@ -223,6 +351,10 @@ async function drawElement(
 
     ctx.font = `${el.italic ? "italic " : ""}${el.fontWeight} ${el.fontSize}px "${el.fontFamily}", sans-serif`;
 
+    // Tracked-out labels need their spacing or they come out narrower than designed
+    const spacing = typeof el.letterSpacing === "number" ? el.letterSpacing : parseFloat(String(el.letterSpacing || 0)) || 0;
+    (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${spacing}px`;
+
     ctx.textAlign =
       el.align;
 
@@ -236,21 +368,71 @@ async function drawElement(
         ? el.x + el.width
         : el.x;
 
-    const lines =
-      el.text.split("\n");
+    const cased = (text: string) =>
+      el.textTransform === "uppercase" ? text.toUpperCase()
+        : el.textTransform === "lowercase" ? text.toLowerCase()
+        : el.textTransform === "capitalize" ? text.replace(/\b\p{L}/gu, (ch) => ch.toUpperCase())
+        : text;
+    const lines = el.text.split("\n").map(cased);
+    const lineHeight = el.fontSize * el.lineHeight;
+    const blockWidth = Math.max(1, ...lines.map((line) => ctx.measureText(line).width));
+    const blockHeight = lines.length * lineHeight;
+    const blockLeft = el.align === "center" ? anchorX - blockWidth / 2 : el.align === "right" ? anchorX - blockWidth : anchorX;
+    const eachLine = (draw: (line: string, x: number, y: number) => void, dx = 0, dy = 0) =>
+      lines.forEach((line, i) => draw(line, anchorX + dx, el.y + i * lineHeight + dy));
 
-    lines.forEach(
-      (line, i) => {
-        ctx.fillText(
-          line,
-          anchorX,
-          el.y +
-            i *
-              el.fontSize *
-              el.lineHeight
-        );
+    // Badge: a filled or outlined box behind the text
+    if (el.badgeBg || el.badgeBorder) {
+      const pad = String(el.badgePadding ?? "0").split(/\s+/).map((v) => parseFloat(v) || 0);
+      const padY = pad[0] ?? 0;
+      const padX = pad[1] ?? padY;
+      const radius = Math.min(parseFloat(String(el.badgeRadius ?? 0)) || 0, (blockHeight + padY * 2) / 2);
+      ctx.beginPath();
+      ctx.roundRect(blockLeft - padX, el.y - padY, blockWidth + padX * 2, blockHeight + padY * 2, radius);
+      if (el.badgeBg) {
+        ctx.fillStyle = el.badgeBg;
+        ctx.fill();
       }
-    );
+      const border = /^([\d.]+)px\s+\w+\s+(.+)$/.exec(String(el.badgeBorder || "").trim());
+      if (border) {
+        ctx.lineWidth = parseFloat(border[1]);
+        ctx.strokeStyle = border[2];
+        ctx.stroke();
+      }
+    }
+
+    // Shadows: the first one listed sits on top, so they are drawn last to first
+    const shadows = el.textShadow ? splitTopLevel(el.textShadow) : [];
+    for (const shadow of [...shadows].reverse()) {
+      const lengths = shadow.match(/-?[\d.]+px|(?<![\w#.(,])-?0(?![\w.])/g) || [];
+      const color = shadow.replace(/-?[\d.]+px/g, "").replace(/(^|\s)-?0(?=\s|$)/g, " ").trim() || el.color;
+      const [ox = 0, oy = 0, blur = 0] = lengths.map((v) => parseFloat(v));
+      ctx.fillStyle = color;
+      // A blurred shadow is the text itself, blurred; browsers without canvas filters draw it sharp
+      ctx.filter = blur > 0 ? `blur(${blur / 2}px)` : "none";
+      eachLine((line, x, y) => ctx.fillText(line, x, y), ox, oy);
+    }
+    ctx.filter = "none";
+
+    if (el.stroke && el.strokeWidth && el.strokeWidth > 0) {
+      ctx.strokeStyle = el.stroke;
+      ctx.lineWidth = el.strokeWidth;
+      ctx.lineJoin = "round";
+      eachLine((line, x, y) => ctx.strokeText(line, x, y));
+    }
+
+    const gradient = el.backgroundGradient ? cssGradient(ctx, el.backgroundGradient, blockWidth, blockHeight) : null;
+    if (gradient) {
+      // The gradient is built for a box at the origin, so the text is drawn from there
+      ctx.save();
+      ctx.translate(blockLeft, el.y);
+      ctx.fillStyle = gradient;
+      lines.forEach((line, i) => ctx.fillText(line, anchorX - blockLeft, i * lineHeight));
+      ctx.restore();
+    } else if (el.color && el.color !== "transparent") {
+      ctx.fillStyle = el.color;
+      eachLine((line, x, y) => ctx.fillText(line, x, y));
+    }
   }
 
   /* =====================================================

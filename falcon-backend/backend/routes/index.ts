@@ -5,6 +5,8 @@ import aiRoutes from "./ai.routes";
 import stickerRoutes from "./sticker.routes";
 import templateRoutes from "./template.routes";
 import adminTemplateRoutes from "./adminTemplate.routes";
+import emailTemplateRoutes, { emailAssetRoutes, userEmailTemplateRoutes } from "./emailTemplate.routes";
+import libraryRoutes from "./library.routes";
 
 const router = Router();
 
@@ -23,5 +25,9 @@ router.use("/ai", aiRoutes);
 router.use("/stickers", stickerRoutes);
 router.use("/templates", templateRoutes);
 router.use("/admin/templates", adminTemplateRoutes);
+router.use("/email-templates", emailTemplateRoutes);
+router.use("/user/email-templates", userEmailTemplateRoutes);
+router.use("/email-assets", emailAssetRoutes);
+router.use("/library", libraryRoutes);
 
 export default router;

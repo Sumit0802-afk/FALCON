@@ -21,13 +21,12 @@ export function createRateLimiter(options: {
         store.delete(key);
       }
     }
-  }, Math.min(options.windowMs, 5 * 60 * 1000));
+  }, Math.min(options.windowMs, 5 * 60 * 1000)).unref();
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    const ip =
-      (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() ||
-      req.socket.remoteAddress ||
-      "unknown_ip";
+  return (req: Request, _res: Response, next: NextFunction) => {
+    // req.ip honours the app's "trust proxy" setting, so a client cannot dodge
+    // the limit by sending its own X-Forwarded-For header
+    const ip = req.ip || req.socket.remoteAddress || "unknown_ip";
 
     const now = Date.now();
     const entry = store.get(ip);
@@ -40,34 +39,58 @@ export function createRateLimiter(options: {
     entry.count += 1;
 
     if (entry.count > options.max) {
-      const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
-      res.setHeader("Retry-After", String(retryAfterSec));
-      return next(new AppError(options.message, 429));
+      const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+      return next(new AppError(options.message, 429, "RATE_LIMITED", { retryAfterSeconds }));
     }
 
     next();
   };
 }
 
-/** Rate-limiter for Phase 1 password login (5 attempts per 15m) */
+/**
+ * Per-IP limit on password login and registration (5 per 15m). Every login
+ * emails an OTP, so this also caps code requests per IP; the per-email limit
+ * lives in otp.service.
+ */
 export const loginRateLimit = createRateLimiter({
   max: 5,
   windowMs: 15 * 60 * 1000,
   message: "Too many login attempts. Please wait 15 minutes before trying again.",
 });
 
-/** Rate-limiter for Phase 2 OTP verification (5 attempts per 10m) */
+/** Per-IP limit on OTP verification (10 per 10m). Each code also has its own attempt cap. */
 export const otpVerifyRateLimit = createRateLimiter({
-  max: 5,
+  max: 10,
   windowMs: 10 * 60 * 1000,
   message: "Too many verification attempts. Please wait a few minutes before trying again.",
 });
 
-/** Rate-limiter for OTP resend requests (3 requests per 10m) */
-export const otpResendRateLimit = createRateLimiter({
-  max: 3,
+/** Per-IP limit on test sends from the email designer (5 per 10m) */
+export const emailTestRateLimit = createRateLimiter({
+  max: 5,
   windowMs: 10 * 60 * 1000,
-  message: "Too many code requests. Please wait a few minutes before requesting another code.",
+  message: "Too many test emails. Please wait a few minutes before sending another.",
+});
+
+/** Per-IP limit on sending a finished design to recipients (10 per 10m) */
+export const emailSendRateLimit = createRateLimiter({
+  max: 10,
+  windowMs: 10 * 60 * 1000,
+  message: "Too many emails sent. Please wait a few minutes before sending another.",
+});
+
+/** Per-IP limit on password changes from the account page (5 per 15m) */
+export const accountChangeRateLimit = createRateLimiter({
+  max: 5,
+  windowMs: 15 * 60 * 1000,
+  message: "Too many attempts. Please wait 15 minutes before trying again.",
+});
+
+/** Per-IP limit on messages to support (5 per hour) */
+export const supportRateLimit = createRateLimiter({
+  max: 5,
+  windowMs: 60 * 60 * 1000,
+  message: "You've sent several messages. Please wait a while before sending another.",
 });
 
 /** Rate-limiter for password reset requests (3 requests per 15m) */

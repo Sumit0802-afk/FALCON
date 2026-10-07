@@ -66,9 +66,19 @@ All `/api/projects/*` routes require `Authorization: Bearer <token>`.
 | Method | Path                                    | Body                                  | Description                     |
 |--------|------------------------------------------|----------------------------------------|----------------------------------|
 | GET    | `/api/health`                            | —                                      | Liveness check                  |
-| POST   | `/api/auth/register`                     | `{ name, email, password }`            | Create account, returns token   |
-| POST   | `/api/auth/login`                        | `{ email, password }`                  | Returns `{ user, token }`       |
+| POST   | `/api/auth/register`                     | `{ name, email, password, confirmPassword }` | Create account           |
+| POST   | `/api/auth/login`                        | `{ email, password }`                  | Check password, email a 6-digit code |
+| POST   | `/api/auth/verify-otp`                   | `{ email, otp }`                       | Returns `{ user, token }` + session cookie |
 | GET    | `/api/auth/me`                           | —                                      | Current user from the token     |
+| GET    | `/api/email-templates`                   | query: `q, category, subcategory, tag, sort, premium, favorites, limit, cursor` | Browse the email template library (paged) |
+| GET    | `/api/email-templates/search?q=`         | —                                      | Full-text search                |
+| GET    | `/api/email-templates/categories`        | —                                      | Category tree and popular tags  |
+| GET    | `/api/email-templates/:id`               | —                                      | Template document + exported HTML |
+| POST   | `/api/email-templates/:id/use`           | —                                      | Clone into a design the caller owns |
+| POST/DELETE | `/api/email-templates/:id/favorite` | —                                      | Add / remove a favorite         |
+| GET/POST | `/api/user/email-templates`            | `{ name?, templateData? }`             | List / create the caller's designs |
+| GET/PUT/DELETE | `/api/user/email-templates/:id`  | `{ name?, templateData? }`             | Read / save / delete own design |
+| POST   | `/api/user/email-templates/send-test`    | `{ templateData, subject? }`           | Email the design to the caller  |
 | GET    | `/api/projects`                          | —                                      | List the caller's projects      |
 | POST   | `/api/projects`                          | `{ title, presetName? }`               | Create a project (1 default page)|
 | GET    | `/api/projects/:projectId`               | —                                      | Full project incl. all pages    |

@@ -11,6 +11,23 @@ export function getApiBaseUrl(): string {
 interface ApiErrorResponse {
   message?: string;
   error?: string;
+  code?: string;
+  retryAfterSeconds?: number;
+  attemptsRemaining?: number;
+}
+
+/** An error response from the Falcon API. `code` is the backend's stable error identifier. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly retryAfterSeconds?: number,
+    public readonly attemptsRemaining?: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 export async function apiFetch<T>(
@@ -66,10 +83,14 @@ export async function apiFetch<T>(
       }
 
       const errorData = data as ApiErrorResponse | null;
-      throw new Error(
+      throw new ApiError(
         errorData?.message ||
           errorData?.error ||
-          `API request failed: ${response.status} ${response.statusText}`
+          `API request failed: ${response.status} ${response.statusText}`,
+        response.status,
+        errorData?.code,
+        errorData?.retryAfterSeconds,
+        errorData?.attemptsRemaining
       );
     }
 

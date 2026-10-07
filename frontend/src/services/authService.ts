@@ -18,11 +18,12 @@ export interface AuthResult {
   message?: string;
 }
 
-export interface MfaChallenge {
-  mfaRequired: true;
-  mfaToken: string;
-  email: string;
+/** Result of requesting a sign-in code. The code itself only ever travels by email. */
+export interface OtpChallenge {
+  success: true;
+  message: string;
   expiresInSeconds: number;
+  resendInSeconds: number;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -83,44 +84,35 @@ export function isAuthenticated(): boolean {
 // Auth API functions
 // ────────────────────────────────────────────────────────────
 
-/** Phase 1: submit email + password → get MFA challenge */
-export async function login(email: string, password: string): Promise<MfaChallenge> {
-  return apiFetch<MfaChallenge>("/auth/login", {
+/** Step 1: submit email + password → backend emails a 6-digit code (also used to resend) */
+export async function login(email: string, password: string): Promise<OtpChallenge> {
+  return apiFetch<OtpChallenge>("/auth/login", {
     method: "POST",
     credentials: "include",
     body: JSON.stringify({ email, password }),
   });
 }
 
-/** Phase 2: submit 6-digit OTP → get authenticated session */
-export async function verifyOtp(mfaToken: string, otp: string): Promise<AuthResult> {
+/** Step 2: submit the 6-digit code → get authenticated session */
+export async function verifyOtp(email: string, otp: string): Promise<AuthResult> {
   const result = await apiFetch<AuthResult>("/auth/verify-otp", {
     method: "POST",
     credentials: "include",
-    body: JSON.stringify({ mfaToken, otp }),
+    body: JSON.stringify({ email, otp }),
   });
   // Store JWT for Bearer-header fallback (HttpOnly cookie is primary)
   if (result.token) saveToken(result.token);
   return result;
 }
 
-/** Resend OTP with server-enforced cooldown */
-export async function resendOtp(mfaToken: string): Promise<{ message: string; cooldownSeconds: number }> {
-  return apiFetch<{ message: string; cooldownSeconds: number }>("/auth/resend-otp", {
-    method: "POST",
-    credentials: "include",
-    body: JSON.stringify({ mfaToken }),
-  });
-}
-
-/** Register new account → triggers MFA challenge immediately */
+/** Register new account. The user then signs in with an emailed code. */
 export async function register(
   name: string,
   email: string,
   password: string,
   confirmPassword: string
-): Promise<MfaChallenge> {
-  return apiFetch<MfaChallenge>("/auth/register", {
+): Promise<{ success: true; message: string }> {
+  return apiFetch<{ success: true; message: string }>("/auth/register", {
     method: "POST",
     credentials: "include",
     body: JSON.stringify({ name, email, password, confirmPassword }),
@@ -173,4 +165,48 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     clearToken();
     return null;
   }
+}
+// ────────────────────────────────────────────────────────────
+// Account, sessions and support (all require a signed-in user)
+// ────────────────────────────────────────────────────────────
+
+export interface AccountSession {
+  id: string;
+  current: boolean;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export type SupportTopic = "general" | "account" | "billing" | "bug" | "feedback";
+
+export async function updateProfile(name: string): Promise<AuthUser> {
+  const res = await apiFetch<{ user: AuthUser }>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) });
+  return res.user;
+}
+
+/** Changes the password. Every other device is signed out; this one stays signed in. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  });
+}
+
+export async function listSessions(): Promise<AccountSession[]> {
+  const res = await apiFetch<{ sessions: AccountSession[] }>("/auth/sessions");
+  return res.sessions;
+}
+
+export async function logoutOtherSessions(): Promise<{ revoked: number }> {
+  return apiFetch<{ revoked: number }>("/auth/logout-others", { method: "POST" });
+}
+
+export async function contactSupport(input: { topic: SupportTopic; subject: string; message: string }): Promise<{ success: boolean; message: string }> {
+  return apiFetch("/auth/support", { method: "POST", body: JSON.stringify(input) });
 }

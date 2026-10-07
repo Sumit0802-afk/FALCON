@@ -33,11 +33,15 @@ import { projectService } from "@/services/projectService";
 import { generateId } from "@/utils/id";
 import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
 import FinalCtaSection from "@/components/FinalCtaSection";
+import QuickStart from "@/components/QuickStart";
+import SiteIntro from "@/components/SiteIntro";
 import { PageSize } from "@/types";
+import { UserMenu, useCurrentUser } from "@/components/UserMenu";
 
 export default function Home() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { signedIn, user, signOut } = useCurrentUser();
 
   /* =========================================================
      OPEN TEMPLATES
@@ -171,6 +175,9 @@ const openTemplateByName = (name: string) => {
 
   return (
     <>
+      {/* Opening animation; plays once per browser session */}
+      <SiteIntro />
+
       <Head>
         <title>
           Falcon — Intelligent Design System
@@ -636,12 +643,14 @@ const openTemplateByName = (name: string) => {
             className="
               falcon-navbar-inner
               mx-auto
-              grid
+              flex
               h-[53px]
               w-full
               max-w-[1400px]
-              grid-cols-[1fr_auto_1fr]
               items-center
+              justify-between
+              lg:grid
+              lg:grid-cols-[1fr_auto_1fr]
               px-4
               lg:px-5
             "
@@ -752,23 +761,25 @@ const openTemplateByName = (name: string) => {
                 lg:flex
               "
             >
-              {/* LOGIN */}
+              {/* LOGIN (signed-out only) */}
 
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="
-                  whitespace-nowrap
-                  px-3
-                  py-1.5
-                  text-[11px]
-                  text-zinc-500
-                  transition-colors
-                  hover:text-white
-                "
-              >
-                Log in
-              </button>
+              {!signedIn && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/login")}
+                  className="
+                    whitespace-nowrap
+                    px-3
+                    py-1.5
+                    text-[11px]
+                    text-zinc-500
+                    transition-colors
+                    hover:text-white
+                  "
+                >
+                  Log in
+                </button>
+              )}
 
               {/* WATCH DEMO */}
 
@@ -827,11 +838,21 @@ const openTemplateByName = (name: string) => {
                 Get started
                 <ArrowRight size={12} />
               </button>
+
+              {/* PROFILE (signed-in only) */}
+
+              {signedIn && <UserMenu user={user} onSignOut={signOut} />}
             </div>
 
             {/* =================================================
                 MOBILE MENU BUTTON
                 ================================================= */}
+
+            {signedIn && (
+              <div className="ml-auto lg:hidden">
+                <UserMenu user={user} onSignOut={signOut} />
+              </div>
+            )}
 
             <button
               type="button"
@@ -839,7 +860,7 @@ const openTemplateByName = (name: string) => {
                 setMenuOpen((v) => !v)
               }
               className="
-                ml-auto
+                ml-2
                 flex
                 h-10
                 w-10
@@ -929,23 +950,42 @@ const openTemplateByName = (name: string) => {
                   Resources
                 </a>
 
-                {/* LOGIN MOBILE */}
+                {/* LOGIN / PROFILE MOBILE */}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMenu();
-                    router.push("/login");
-                  }}
-                  className="
-                    text-left
-                    text-sm
-                    text-zinc-400
-                    hover:text-white
-                  "
-                >
-                  Log in
-                </button>
+                {signedIn ? (
+                  <div className="flex items-center justify-between gap-4 border-t border-white/[0.07] pt-5">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm text-white">{user?.name || "Your account"}</div>
+                      <div className="truncate text-xs text-zinc-500">{user?.email}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        signOut();
+                      }}
+                      className="shrink-0 text-sm text-zinc-400 hover:text-white"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      router.push("/login");
+                    }}
+                    className="
+                      text-left
+                      text-sm
+                      text-zinc-400
+                      hover:text-white
+                    "
+                  >
+                    Log in
+                  </button>
+                )}
 
                 {/* WATCH DEMO MOBILE */}
 
@@ -1086,9 +1126,9 @@ const openTemplateByName = (name: string) => {
             <span className="text-[10px] text-zinc-500">◇</span>
           </div>
 
-          <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col items-center justify-center px-6 py-20 text-center lg:px-12">
+          <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col items-center justify-center px-6 pb-16 pt-[92px] text-center lg:px-12">
             {/* Glowing badge matching Image 1 */}
-            <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/60 px-4 py-1.5 shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/60 px-4 py-1.5 shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
               <span className="font-mono text-[10px] font-medium tracking-[0.2em] text-cyan-200/90">
                 INTELLIGENT DESIGN SYSTEM
@@ -1096,7 +1136,7 @@ const openTemplateByName = (name: string) => {
             </div>
 
             {/* Headline matching Image 1 */}
-            <h1 className="max-w-[1150px] text-[clamp(4.2rem,8.5vw,8.5rem)] font-bold leading-[0.92] tracking-[-0.04em]">
+            <h1 className="max-w-[1150px] text-[clamp(4.2rem,min(8.5vw,13vh),8.5rem)] font-bold leading-[0.92] tracking-[-0.04em]">
               <span className="block text-white">Ideas become</span>
               <span className="block text-[#a8cdfc] drop-shadow-[0_0_40px_rgba(77,163,255,0.25)]">
                 intelligent
@@ -1105,13 +1145,13 @@ const openTemplateByName = (name: string) => {
             </h1>
 
             {/* Subtext matching Image 1 */}
-            <p className="mt-10 max-w-[660px] font-sans text-[17px] leading-[1.8] text-zinc-400 md:text-[18px]">
+            <p className="mt-7 max-w-[660px] font-sans text-[17px] leading-[1.8] text-zinc-400 md:text-[18px]">
               Falcon helps you turn an idea into a visual system — create it, improve it, remix it
               <span className="block">and carry it across an entire campaign.</span>
             </p>
 
             {/* CTAs */}
-            <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={createDesign}
@@ -1129,6 +1169,9 @@ const openTemplateByName = (name: string) => {
                 Watch demo
               </button>
             </div>
+
+            {/* Shortcuts: start a design at a set size or jump to a tool */}
+            <QuickStart onCreate={handleLayoutConfirm} onCustomSize={createDesign} />
 
 
 
@@ -1153,7 +1196,7 @@ const openTemplateByName = (name: string) => {
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-[13%] left-[7%] z-[5] hidden lg:block">
+          <div className="pointer-events-none absolute bottom-[13%] left-[7%] z-[5] hidden min-[1800px]:block">
             <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-700">
               VISUAL LANGUAGE
             </div>
@@ -1163,7 +1206,7 @@ const openTemplateByName = (name: string) => {
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-[13%] right-[7%] z-[5] hidden text-right lg:block">
+          <div className="pointer-events-none absolute bottom-[13%] right-[7%] z-[5] hidden text-right min-[1800px]:block">
             <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-700">
               SYSTEM STATUS
             </div>
@@ -1209,7 +1252,7 @@ const openTemplateByName = (name: string) => {
                 </button>
                 <button
                   type="button"
-                  onClick={openTemplatesPage}
+                  onClick={() => router.push("/email-templates")}
                   className="rounded-xl border border-white/[0.08] px-5 py-2.5 text-[13px] font-medium text-zinc-400 transition-all hover:border-white/20 hover:text-white"
                 >
                   Explore Templates
@@ -1277,7 +1320,7 @@ const openTemplateByName = (name: string) => {
 
                 {/* CENTER: EMAIL CANVAS - LAPTOP FRAME */}
                 <div className="flex items-center justify-center overflow-auto border-r border-white/[0.08] bg-[#12141A] p-6 sm:p-8">
-                  <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+                  <div data-theme-keep="" className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
                     <div style={{ backgroundColor: "#0B1220", padding: "14px 22px", display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2F81FF,#22D3EE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>F</div>
                       <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.12em" }}>FALCON</span>
@@ -1400,11 +1443,11 @@ const openTemplateByName = (name: string) => {
               <div className="mb-4 flex items-center gap-4">
                 <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Email Templates</span>
                 <div className="h-px flex-1 bg-white/[0.04]" />
-                <button type="button" onClick={() => router.push("/email-designer")} className="text-[11px] text-accent hover:text-white">Browse all →</button>
+                <button type="button" onClick={() => router.push("/email-templates")} className="text-[11px] text-accent hover:text-white">Browse all →</button>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {["Welcome","Newsletter","Product Launch","Event","Promotional","Announcement","SaaS Update"].map((t, i) => (
-                  <button key={t} type="button" onClick={() => router.push("/email-designer")} className="group shrink-0 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 transition-all hover:border-accent/30 hover:bg-accent/[0.05]">
+                  <button key={t} type="button" onClick={() => router.push("/email-templates")} className="group shrink-0 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 transition-all hover:border-accent/30 hover:bg-accent/[0.05]">
                     <div className="mb-1.5 h-1 w-full rounded-full opacity-60" style={{ backgroundColor: ["#2F81FF","#22D3EE","#FF6B6B","#FFD93D","#C77DFF","#FF8C42","#00D084"][i] }} />
                     <div className="text-[11px] text-zinc-500 group-hover:text-white">{t}</div>
                   </button>
@@ -2128,7 +2171,7 @@ const openTemplateByName = (name: string) => {
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {/* 1:1 SQUARE */}
                 <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#2F81FF]/40 hover:bg-[#2F81FF]/[0.02]">
-                  <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                  <div data-theme-keep="" className="relative aspect-square w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
                     <img
                       src="/campaign/campaign-post.jpg"
                       alt="1:1 Campaign Post"
@@ -2154,7 +2197,7 @@ const openTemplateByName = (name: string) => {
 
                 {/* 9:16 VERTICAL */}
                 <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#22D3EE]/40 hover:bg-[#22D3EE]/[0.02]">
-                  <div className="relative aspect-[9/14] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                  <div data-theme-keep="" className="relative aspect-[9/14] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
                     <img
                       src="/campaign/campaign-story.jpg"
                       alt="9:16 Campaign Story"
@@ -2183,7 +2226,7 @@ const openTemplateByName = (name: string) => {
 
                 {/* 16:9 WIDESCREEN */}
                 <div className="group rounded-xl border border-white/[0.08] bg-black/60 p-4 transition-all hover:border-[#2F81FF]/40 hover:bg-[#2F81FF]/[0.02]">
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
+                  <div data-theme-keep="" className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-white/[0.1] bg-black">
                     <img
                       src="/campaign/campaign-banner.jpg"
                       alt="16:9 Campaign Banner"
@@ -2843,6 +2886,7 @@ function TemplateCard({
     <button
       type="button"
       onClick={onClick}
+      data-theme-keep=""
       className="falcon-laser group relative flex min-h-[460px] cursor-pointer flex-col overflow-hidden border border-blue-400/[0.13] bg-[#07080c] text-left transition-all duration-500 hover:-translate-y-1.5 hover:border-blue-400/40 hover:shadow-[0_16px_40px_-12px_rgba(25,115,255,0.22)] focus:outline-none focus:ring-2 focus:ring-blue-400/30"
     >
       {/* REAL IMAGE BACKGROUND */}

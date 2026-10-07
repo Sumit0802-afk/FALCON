@@ -59,6 +59,13 @@ function toProjectDTO(
   };
 }
 
+function firstPageSummary(pages: Page[]) {
+  const first = [...pages].sort((a, b) => a.order - b.order)[0];
+  // A stored background can be a long gradient or image URL; a list only needs a plain colour
+  const background = first && first.background.length <= 64 ? first.background : null;
+  return { width: first?.width ?? null, height: first?.height ?? null, background };
+}
+
 function toSummaryDTO(
   project: ProjectWithPages
 ): ProjectSummaryDTO {
@@ -67,6 +74,7 @@ function toSummaryDTO(
     title: project.title,
     thumbnailUrl: project.thumbnailUrl,
     pageCount: project.pages.length,
+    ...firstPageSummary(project.pages),
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
   };
@@ -83,7 +91,7 @@ async function requireOwnedProject(
       },
 
       include: {
-        pages: true,
+        pages: { orderBy: { order: "asc" } },
       },
     });
 
@@ -98,6 +106,8 @@ async function requireOwnedProject(
 
   return project;
 }
+
+const MAX_PAGES_PER_PROJECT = 100;
 
 export const projectService = {
   async list(
@@ -335,9 +345,20 @@ export const projectService = {
     return toPageDTO(updated);
   },
 
+  /**
+   * Adds a page. By default it is blank, matches the size of the page it
+   * follows, and goes after `afterPageId` (or at the end). Passing elements
+   * and a background makes it a copy, which is how a page is duplicated.
+   */
   async addPage(
     projectId: string,
-    userId: string
+    userId: string,
+    input: {
+      afterPageId?: string;
+      name?: string;
+      background?: string;
+      elements?: unknown[];
+    } = {}
   ): Promise<PageDTO> {
     const project =
       await requireOwnedProject(
@@ -345,31 +366,37 @@ export const projectService = {
         userId
       );
 
-    const preset =
-      PAGE_PRESETS["Instagram Post"];
+    if (project.pages.length >= MAX_PAGES_PER_PROJECT) {
+      throw AppError.badRequest(
+        `A project can have at most ${MAX_PAGES_PER_PROJECT} pages`
+      );
+    }
 
-    const page =
-      await prisma.page.create({
+    const after =
+      project.pages.find((p) => p.id === input.afterPageId) ??
+      project.pages[project.pages.length - 1];
+    const preset = PAGE_PRESETS["Instagram Post"];
+    const order = after ? after.order + 1 : 0;
+
+    const [, page] = await prisma.$transaction([
+      // Make room: every page after the insertion point moves down one
+      prisma.page.updateMany({
+        where: { projectId, order: { gte: order } },
+        data: { order: { increment: 1 } },
+      }),
+      prisma.page.create({
         data: {
           projectId,
-
-          name: `Page ${
-            project.pages.length + 1
-          }`,
-
-          width: preset.width,
-
-          height: preset.height,
-
-          presetName: "Instagram Post",
-
-          background: "#FFFFFF",
-
-          elements: "[]",
-
-          order: project.pages.length,
+          name: (input.name || `Page ${project.pages.length + 1}`).slice(0, 100),
+          width: after?.width ?? preset.width,
+          height: after?.height ?? preset.height,
+          presetName: after?.presetName ?? "Instagram Post",
+          background: (input.background ?? after?.background ?? "#FFFFFF").slice(0, 190),
+          elements: JSON.stringify(input.elements ?? []),
+          order,
         },
-      });
+      }),
+    ]);
 
     return toPageDTO(page);
   },

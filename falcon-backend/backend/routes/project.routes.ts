@@ -27,6 +27,13 @@ const updatePageSchema = z.object({
   elements: z.array(elementSchema).optional(),
 });
 
+const addPageSchema = z.object({
+  afterPageId: z.string().max(64).optional(),
+  name: z.string().min(1).max(100).optional(),
+  background: z.string().max(190).optional(),
+  elements: z.array(elementSchema).max(2000).optional(),
+});
+
 router.get("/", projectController.list);
 router.post("/", validateBody(createProjectSchema), projectController.create);
 router.get("/:projectId", projectController.get);
@@ -34,7 +41,7 @@ router.patch("/:projectId", validateBody(updateProjectSchema), projectController
 router.delete("/:projectId", projectController.remove);
 router.post("/:projectId/duplicate", projectController.duplicate);
 
-router.post("/:projectId/pages", projectController.addPage);
+router.post("/:projectId/pages", validateBody(addPageSchema), projectController.addPage);
 router.patch("/:projectId/pages/:pageId", validateBody(updatePageSchema), projectController.updatePage);
 router.delete("/:projectId/pages/:pageId", projectController.removePage);
 
