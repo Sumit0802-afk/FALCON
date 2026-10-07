@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Undo2,
   Redo2,
@@ -31,8 +31,13 @@ interface TopBarProps {
   onExportPng: () => void;
   onExportJpeg?: () => void;
   onExportPdf?: () => void;
+  onExportPptx?: () => void;
+  /** Number of pages in the project; multi-page formats say so */
+  pageCount?: number;
   onBack?: () => void;
   onOpenResize?: () => void;
+  /** Copies a link to the design; resolves to whether it worked */
+  onShare?: () => Promise<boolean> | boolean;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
   onOpenAssetAdmin?: () => void;
@@ -48,20 +53,42 @@ export function TopBar({
   onExportPng,
   onExportJpeg,
   onExportPdf,
+  onExportPptx,
+  pageCount = 1,
   onBack,
   onOpenResize,
+  onShare,
   theme = "dark",
   onToggleTheme,
   onOpenAssetAdmin,
 }: TopBarProps) {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(title);
+  const [shareNote, setShareNote] = useState("");
+
+  // A title changed elsewhere (a rename, another page) shows here too
+  useEffect(() => {
+    setDraftTitle(title);
+  }, [title]);
+
+  const commitTitle = () => {
+    const next = draftTitle.trim() || "Untitled Design";
+    setDraftTitle(next);
+    if (next !== title) onTitleChange(next);
+  };
+
+  const share = async () => {
+    const ok = onShare ? await onShare() : false;
+    setShareNote(ok ? "Link copied" : "Could not copy");
+    setTimeout(() => setShareNote(""), 2200);
+  };
 
   const isDark = theme === "dark";
 
   return (
     <header
-      className={`relative z-30 flex h-14 shrink-0 items-center justify-between border-b px-4 transition-colors duration-200 select-none ${
+      className={`relative z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b px-2 transition-colors sm:px-4 duration-200 select-none ${
         isDark
           ? "border-white/[0.06] bg-[#090b0e] text-white"
           : "border-slate-200 bg-white text-slate-900"
@@ -70,7 +97,7 @@ export function TopBar({
       {/* ========================================================================= */}
       {/* LEFT: LOGO, FILE, RESIZE, UNDO/REDO, CLOUD STATUS                         */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-3">
         {/* Falcon Cyan Logo */}
         <button
           type="button"
@@ -85,13 +112,33 @@ export function TopBar({
               alt="Falcon Logo"
               className="h-7 w-7 object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.45)]"
             />
-            <span className="text-sm font-black tracking-wider font-sans text-cyan-400">
+            <span className="hidden text-sm font-black tracking-wider font-sans text-cyan-400 sm:inline">
               FALCON
             </span>
           </div>
         </button>
 
         <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+
+        {/* Design title: click to rename */}
+        <input
+          type="text"
+          value={draftTitle}
+          onChange={(e) => setDraftTitle(e.target.value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") { setDraftTitle(title); e.currentTarget.blur(); }
+          }}
+          maxLength={80}
+          aria-label="Design title"
+          title="Rename this design"
+          className={`hidden w-[150px] truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-xs font-medium outline-none transition md:block xl:w-[220px] ${
+            isDark
+              ? "text-zinc-200 hover:border-white/10 focus:border-cyan-400/60 focus:bg-white/[0.04]"
+              : "text-slate-800 hover:border-slate-300 focus:border-cyan-600 focus:bg-white"
+          }`}
+        />
 
         {/* File Dropdown */}
         <div className="relative">
@@ -191,7 +238,7 @@ export function TopBar({
       {/* ========================================================================= */}
       {/* RIGHT: THEME TOGGLE, UPGRADE TO PRO, SHARE, DOWNLOAD, AVATAR              */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
         {/* Dark / Light Mode Toggle Button (Explicit User Requirement) */}
         <button
           type="button"
@@ -213,7 +260,7 @@ export function TopBar({
             type="button"
             onClick={onOpenAssetAdmin}
             title="Open Asset Governance & Admin"
-            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`hidden items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition md:flex ${
               isDark
                 ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-300 hover:bg-cyan-500/20 shadow-sm shadow-cyan-500/10"
                 : "border-cyan-300 bg-cyan-50 text-cyan-800 hover:bg-cyan-100"
@@ -227,13 +274,15 @@ export function TopBar({
         {/* Share Button */}
         <button
           type="button"
-          className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+          onClick={share}
+          title="Copy a link to this design"
+          className={`hidden rounded-xl border px-3 py-1.5 text-xs font-medium transition md:block ${
             isDark
               ? "border-white/10 bg-[#161c28] text-zinc-200 hover:bg-white/[0.08]"
               : "border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200"
           }`}
         >
-          Share
+          {shareNote || "Share"}
         </button>
 
         {/* Download Button with Dropdown (Cyan Gradient Button) */}
@@ -286,14 +335,27 @@ export function TopBar({
                 className="w-full text-left px-3 py-2 text-xs rounded-xl hover:bg-cyan-500/15 hover:text-cyan-400 font-medium transition flex items-center justify-between"
               >
                 <span>PDF (Standard)</span>
-                <span className="text-[10px] text-zinc-400">Print</span>
+                <span className="text-[10px] text-zinc-400">{pageCount > 1 ? `${pageCount} pages` : "Print"}</span>
               </button>
+              {onExportPptx && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDownloadOpen(false);
+                    onExportPptx();
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs rounded-xl hover:bg-cyan-500/15 hover:text-cyan-400 font-medium transition flex items-center justify-between"
+                >
+                  <span>PowerPoint (PPTX)</span>
+                  <span className="text-[10px] text-zinc-400">{pageCount > 1 ? `${pageCount} slides` : "Editable"}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
 
         {/* User Profile Avatar */}
-        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white font-semibold text-xs shadow">
+        <div className="hidden h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-gradient-to-tr from-cyan-600 to-indigo-600 sm:flex text-white font-semibold text-xs shadow">
           <User size={14} />
         </div>
       </div>

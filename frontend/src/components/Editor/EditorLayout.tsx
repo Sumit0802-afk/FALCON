@@ -29,7 +29,11 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Toolbar, SidebarTab } from "@/components/Toolbar/Toolbar";
 import { TopBar } from "@/components/TopBar/TopBar";
 import { Canvas } from "@/components/Canvas/Canvas";
+import { BlendControl } from "@/components/Editor/BlendControl";
+import { NotesButton, PagesViewButton, TimerButton } from "@/components/Editor/FooterTools";
+import { AiToolsPanel } from "@/components/Sidebar/AiToolsPanel";
 import { LayersPanel } from "@/components/Sidebar/LayersPanel";
+import { LibraryTemplatesPanel } from "@/components/Sidebar/LibraryTemplatesPanel";
 import { TextPanel } from "@/components/Sidebar/TextPanel";
 import { FontsPanel } from "@/components/Sidebar/FontsPanel";
 import { ElementsPanel } from "@/components/Sidebar/ElementsPanel";
@@ -128,11 +132,29 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 
+/**
+ * What was last copied. It lives outside the component so a copy made on one
+ * page can be pasted on another.
+ */
+let copiedElements: CanvasElement[] = [];
+
 interface EditorLayoutProps {
   projectId: string;
   projectTitle: string;
   initialPage: DesignPage;
   onBack: () => void;
+  /** Every page of the project, for the page strip and multi-page export */
+  pages?: DesignPage[];
+  /** Which of `pages` is open */
+  pageIndex?: number;
+  onSelectPage?: (index: number) => void;
+  onAddPage?: () => void;
+  onDuplicatePage?: () => void;
+  onDeletePage?: () => void;
+  /** Reports the open page whenever it changes, so the project always has its latest content */
+  onPageChange?: (page: DesignPage) => void;
+  /** Tells the project its new name after a rename, so every page and export uses it */
+  onTitleChange?: (title: string) => void;
 }
 
 export function EditorLayout({
@@ -140,6 +162,14 @@ export function EditorLayout({
   projectTitle,
   initialPage,
   onBack,
+  pages,
+  pageIndex = 0,
+  onSelectPage,
+  onAddPage,
+  onDuplicatePage,
+  onDeletePage,
+  onPageChange,
+  onTitleChange,
 }: EditorLayoutProps) {
   const router = useRouter();
 
@@ -155,6 +185,7 @@ export function EditorLayout({
     resetZoom,
     fitToScreen,
     onWheel,
+    setZoom,
   } = useZoomPan();
 
   // Ref on the canvas wrapper so we can measure its dimensions for fit-to-screen
@@ -310,6 +341,13 @@ export function EditorLayout({
      ======================================================= */
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTab>(null);
+
+  // On phones and tablets a side panel covers the canvas, so close it once
+  // something has been added and the user needs to see the result
+  const elementCount = editor.page?.elements?.length ?? 0;
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 1023px)").matches) setActiveSidebarTab(null);
+  }, [elementCount]);
   const [assetAdminOpen, setAssetAdminOpen] = useState(false);
 
   /* =======================================================
@@ -1360,38 +1398,23 @@ export function EditorLayout({
      AUTO SAVE
      ======================================================= */
 
+  // The open page as the rest of the app should see it right now
   useEffect(() => {
-    let cancelled = false;
+    onPageChange?.(editor.page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.page]);
 
-    const timer = setTimeout(async () => {
-      try {
-        const project =
-          await projectService.get(
-            projectId
-          );
+  // The page as first loaded needs no saving; only real edits do
+  const loadedPage = useRef(editor.page);
 
-        if (!project || cancelled) {
-          return;
-        }
-
-        await projectService.save({
-          ...project,
-          pages: [
-            {
-              ...project.pages[0],
-              ...editor.page,
-            },
-          ],
-        });
-      } catch (err) {
-        console.warn("Auto-save notification:", err);
-      }
+  useEffect(() => {
+    if (editor.page === loadedPage.current) return;
+    const timer = setTimeout(() => {
+      // Only this page is written, so editing one slide never rewrites the rest of a deck
+      projectService.savePage(projectId, editor.page).catch((err) => console.warn("Auto-save notification:", err));
     }, 1000);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [
     editor.page,
     projectId,
@@ -1416,6 +1439,30 @@ export function EditorLayout({
 
     onDeselect: () =>
       editor.selectElement(null),
+
+    onMoveLeft: (amount) => editor.moveSelected(-amount, 0),
+    onMoveRight: (amount) => editor.moveSelected(amount, 0),
+    onMoveUp: (amount) => editor.moveSelected(0, -amount),
+    onMoveDown: (amount) => editor.moveSelected(0, amount),
+
+    onCopy: () => {
+      if (!editor.selectedElements.length) return false;
+      copiedElements = editor.selectedElements.map((el) => ({ ...el }));
+    },
+    onCut: () => {
+      if (!editor.selectedElements.length) return false;
+      copiedElements = editor.selectedElements.map((el) => ({ ...el }));
+      editor.deleteSelected();
+    },
+    onPaste: () => {
+      if (!copiedElements.length) return false;
+      editor.pasteElements(copiedElements);
+      // Pasting again steps on from the last paste instead of landing on top of it
+      copiedElements = copiedElements.map((el) => ({ ...el, x: el.x + 24, y: el.y + 24 }));
+    },
+    onSelectAll: editor.selectAll,
+    onGroup: editor.groupSelected,
+    onUngroup: editor.ungroupSelected,
   });
 
   /* =======================================================
@@ -1425,20 +1472,9 @@ export function EditorLayout({
   async function handleTitleChange(
     title: string
   ) {
+    onTitleChange?.(title);
     try {
-      const project =
-        await projectService.get(
-          projectId
-        );
-
-      if (!project) {
-        return;
-      }
-
-      await projectService.save({
-        ...project,
-        title,
-      });
+      await projectService.rename(projectId, title);
     } catch (err) {
       console.error("Title change save failed:", err);
     }
@@ -2143,14 +2179,34 @@ export function EditorLayout({
      EXPORT
      ======================================================= */
 
+  /** Every page with the open one in its current, possibly unsaved, state */
+  const allPages: DesignPage[] = (pages && pages.length ? pages : [editor.page]).map((p, i) => (i === pageIndex ? editor.page : p));
+  const exportName = projectTitle || "design";
+  const pageSuffix = allPages.length > 1 ? `-${pageIndex + 1}` : "";
+
+  async function runExport(label: string, task: () => Promise<void>) {
+    try {
+      await task();
+    } catch (err) {
+      console.error(`${label} export failed:`, err);
+      alert(`Could not export as ${label}. Please try again.`);
+    }
+  }
+
   async function handleExportPng() {
-    await exportService.downloadAsPng(
-      editor.page,
-      `${
-        projectTitle ||
-        "design"
-      }.png`
-    );
+    await runExport("PNG", () => exportService.downloadAsPng(editor.page, `${exportName}${pageSuffix}.png`));
+  }
+
+  async function handleExportJpg() {
+    await runExport("JPG", () => exportService.downloadAsJpg(editor.page, `${exportName}${pageSuffix}.jpg`));
+  }
+
+  async function handleExportPdf() {
+    await runExport("PDF", () => exportService.downloadAsPdf(allPages, exportName));
+  }
+
+  async function handleExportPptx() {
+    await runExport("PowerPoint", () => exportService.downloadAsPptx(allPages, exportName));
   }
 
   /* =======================================================
@@ -2201,7 +2257,7 @@ export function EditorLayout({
   const isDark = editorTheme === "dark";
 
   return (
-    <div className={`flex h-screen w-screen flex-col transition-colors duration-300 ${isDark ? "bg-[#090b0e]" : "bg-slate-100"}`}>
+    <div className={`flex h-screen h-[100dvh] w-screen flex-col transition-colors duration-300 ${isDark ? "bg-[#090b0e]" : "bg-slate-100"}`}>
 
       <input
         ref={fileInputRef}
@@ -2230,7 +2286,20 @@ export function EditorLayout({
         onUndo={editor.undo}
         onRedo={editor.redo}
         onExportPng={handleExportPng}
+        onExportJpeg={handleExportJpg}
+        onExportPdf={handleExportPdf}
+        onExportPptx={handleExportPptx}
+        pageCount={allPages.length}
         onBack={onBack}
+        onOpenResize={() => setLayoutSelectorOpen(true)}
+        onShare={async () => {
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            return true;
+          } catch {
+            return false;
+          }
+        }}
         theme={editorTheme}
         onToggleTheme={() => setEditorTheme(prev => prev === "dark" ? "light" : "dark")}
         onOpenAssetAdmin={() => setAssetAdminOpen(true)}
@@ -2240,7 +2309,7 @@ export function EditorLayout({
           EDITOR AREA
           =================================================== */}
 
-      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div className="falcon-editor-area relative flex min-h-0 flex-1 overflow-hidden">
 
         {/* =================================================
             LEFT TOOLBAR
@@ -2258,6 +2327,26 @@ export function EditorLayout({
         {/* =================================================
             SIDEBAR PANELS — rendered based on active tab
             ================================================= */}
+
+        {/* TEMPLATES PANEL: the template library; a chosen design replaces this page */}
+        {activeSidebarTab === "templates" && (
+          <LibraryTemplatesPanel
+            page={editor.page}
+            onApply={(next) => editor.setPage(next)}
+            theme={editorTheme}
+          />
+        )}
+
+        {/* AI TOOLS PANEL */}
+        {activeSidebarTab === "ai" && (
+          <AiToolsPanel
+            theme={editorTheme}
+            onOpenCoach={() => setCoachOpen(true)}
+            onMagicWrite={() => setCoachOpen(true)}
+            onOpenBgRemover={() => setBgRemoverOpen(true)}
+            onOpenStudio={() => router.push("/ai-studio")}
+          />
+        )}
 
         {/* TEXT PANEL */}
         {activeSidebarTab === "text" && (
@@ -2299,6 +2388,40 @@ export function EditorLayout({
             onAddShape={handleAddShape}
             onAddFrame={handleAddFrame}
             onAddImage={handleAddImageToCanvas}
+            onAddElements={(elements, width, height) => {
+              // Scaled to sit comfortably on the page, whatever size the page is
+              const page = editor.page.size;
+              const scale = Math.min((page.width * 0.72) / width, (page.height * 0.6) / height);
+              const left = (page.width - width * scale) / 2;
+              const top = (page.height - height * scale) / 2;
+              loadGoogleFont("Inter", [400, 500, 600, 700, 800]);
+              editor.insertElements(
+                elements.map((el) => {
+                  const placed = {
+                    ...el,
+                    x: Math.round(left + el.x * scale),
+                    y: Math.round(top + el.y * scale),
+                    width: Math.max(1, Math.round(el.width * scale)),
+                    height: Math.max(1, Math.round(el.height * scale)),
+                    rotation: el.rotation ?? 0,
+                    opacity: el.opacity ?? 1,
+                  } as Record<string, unknown>;
+                  if (el.type === "text") {
+                    placed.fontFamily = "Inter";
+                    placed.fontSize = Math.max(6, Math.round((el.fontSize ?? 16) * scale));
+                    placed.letterSpacing = Math.round((el.letterSpacing ?? 0) * scale * 10) / 10;
+                    placed.italic = false;
+                  } else if (el.type === "frame") {
+                    placed.stroke = "transparent";
+                    placed.strokeWidth = 0;
+                  } else {
+                    placed.strokeWidth = el.strokeWidth ? Math.max(1, Math.round(el.strokeWidth * scale)) : 0;
+                    placed.cornerRadius = Math.round((el.cornerRadius ?? 0) * scale);
+                  }
+                  return placed as unknown as CanvasElement;
+                })
+              );
+            }}
           />
         )}
 
@@ -2389,7 +2512,7 @@ export function EditorLayout({
           <button
             type="button"
             onClick={() => setActiveSidebarTab(null)}
-            className="absolute left-[436px] top-1/2 z-40 -translate-y-1/2 flex h-14 w-4 items-center justify-center rounded-r-md border-y border-r border-white/[0.1] bg-[#12151c] text-zinc-400 shadow-md transition hover:bg-[#181d28] hover:text-[#00dfb6]"
+            className="falcon-panel-handle absolute left-[436px] top-1/2 z-40 -translate-y-1/2 flex h-14 w-4 items-center justify-center rounded-r-md border-y border-r border-white/[0.1] bg-[#12151c] text-zinc-400 shadow-md transition hover:bg-[#181d28] hover:text-[#00dfb6]"
             title="Collapse side panel"
           >
             <ChevronLeft size={14} />
@@ -2417,7 +2540,7 @@ export function EditorLayout({
           )}
 
           {/* ── CANVA CONTEXTUAL FLOATING TOOLBAR ── */}
-          <div className="absolute left-1/2 top-3.5 z-40 -translate-x-1/2 flex items-center gap-1.5 rounded-2xl border border-white/[0.09] bg-[#1a1b1e]/95 p-1.5 shadow-2xl backdrop-blur-xl text-white">
+          <div className="absolute left-1/2 top-3.5 z-40 -translate-x-1/2 flex w-max max-w-[calc(100%-1rem)] flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-white/[0.09] bg-[#1a1b1e]/95 p-1.5 shadow-2xl backdrop-blur-xl text-white lg:flex-nowrap">
             {/* 1. When Image is Selected */}
             {isSelectedImage && !canGroup && !canUngroup && (
               <>
@@ -2542,99 +2665,14 @@ export function EditorLayout({
 
                 <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
 
-                {/* ── IMAGE BLEND (Circular / Linear) ── */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => { setBlendPopoverOpen(v => !v); setTransparencyPopoverOpen(false); }}
-                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition ${
-                      (selectedElement as ImageElement).blendMask && (selectedElement as ImageElement).blendMask !== "none"
-                        ? "bg-indigo-600/30 border border-indigo-500/50 text-indigo-200"
-                        : "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
-                    }`}
-                    title="Image Blend Mode (Circular / Linear)"
-                  >
-                    <Layers size={13} className="text-indigo-400" />
-                    <span>Blend</span>
-                    <ChevronDown size={11} className="text-zinc-400" />
-                  </button>
-
-                  {blendPopoverOpen && (
-                    <>
-                      {/* Backdrop */}
-                      <div className="fixed inset-0 z-40" onClick={() => setBlendPopoverOpen(false)} />
-                      <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-2xl border border-white/10 bg-[#161a24] p-3 shadow-2xl backdrop-blur-xl">
-                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Image Blend Mask</p>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          {/* None */}
-                          <button
-                            type="button"
-                            onClick={() => { editor.updateElement(selectedElement.id, { blendMask: "none" }); setBlendPopoverOpen(false); }}
-                            className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 text-xs transition ${
-                              !((selectedElement as ImageElement).blendMask) || (selectedElement as ImageElement).blendMask === "none"
-                                ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                : "border-white/10 text-zinc-400 hover:border-indigo-400/50 hover:text-white"
-                            }`}
-                          >
-                            <div className="h-9 w-full rounded-lg bg-white/10 flex items-center justify-center">
-                              <div className="h-6 w-6 rounded bg-zinc-500" />
-                            </div>
-                            <span>None</span>
-                          </button>
-
-                          {/* Circular Blend */}
-                          <button
-                            type="button"
-                            onClick={() => { editor.updateElement(selectedElement.id, { blendMask: "circular" }); setBlendPopoverOpen(false); }}
-                            className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 text-xs transition ${
-                              (selectedElement as ImageElement).blendMask === "circular"
-                                ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                : "border-white/10 text-zinc-400 hover:border-indigo-400/50 hover:text-white"
-                            }`}
-                          >
-                            <div className="h-9 w-full rounded-lg overflow-hidden flex items-center justify-center bg-zinc-800">
-                              <div className="h-8 w-8 rounded-full" style={{ background: "radial-gradient(circle, rgba(99,102,241,0.9) 0%, transparent 70%)" }} />
-                            </div>
-                            <span>Circular</span>
-                          </button>
-
-                          {/* Linear (bottom) */}
-                          <button
-                            type="button"
-                            onClick={() => { editor.updateElement(selectedElement.id, { blendMask: "linear" }); setBlendPopoverOpen(false); }}
-                            className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 text-xs transition ${
-                              (selectedElement as ImageElement).blendMask === "linear"
-                                ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                : "border-white/10 text-zinc-400 hover:border-indigo-400/50 hover:text-white"
-                            }`}
-                          >
-                            <div className="h-9 w-full rounded-lg overflow-hidden bg-zinc-800">
-                              <div className="h-full w-full" style={{ background: "linear-gradient(to top, transparent, rgba(99,102,241,0.7))" }} />
-                            </div>
-                            <span>Linear ↑</span>
-                          </button>
-
-                          {/* Linear Top */}
-                          <button
-                            type="button"
-                            onClick={() => { editor.updateElement(selectedElement.id, { blendMask: "linear-top" }); setBlendPopoverOpen(false); }}
-                            className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 text-xs transition ${
-                              (selectedElement as ImageElement).blendMask === "linear-top"
-                                ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                : "border-white/10 text-zinc-400 hover:border-indigo-400/50 hover:text-white"
-                            }`}
-                          >
-                            <div className="h-9 w-full rounded-lg overflow-hidden bg-zinc-800">
-                              <div className="h-full w-full" style={{ background: "linear-gradient(to bottom, transparent, rgba(99,102,241,0.7))" }} />
-                            </div>
-                            <span>Linear ↓</span>
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {/* ── IMAGE BLEND: fade and blend mode ── */}
+                <BlendControl
+                  element={selectedElement}
+                  open={blendPopoverOpen}
+                  onToggle={() => { setBlendPopoverOpen((v) => !v); setTransparencyPopoverOpen(false); }}
+                  onClose={() => setBlendPopoverOpen(false)}
+                  onChange={(patch) => editor.updateElement(selectedElement.id, patch)}
+                />
 
                 {/* ── TRANSPARENCY (dark + light mode) ── */}
                 <div className="relative">
@@ -2785,13 +2823,10 @@ export function EditorLayout({
                       <span
                         className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full"
                         style={{
-                          backgroundColor:
-                            (selectedElement as TextElement).backgroundGradient
-                              ? "transparent"
-                              : (selectedElement as TextElement).color || "#ffffff",
-                          background: (selectedElement as TextElement).backgroundGradient
-                            ? (selectedElement as TextElement).backgroundGradient
-                            : undefined,
+                          background:
+                            (selectedElement as TextElement).backgroundGradient ||
+                            (selectedElement as TextElement).color ||
+                            "#ffffff",
                         }}
                       />
                     </span>
@@ -2913,7 +2948,7 @@ export function EditorLayout({
                       ? "bg-[#8b3dff] text-white"
                       : "bg-[#8b3dff]/15 border border-[#8b3dff]/30 text-purple-300 hover:text-white hover:bg-[#8b3dff]/25"
                   }`}
-                  title="Browse 100+ Text Design Styles"
+                  title="Browse text design styles"
                 >
                   <Sparkles size={13} className="text-purple-400" />
                   <span>Effects</span>
@@ -3223,56 +3258,75 @@ export function EditorLayout({
           </div>
 
           {/* ── CANVA BOTTOM FILMSTRIP & CONTROLS FOOTER ── */}
-          <div className="flex h-13 w-full shrink-0 items-center justify-between border-t border-white/[0.08] bg-[#111214] px-4 select-none z-30">
+          <div className="no-scrollbar flex h-13 w-full shrink-0 items-center justify-between gap-3 overflow-x-auto border-t border-white/[0.08] bg-[#111214] px-2 select-none z-30 sm:px-4 [&>*]:shrink-0">
             {/* Left: Notes & Timer */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
-                title="Design notes"
-              >
-                <StickyNote size={13} />
-                <span>Notes</span>
-              </button>
-
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
-                title="Timer"
-              >
-                <Timer size={13} />
-                <span>Timer</span>
-              </button>
+            <div className="hidden items-center gap-2 sm:flex">
+              <NotesButton projectId={projectId} />
+              <TimerButton />
             </div>
 
-            {/* Center: Page Filmstrip Thumbnails */}
-            <div className="flex items-center gap-2">
-              <div
-                className="group relative flex h-8 w-12 items-center justify-center overflow-hidden rounded-md border-2 border-[#8b3dff] bg-white shadow-md cursor-pointer transition hover:scale-105"
-                title="Page 1"
-              >
-                <div
-                  className="h-full w-full"
-                  style={{
-                    backgroundColor:
-                      editor.page.background === "transparent"
-                        ? "#ffffff"
-                        : editor.page.background || "#ffffff",
-                  }}
-                />
-                <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
-                  1
-                </span>
+            {/* Center: one thumbnail per page; click to open, with add, duplicate and delete */}
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="no-scrollbar flex max-w-[44vw] items-center gap-1.5 overflow-x-auto py-1">
+                {allPages.map((p, i) => {
+                  const bg = p.background === "transparent" ? "#ffffff" : p.background || "#ffffff";
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => i !== pageIndex && onSelectPage?.(i)}
+                      aria-current={i === pageIndex}
+                      aria-label={`Page ${i + 1}: ${p.name}`}
+                      title={p.name}
+                      className={`relative h-8 shrink-0 overflow-hidden rounded-md border-2 shadow-md transition ${
+                        i === pageIndex ? "border-[#8b3dff]" : "border-white/10 opacity-70 hover:opacity-100"
+                      }`}
+                      style={{
+                        width: Math.max(22, Math.min(64, Math.round((32 * p.size.width) / p.size.height))),
+                        background: bg.startsWith("http") || bg.startsWith("data:") ? `url("${bg}") center / cover` : bg,
+                      }}
+                    >
+                      <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
+                        {i + 1}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddHeading}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-dashed border-zinc-700 text-zinc-400 transition hover:border-zinc-500 hover:text-white"
-                title="Add element to page"
-              >
-                <Plus size={13} />
-              </button>
+              {onAddPage && (
+                <button
+                  type="button"
+                  onClick={onAddPage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-zinc-700 text-zinc-400 transition hover:border-zinc-500 hover:text-white"
+                  title="Add a page after this one"
+                  aria-label="Add page"
+                >
+                  <Plus size={13} />
+                </button>
+              )}
+              {onDuplicatePage && (
+                <button
+                  type="button"
+                  onClick={onDuplicatePage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Duplicate this page"
+                  aria-label="Duplicate page"
+                >
+                  <Copy size={13} />
+                </button>
+              )}
+              {onDeletePage && allPages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={onDeletePage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-red-500/15 hover:text-red-300"
+                  title="Delete this page"
+                  aria-label="Delete page"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
 
             {/* Right: Zoom Slider & View Options */}
@@ -3292,14 +3346,8 @@ export function EditorLayout({
                   min={10}
                   max={300}
                   value={Math.round(zoom * 100)}
-                  onChange={(e) => {
-                    const targetZoom = Number(e.target.value) / 100;
-                    if (targetZoom > zoom) {
-                      zoomIn();
-                    } else {
-                      zoomOut();
-                    }
-                  }}
+                  onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                  aria-label="Zoom"
                   className="w-20 h-1 accent-white cursor-pointer bg-zinc-700 rounded"
                 />
 
@@ -3334,14 +3382,7 @@ export function EditorLayout({
                 <span>Fit</span>
               </button>
 
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                title="Pages view"
-              >
-                <LayoutGrid size={13} />
-                <span>1 / 1</span>
-              </button>
+              <PagesViewButton pages={allPages} pageIndex={pageIndex} onSelect={onSelectPage} />
             </div>
           </div>
         </div>

@@ -49,6 +49,14 @@ export default function PreviewModal({ design, initialMode = "desktop", onClose 
             Desktop
           </button>
           <button
+            onClick={() => setMode("tablet")}
+            className={`flex h-7 items-center gap-1.5 px-3 text-[11px] transition-colors ${
+              mode === "tablet" ? "bg-[#00D084]/20 text-[#00D084]" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Tablet
+          </button>
+          <button
             onClick={() => setMode("mobile")}
             className={`flex h-7 items-center gap-1.5 rounded-r px-3 text-[11px] transition-colors ${
               mode === "mobile" ? "bg-[#00D084]/20 text-[#00D084]" : "text-zinc-500 hover:text-zinc-300"
@@ -70,7 +78,7 @@ export default function PreviewModal({ design, initialMode = "desktop", onClose 
       <div className="flex flex-1 items-start justify-center overflow-auto bg-zinc-900/50 p-8">
         <div
           className="overflow-hidden rounded-lg bg-white shadow-2xl transition-all duration-300"
-          style={{ width: mode === "mobile" ? 375 : design.settings.emailWidth + 40, minHeight: 400 }}
+          style={{ width: mode === "mobile" ? 375 : mode === "tablet" ? 768 : design.settings.emailWidth + 40, maxWidth: "100%", minHeight: 400 }}
         >
           <iframe
             ref={iframeRef}

@@ -37,8 +37,37 @@ async function main() {
     });
   }
 
+  const adminHash = await bcrypt.hash("password123", 10);
+  await prisma.user.upsert({
+    where: { email: "admin@falcon.app" },
+    update: { role: "admin" },
+    create: {
+      name: "Falcon Admin",
+      email: "admin@falcon.app",
+      passwordHash: adminHash,
+      role: "admin",
+      isVerified: true,
+    },
+  });
+
+  const { templateService } = await import("../services/template.service");
+  const { generateTemplateBatch } = await import("../templates/generator");
+  const { importMany } = await import("../services/templateImport.service");
+
+  await templateService.ensureTaxonomy();
+  const publishedCount = await prisma.designTemplate.count({ where: { status: "published" } });
+  if (publishedCount === 0) {
+    const starter = generateTemplateBatch(168, 0, true);
+    const imported = await importMany(starter, { sourceType: "seed", publish: true, batchSize: 84 });
+    console.log(
+      `[seed] templates imported=${imported.imported} skipped=${imported.skipped} failed=${imported.failed}`
+    );
+  } else {
+    console.log(`[seed] templates already present (${publishedCount} published)`);
+  }
+
   // eslint-disable-next-line no-console
-  console.log(`[seed] Ready — login with demo@falcon.app / password123`);
+  console.log(`[seed] Ready — login with demo@falcon.app / password123 (admin@falcon.app for admin)`);
 }
 
 main()

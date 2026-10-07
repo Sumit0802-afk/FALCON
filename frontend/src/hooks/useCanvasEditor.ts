@@ -75,6 +75,15 @@ export function useCanvasEditor({
       const zIndex =
         page.elements.length;
 
+      // Things added one after another land on the same default spot; step each
+      // new one down and right so none is hidden exactly behind the last
+      let x = partial.x;
+      let y = partial.y;
+      for (let i = 0; i < 12 && page.elements.some((el) => Math.abs(el.x - x) < 2 && Math.abs(el.y - y) < 2); i++) {
+        x += 24;
+        y += 24;
+      }
+
       const base = {
         id: generateId(),
         width: 200,
@@ -84,8 +93,8 @@ export function useCanvasEditor({
         locked: false,
         hidden: false,
         zIndex,
-        x: partial.x,
-        y: partial.y,
+        x,
+        y,
       };
 
       let element: CanvasElement;
@@ -239,6 +248,9 @@ export function useCanvasEditor({
        * =====================================================
        */
 
+      // The stepped-aside position, which the spread of the caller's values above would otherwise undo
+      element = { ...element, x, y } as CanvasElement;
+
       setPage({
         ...page,
 
@@ -277,6 +289,14 @@ export function useCanvasEditor({
         commit?: boolean;
       }
     ) => {
+      // Moving one member of a group moves the whole group. A resize also changes
+      // position, but comes with a new width or height, so it is left alone.
+      const target = page.elements.find((el) => el.id === id);
+      const isMove = ("x" in patch || "y" in patch) && !("width" in patch) && !("height" in patch);
+      const groupId = target?.groupId;
+      const dx = isMove && target && groupId && typeof patch.x === "number" ? patch.x - target.x : 0;
+      const dy = isMove && target && groupId && typeof patch.y === "number" ? patch.y - target.y : 0;
+
       const next: DesignPage = {
         ...page,
 
@@ -288,6 +308,8 @@ export function useCanvasEditor({
                     ...el,
                     ...patch,
                   } as CanvasElement)
+                : groupId && (dx || dy) && (el.groupId === groupId || el.id === groupId) && !el.locked
+                ? ({ ...el, x: el.x + dx, y: el.y + dy } as CanvasElement)
                 : el
           ),
       };
@@ -752,13 +774,14 @@ export function useCanvasEditor({
 
   const ungroupSelected =
     useCallback(() => {
+      const memberGroupIds = new Set(selectedElements.map((element) => element.groupId).filter(Boolean));
       const groups =
-        selectedElements.filter(
+        page.elements.filter(
           (
             element
           ): element is GroupElement =>
             element.type ===
-            "group"
+            "group" && (selectedIds.includes(element.id) || memberGroupIds.has(element.id))
         );
 
       if (
@@ -913,6 +936,73 @@ export function useCanvasEditor({
 
   /*
    * =======================================================
+   * MOVE, SELECT ALL, PASTE
+   * =======================================================
+   */
+
+  /** Moves the selection by a number of design pixels; locked elements stay put */
+  const moveSelected = useCallback(
+    (dx: number, dy: number) => {
+      if (!selectedIds.length) return;
+      setPage({
+        ...page,
+        elements: page.elements.map((el) =>
+          selectedIds.includes(el.id) && !el.locked ? ({ ...el, x: el.x + dx, y: el.y + dy } as CanvasElement) : el
+        ),
+      });
+    },
+    [page, selectedIds, setPage]
+  );
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(page.elements.filter((el) => !el.hidden && !el.locked).map((el) => el.id));
+  }, [page.elements]);
+
+  /**
+   * Adds several ready-made elements as one group, so a chart or a table
+   * moves as a whole while each bar, label and cell stays editable.
+   */
+  const insertElements = useCallback(
+    (source: CanvasElement[]) => {
+      if (!source.length) return;
+      const groupId = generateId("group");
+      const start = page.elements.length;
+      const members = source.map((el, index) => ({ ...el, id: generateId(), groupId, zIndex: start + index, locked: false, hidden: false }) as CanvasElement);
+      const minX = Math.min(...members.map((m) => m.x));
+      const minY = Math.min(...members.map((m) => m.y));
+      const maxX = Math.max(...members.map((m) => m.x + m.width));
+      const maxY = Math.max(...members.map((m) => m.y + m.height));
+      const group = {
+        id: groupId, type: "group", zIndex: start + members.length, x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY),
+        rotation: 0, opacity: 1, locked: false, hidden: false, childIds: members.map((m) => m.id),
+      } as GroupElement;
+      setPage({ ...page, elements: [...page.elements, ...members, group] });
+      setSelectedIds([members[0].id]);
+    },
+    [page, setPage]
+  );
+
+  /** Adds copies of the given elements, a little offset from the originals, and selects them */
+  const pasteElements = useCallback(
+    (source: CanvasElement[]) => {
+      if (!source.length) return;
+      const groupIds = new Map<string, string>();
+      const copies = source.map((el, index) => {
+        let groupId = el.groupId;
+        if (groupId) {
+          if (!groupIds.has(groupId)) groupIds.set(groupId, generateId());
+          groupId = groupIds.get(groupId);
+        }
+        return { ...el, id: generateId(), groupId, x: el.x + 24, y: el.y + 24, zIndex: page.elements.length + index, locked: false } as CanvasElement;
+      });
+      setPage({ ...page, elements: [...page.elements, ...copies] });
+      setSelectedIds(copies.map((copy) => copy.id));
+    },
+    [page, setPage]
+  );
+
+  /*
+   * =======================================================
    * RETURN EDITOR API
    * =======================================================
    */
@@ -934,6 +1024,11 @@ export function useCanvasEditor({
 
     deleteSelected,
     duplicateSelected,
+
+    moveSelected,
+    selectAll,
+    pasteElements,
+    insertElements,
 
     /*
      * Layer controls

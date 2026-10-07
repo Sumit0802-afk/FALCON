@@ -2,7 +2,8 @@ import { FormEvent, useState, useEffect, useRef, useCallback, KeyboardEvent, Cli
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { login, verifyOtp, resendOtp, register, MfaChallenge, isAuthenticated } from "@/services/authService";
+import { login, verifyOtp, isAuthenticated } from "@/services/authService";
+import { ApiError } from "@/services/api";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function EyeIcon({ size = 18 }: { size?: number }) {
@@ -42,14 +43,6 @@ function AlertIcon({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
-function ShieldIcon({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <polyline points="9 12 11 14 15 10" />
-    </svg>
-  );
-}
 function MailIcon({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -86,7 +79,15 @@ function OtpInput({
   const digits = value.padEnd(6, "").split("").slice(0, 6);
 
   const handleChange = (idx: number, char: string) => {
-    const cleaned = char.replace(/\D/g, "").slice(-1);
+    const incoming = char.replace(/\D/g, "");
+    // Code autofill delivers every digit in a single input event, so spread them across the boxes
+    if (incoming.length > 2) {
+      const filled = incoming.slice(0, 6);
+      onChange(filled);
+      inputsRef.current[Math.min(filled.length, 5)]?.focus();
+      return;
+    }
+    const cleaned = incoming.slice(-1);
     const newDigits = [...digits];
     newDigits[idx] = cleaned;
     const next = newDigits.join("");
@@ -136,7 +137,7 @@ function OtpInput({
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          maxLength={1}
+          maxLength={6}
           value={digits[idx] || ""}
           onChange={(e) => handleChange(idx, e.target.value)}
           onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -151,86 +152,142 @@ function OtpInput({
   );
 }
 
+// ─── Redirect ─────────────────────────────────────────────────────────────────
+// Only follow in-app paths from ?redirect= so a crafted link can't send users off-site after sign-in
+function safeRedirect(value: unknown): string {
+  if (typeof value !== "string") return "/";
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return "/";
+  return value;
+}
+
 // ─── Countdown Timer ──────────────────────────────────────────────────────────
-function useCountdown(initialSeconds: number, active: boolean) {
-  const [seconds, setSeconds] = useState(initialSeconds);
+// Match OTP_RESEND_COOLDOWN_SECONDS and OTP_EXPIRY_SECONDS in the backend otp service
+const RESEND_COOLDOWN_SECONDS = 60;
+const OTP_EXPIRY_SECONDS = 300;
+
+// Counts down from the moment start() is called, against a wall-clock deadline
+function useCountdown() {
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [seconds, setSeconds] = useState(0);
+
+  const start = useCallback((durationSeconds: number) => {
+    setDeadline(Date.now() + durationSeconds * 1000);
+    setSeconds(durationSeconds);
+  }, []);
 
   useEffect(() => {
-    if (!active) return;
-    setSeconds(initialSeconds);
+    if (deadline === null) return;
     const interval = setInterval(() => {
-      setSeconds((s) => {
-        if (s <= 1) { clearInterval(interval); return 0; }
-        return s - 1;
-      });
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSeconds(left);
+      if (left === 0) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [active, initialSeconds]);
+  }, [deadline]);
 
-  return seconds;
+  return [seconds, start] as const;
+}
+
+// ─── Error Messages ───────────────────────────────────────────────────────────
+// Maps backend error codes to the copy shown on screen, so raw server or network text is never displayed
+function authErrorMessage(err: unknown, invalidInputMessage: string): string {
+  if (!(err instanceof ApiError)) {
+    return "We couldn't reach Falcon. Check your connection and try again.";
+  }
+  switch (err.code) {
+    case "INVALID_CREDENTIALS":
+      return "Incorrect email or password.";
+    case "OTP_EXPIRED":
+      return "That code has expired. Request a new one to continue.";
+    case "OTP_INVALID":
+      return err.attemptsRemaining
+        ? `Incorrect code. ${err.attemptsRemaining} attempt${err.attemptsRemaining === 1 ? "" : "s"} left.`
+        : "Incorrect code. Please check it and try again.";
+    case "OTP_ATTEMPTS_EXCEEDED":
+      return "Too many incorrect attempts. Request a new code to continue.";
+    case "OTP_COOLDOWN":
+      return `Please wait ${err.retryAfterSeconds ?? RESEND_COOLDOWN_SECONDS} seconds before requesting another code.`;
+    case "OTP_RATE_LIMITED":
+      return "You've requested too many codes. Please try again later.";
+    case "RATE_LIMITED":
+      return "Too many attempts. Please wait a few minutes and try again.";
+    case "EMAIL_DELIVERY_FAILED":
+      return "We couldn't send your verification code. Please try again in a moment.";
+  }
+  if (err.status === 400) return invalidInputMessage;
+  if (err.status === 429) return "Too many attempts. Please wait a few minutes and try again.";
+  return "Something went wrong on our end. Please try again.";
 }
 
 // ─── Page View Types ──────────────────────────────────────────────────────────
-type PageView = "login" | "otp" | "forgot";
+type PageView = "email" | "otp";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState<PageView>("login");
+  const [view, setView] = useState<PageView>("email");
 
-  // Login state
+  // Credentials step state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loginErrors, setLoginErrors] = useState({ email: "", password: "" });
-  const [loginError, setLoginError] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [sendError, setSendError] = useState("");
+  const [sendLoading, setSendLoading] = useState(false);
 
-  // OTP state
-  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+  // OTP step state
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(60);
-  const [resendActive, setResendActive] = useState(true);
-  const cooldownLeft = useCountdown(resendCooldown, resendActive);
-
-  // Forgot state
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotSent, setForgotSent] = useState(false);
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotError, setForgotError] = useState("");
+  const [expiresLeft, startExpiry] = useCountdown();
+  const [cooldownLeft, startCooldown] = useCountdown();
 
   useEffect(() => {
     setMounted(true);
-    if (isAuthenticated()) {
-      const redirect = (router.query.redirect as string) || "/";
-      router.replace(redirect);
-    }
   }, []);
 
-  // ── Login ──────────────────────────────────────────────────
-  async function handleLogin(e: FormEvent) {
+  // router.query is empty until the router is ready, so wait before reading ?redirect=
+  useEffect(() => {
+    if (router.isReady && isAuthenticated()) {
+      router.replace(safeRedirect(router.query.redirect));
+    }
+  }, [router.isReady]);
+
+  function showOtpView(expiresInSeconds: number, resendInSeconds: number) {
+    startExpiry(expiresInSeconds);
+    startCooldown(resendInSeconds);
+    setOtp("");
+    setOtpError("");
+    setView("otp");
+  }
+
+  // ── Send OTP ──────────────────────────────────────────────
+  async function handleSendOtp(e: FormEvent) {
     e.preventDefault();
     const emailErr = validateEmail(email);
-    const passErr = validatePassword(password);
-    setLoginErrors({ email: emailErr, password: passErr });
-    if (emailErr || passErr) return;
+    const passwordErr = validatePassword(password);
+    setEmailError(emailErr);
+    setPasswordError(passwordErr);
+    if (emailErr || passwordErr) return;
 
-    setLoginError("");
-    setLoginLoading(true);
+    setSendError("");
+    setSendLoading(true);
     try {
-      const challenge = await login(email, password);
-      setMfaChallenge(challenge);
-      setResendCooldown(challenge.expiresInSeconds > 60 ? 60 : challenge.expiresInSeconds);
-      setResendActive(true);
-      setView("otp");
+      const challenge = await login(email.trim(), password);
+      showOtpView(challenge.expiresInSeconds, challenge.resendInSeconds);
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
+      if (err instanceof ApiError && err.code === "OTP_COOLDOWN" && err.retryAfterSeconds) {
+        // A code was emailed moments ago and is still valid, so go straight to entering it
+        const sentSecondsAgo = RESEND_COOLDOWN_SECONDS - err.retryAfterSeconds;
+        showOtpView(OTP_EXPIRY_SECONDS - sentSecondsAgo, err.retryAfterSeconds);
+      } else {
+        setSendError(authErrorMessage(err, "Enter a valid email address and your password."));
+      }
     } finally {
-      setLoginLoading(false);
+      setSendLoading(false);
     }
   }
 
@@ -244,11 +301,10 @@ export default function LoginPage() {
     setOtpError("");
     setOtpLoading(true);
     try {
-      await verifyOtp(mfaChallenge!.mfaToken, otp);
-      const destination = (router.query.redirect as string) || "/";
-      router.push(destination);
+      await verifyOtp(email.trim(), otp);
+      router.push(safeRedirect(router.query.redirect));
     } catch (err) {
-      setOtpError(err instanceof Error ? err.message : "Verification failed. Please try again.");
+      setOtpError(authErrorMessage(err, "Enter the 6-digit code from your email."));
       setOtp("");
     } finally {
       setOtpLoading(false);
@@ -257,39 +313,30 @@ export default function LoginPage() {
 
   // ── OTP Resend ────────────────────────────────────────────
   async function handleResend() {
-    if (cooldownLeft > 0 || !mfaChallenge) return;
+    if (cooldownLeft > 0 || resendLoading) return;
     setResendLoading(true);
     setOtpError("");
     try {
-      const res = await resendOtp(mfaChallenge.mfaToken);
-      setResendCooldown(res.cooldownSeconds);
-      setResendActive(false);
-      setTimeout(() => setResendActive(true), 10);
+      // A resend issues a fresh code and invalidates the previous one
+      const challenge = await login(email.trim(), password);
+      startExpiry(challenge.expiresInSeconds);
+      startCooldown(challenge.resendInSeconds);
       setOtp("");
     } catch (err) {
-      setOtpError(err instanceof Error ? err.message : "Failed to resend code. Please try again.");
+      if (err instanceof ApiError && err.code === "OTP_COOLDOWN" && err.retryAfterSeconds) {
+        startCooldown(err.retryAfterSeconds);
+      }
+      setOtpError(authErrorMessage(err, "We couldn't resend your code. Please try again."));
     } finally {
       setResendLoading(false);
     }
   }
 
-
-  // ── Forgot Password ───────────────────────────────────────
-  async function handleForgot(e: FormEvent) {
-    e.preventDefault();
-    const err = validateEmail(forgotEmail);
-    if (err) { setForgotError(err); return; }
-    setForgotError("");
-    setForgotLoading(true);
-    try {
-      await (await import("@/services/authService")).forgotPassword(forgotEmail);
-      setForgotSent(true);
-    } catch {
-      // Always show success to prevent email enumeration
-      setForgotSent(true);
-    } finally {
-      setForgotLoading(false);
-    }
+  function backToEmail() {
+    setView("email");
+    setOtp("");
+    setOtpError("");
+    setSendError("");
   }
 
   if (!mounted) return null;
@@ -707,8 +754,8 @@ export default function LoginPage() {
         <div className="auth-bg-orb-2" aria-hidden="true" />
 
         <div className="auth-card" role="main">
-        {/* ── LOGIN VIEW ─────────────────────────────────────── */}
-        {view === "login" && (
+        {/* ── EMAIL VIEW ─────────────────────────────────────── */}
+        {view === "email" && (
           <>
             <Link href="/" className="auth-brand" aria-label="Back to Falcon home">
               <img src="/falcon-logo-white.png" alt="Falcon" className="auth-brand-logo" />
@@ -716,16 +763,16 @@ export default function LoginPage() {
             </Link>
 
             <h1 className="auth-heading">Welcome back</h1>
-            <p className="auth-sub">Sign in to continue creating with Falcon</p>
+            <p className="auth-sub">Sign in with your email and password. We&apos;ll email you a one-time code</p>
 
-            {loginError && (
+            {sendError && (
               <div className="auth-error" role="alert">
                 <AlertIcon />
-                <span>{loginError}</span>
+                <span>{sendError}</span>
               </div>
             )}
 
-            <form onSubmit={handleLogin} noValidate>
+            <form onSubmit={handleSendOtp} noValidate>
               <div className="auth-field">
                 <label htmlFor="login-email" className="auth-label">Email address</label>
                 <div className="auth-input-wrap">
@@ -733,18 +780,18 @@ export default function LoginPage() {
                     id="login-email"
                     type="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setLoginErrors((p) => ({ ...p, email: "" })); }}
-                    onBlur={() => setLoginErrors((p) => ({ ...p, email: validateEmail(email) }))}
+                    onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+                    onBlur={() => setEmailError(validateEmail(email))}
                     autoComplete="email"
                     placeholder="you@example.com"
-                    className={`auth-input${loginErrors.email ? " is-error" : ""}`}
-                    aria-invalid={!!loginErrors.email}
-                    aria-describedby={loginErrors.email ? "em-err" : undefined}
+                    className={`auth-input${emailError ? " is-error" : ""}`}
+                    aria-invalid={!!emailError}
+                    aria-describedby={emailError ? "em-err" : undefined}
                   />
                 </div>
-                {loginErrors.email && (
+                {emailError && (
                   <p id="em-err" className="auth-field-err" role="alert">
-                    <AlertIcon size={12} /> {loginErrors.email}
+                    <AlertIcon size={12} /> {emailError}
                   </p>
                 )}
               </div>
@@ -756,13 +803,13 @@ export default function LoginPage() {
                     id="login-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); setLoginErrors((p) => ({ ...p, password: "" })); }}
-                    onBlur={() => setLoginErrors((p) => ({ ...p, password: validatePassword(password) }))}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                    onBlur={() => setPasswordError(validatePassword(password))}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className={`auth-input has-toggle${loginErrors.password ? " is-error" : ""}`}
-                    aria-invalid={!!loginErrors.password}
-                    aria-describedby={loginErrors.password ? "pw-err" : undefined}
+                    className={`auth-input has-toggle${passwordError ? " is-error" : ""}`}
+                    aria-invalid={!!passwordError}
+                    aria-describedby={passwordError ? "pw-err" : undefined}
                   />
                   <button
                     type="button"
@@ -773,21 +820,21 @@ export default function LoginPage() {
                     {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                {loginErrors.password && (
+                {passwordError && (
                   <p id="pw-err" className="auth-field-err" role="alert">
-                    <AlertIcon size={12} /> {loginErrors.password}
+                    <AlertIcon size={12} /> {passwordError}
                   </p>
                 )}
               </div>
 
               <div className="auth-row">
-                <button type="button" className="auth-link" onClick={() => setView("forgot")}>
+                <Link href="/forgot-password" className="auth-link">
                   Forgot password?
-                </button>
+                </Link>
               </div>
 
-              <button id="login-submit" type="submit" disabled={loginLoading} className="auth-btn">
-                {loginLoading ? <><SpinnerIcon /> Verifying…</> : <>Sign in to Falcon <ArrowRight /></>}
+              <button id="login-submit" type="submit" disabled={sendLoading} className="auth-btn">
+                {sendLoading ? <><SpinnerIcon /> Sending code…</> : <>Send OTP <ArrowRight /></>}
               </button>
             </form>
 
@@ -799,9 +846,9 @@ export default function LoginPage() {
         )}
 
         {/* ── OTP VIEW ───────────────────────────────────────── */}
-        {view === "otp" && mfaChallenge && (
+        {view === "otp" && (
           <>
-            <button className="auth-back" onClick={() => { setView("login"); setOtp(""); setOtpError(""); }}>
+            <button className="auth-back" onClick={backToEmail}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
               </svg>
@@ -809,13 +856,14 @@ export default function LoginPage() {
             </button>
 
             <div className="otp-icon-wrap" aria-hidden="true">
-              <ShieldIcon />
+              <MailIcon />
             </div>
 
-            <h1 className="auth-heading">Verify your identity</h1>
+            <h1 className="auth-heading">Check your email</h1>
             <p className="auth-sub">
-              Enter the 6-digit code sent to{" "}
-              <span className="auth-sub-highlight">{mfaChallenge.email}</span>
+              We&apos;ve sent a verification code to your email
+              <br />
+              <span className="auth-sub-highlight">{email.trim()}</span>
             </p>
 
             {otpError && (
@@ -833,8 +881,8 @@ export default function LoginPage() {
               />
 
               <div className="otp-timer-row">
-                <span className={`otp-timer${cooldownLeft <= 30 && cooldownLeft > 0 ? " urgent" : ""}`}>
-                  {cooldownLeft > 0 ? `Expires in ${Math.floor(cooldownLeft / 60)}:${String(cooldownLeft % 60).padStart(2, "0")}` : "Code expired"}
+                <span className={`otp-timer${expiresLeft <= 30 && expiresLeft > 0 ? " urgent" : ""}`}>
+                  {expiresLeft > 0 ? `Expires in ${Math.floor(expiresLeft / 60)}:${String(expiresLeft % 60).padStart(2, "0")}` : "Code expired"}
                 </span>
                 <button
                   type="button"
@@ -842,7 +890,7 @@ export default function LoginPage() {
                   disabled={cooldownLeft > 0 || resendLoading}
                   onClick={handleResend}
                 >
-                  {resendLoading ? "Sending…" : cooldownLeft > 0 ? `Resend in ${cooldownLeft}s` : "Resend code"}
+                  {resendLoading ? "Sending…" : cooldownLeft > 0 ? `Resend OTP in ${cooldownLeft}s` : "Resend OTP"}
                 </button>
               </div>
 
@@ -853,84 +901,16 @@ export default function LoginPage() {
                 className="auth-btn"
                 style={{ marginTop: 20 }}
               >
-                {otpLoading ? <><SpinnerIcon /> Verifying…</> : <>Confirm & Continue <ArrowRight /></>}
+                {otpLoading ? <><SpinnerIcon /> Verifying…</> : <>Verify &amp; Sign in <ArrowRight /></>}
               </button>
             </form>
 
             <div className="auth-footer">
-              Wrong account?{" "}
-              <button onClick={() => { setView("login"); setOtp(""); setOtpError(""); }}>
-                Sign in differently
+              Wrong email?{" "}
+              <button onClick={backToEmail}>
+                Use a different one
               </button>
             </div>
-          </>
-        )}
-
-        {/* ── FORGOT PASSWORD VIEW ────────────────────────────── */}
-        {view === "forgot" && (
-          <>
-            <button className="auth-back" onClick={() => { setView("login"); setForgotSent(false); setForgotEmail(""); }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-              </svg>
-              Back to sign in
-            </button>
-
-            {!forgotSent ? (
-              <>
-                <div className="otp-icon-wrap" aria-hidden="true">
-                  <MailIcon />
-                </div>
-
-                <h1 className="auth-heading">Reset password</h1>
-                <p className="auth-sub">
-                  Enter your email address and we&apos;ll send you a secure reset link.
-                </p>
-
-                {forgotError && (
-                  <div className="auth-error" role="alert">
-                    <AlertIcon /> <span>{forgotError}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleForgot} noValidate>
-                  <div className="auth-field">
-                    <label htmlFor="forgot-email" className="auth-label">Email address</label>
-                    <input
-                      id="forgot-email"
-                      type="email"
-                      value={forgotEmail}
-                      onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
-                      autoComplete="email"
-                      placeholder="you@example.com"
-                      className={`auth-input${forgotError ? " is-error" : ""}`}
-                    />
-                  </div>
-
-                  <button type="submit" disabled={forgotLoading} className="auth-btn" style={{ marginTop: 8 }}>
-                    {forgotLoading ? <><SpinnerIcon /> Sending…</> : <>Send reset link <ArrowRight /></>}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div style={{ textAlign: "center", padding: "8px 0" }}>
-                <div className="otp-icon-wrap" aria-hidden="true" style={{ margin: "0 auto 20px" }}>
-                  <MailIcon />
-                </div>
-                <h2 className="auth-heading">Check your inbox</h2>
-                <p className="auth-sub" style={{ marginBottom: 0 }}>
-                  If an account with <span className="auth-sub-highlight">{forgotEmail}</span> exists,
-                  we&apos;ve sent a secure reset link that expires in 15 minutes.
-                </p>
-                <button
-                  style={{ marginTop: 28 }}
-                  className="auth-btn"
-                  onClick={() => { setView("login"); setForgotSent(false); setForgotEmail(""); }}
-                >
-                  Return to sign in
-                </button>
-              </div>
-            )}
           </>
         )}
         </div>

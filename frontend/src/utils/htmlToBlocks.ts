@@ -1,5 +1,5 @@
 import {
-  EmailBlock,
+  LegacyEmailBlock as EmailBlock,
   EmailSettings,
   HeadingBlock,
   TextBlock,

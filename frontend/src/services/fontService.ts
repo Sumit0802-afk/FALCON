@@ -96,86 +96,107 @@ export function getFontCatalog(): FontItem[] {
   return remoteFontCatalog || GOOGLE_FONTS_CATALOG;
 }
 
+const FONTSHARE_CSS = "https://api.fontshare.com/v2/css";
+
+/** The bundled catalogue by family name, for looking up what a font really offers */
+const CATALOG_BY_FAMILY = new Map<string, GoogleFontMeta>(GOOGLE_FONTS_CATALOG.map((f) => [f.family.toLowerCase(), f]));
+
+export function getFontMeta(family: string): GoogleFontMeta | undefined {
+  return CATALOG_BY_FAMILY.get(family.toLowerCase()) || remoteFontCatalog?.find((f) => f.family === family);
+}
+
 /**
- * Loads a full Google font with specified weights and italic support into the document.
- * Caches loaded links so subsequent calls are instantaneous.
+ * The weights to ask for. Asking a font service for a weight a family does not
+ * have makes the whole request fail, so each wanted weight is swapped for the
+ * nearest one the family really has.
+ */
+function availableWeights(meta: GoogleFontMeta | undefined, wanted: number[]): number[] {
+  const has = (meta?.variants || []).map(Number).filter(Number.isFinite);
+  if (!has.length) return [];
+  const nearest = (w: number) => has.reduce((best, x) => (Math.abs(x - w) < Math.abs(best - w) ? x : best), has[0]);
+  return Array.from(new Set(wanted.map(nearest))).sort((x, y) => x - y);
+}
+
+function fontStylesheetUrl(family: string, weights: number[], italic: boolean, text?: string): string {
+  const meta = getFontMeta(family);
+  const list = availableWeights(meta, weights);
+
+  if (meta?.source === "fontshare" && meta.slug) {
+    return `${FONTSHARE_CSS}?f[]=${meta.slug}@${(list.length ? list : [400]).join(",")}&display=swap`;
+  }
+
+  let axis = "";
+  if (list.length) {
+    const withItalic = italic && !!meta?.hasItalic;
+    axis = withItalic
+      ? `:ital,wght@${[...list.map((w) => `0,${w}`), ...list.map((w) => `1,${w}`)].join(";")}`
+      : `:wght@${list.join(";")}`;
+  }
+  // A family that is not in the catalogue is asked for plainly, which gives its regular weight
+  const subset = text ? `&text=${encodeURIComponent(text)}` : "";
+  return `${GOOGLE_FONTS_CSS2}?family=${encodeURIComponent(family).replace(/%20/g, "+")}${axis}${subset}&display=swap`;
+}
+
+/**
+ * Loads a font with the given weights (and italics, where the family has them)
+ * into the document. Loading the same thing twice costs nothing.
  */
 export function loadGoogleFont(
   family: string,
   weights: number[] = [400, 500, 600, 700],
   italic = false
 ): Promise<void> {
-  if (typeof document === "undefined") {
+  if (typeof document === "undefined" || !family) {
     return Promise.resolve();
   }
 
-  const cacheKey = `${family}_${weights.sort().join(",")}_${italic}`;
-  if (loadedFontStyles.has(cacheKey)) {
+  const href = fontStylesheetUrl(family, weights, italic);
+  if (loadedFontStyles.has(href)) {
     return Promise.resolve();
   }
+  loadedFontStyles.add(href);
 
   return new Promise((resolve) => {
-    const linkId = `gfont-${family.replace(/\s+/g, "-").toLowerCase()}`;
-    let link = document.getElementById(linkId) as HTMLLinkElement | null;
-
-    if (!link) {
-      link = document.createElement("link");
-      link.id = linkId;
-      link.rel = "stylesheet";
-      document.head.appendChild(link);
-    }
-
-    // Construct Google Fonts CSS2 URL
-    // e.g. https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap
-    const sortedWeights = Array.from(new Set(weights)).sort((a, b) => a - b);
-    const weightSegments: string[] = [];
-
-    if (italic) {
-      sortedWeights.forEach((w) => weightSegments.push(`0,${w}`));
-      sortedWeights.forEach((w) => weightSegments.push(`1,${w}`));
-    } else {
-      sortedWeights.forEach((w) => weightSegments.push(`0,${w}`));
-    }
-
-    const weightQuery = weightSegments.length > 0 ? `:ital,wght@${weightSegments.join(";")}` : "";
-    const href = `${GOOGLE_FONTS_CSS2}?family=${encodeURIComponent(family)}${weightQuery}&display=swap`;
-
-    link.onload = () => {
-      loadedFontStyles.add(cacheKey);
-      resolve();
-    };
-
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.dataset.falconFont = family;
+    // Resolve either way so the editor never waits on a font that will not come
+    link.onload = () => resolve();
     link.onerror = () => {
-      // Resolve anyway so editor UI doesn't hang
+      loadedFontStyles.delete(href);
       resolve();
     };
-
     link.href = href;
+    document.head.appendChild(link);
   });
 }
 
 /**
- * Loads a lightweight font preview subset containing just the font name and "Ag".
- * This is ultra-lightweight (~1-2KB) and prevents downloading heavy font files for previews.
+ * Loads only the letters of `text` in a font, for previews: a few kilobytes
+ * instead of the whole font file. Fontshare has no such option, so its fonts
+ * are loaded whole.
  */
-export function loadFontPreview(family: string): void {
-  if (typeof document === "undefined") {
+export function loadFontSubset(family: string, text: string, weight = 400, italic = false): void {
+  if (typeof document === "undefined" || !family) {
     return;
   }
 
-  const previewId = `gfont-prev-${family.replace(/\s+/g, "-").toLowerCase()}`;
-  if (loadedFontPreviews.has(previewId) || document.getElementById(previewId)) {
+  const href = fontStylesheetUrl(family, [weight], italic, text);
+  if (loadedFontPreviews.has(href)) {
     return;
   }
-
-  loadedFontPreviews.add(previewId);
+  loadedFontPreviews.add(href);
 
   const link = document.createElement("link");
-  link.id = previewId;
   link.rel = "stylesheet";
-  const previewText = encodeURIComponent(`${family} Ag123`);
-  link.href = `${GOOGLE_FONTS_CSS2}?family=${encodeURIComponent(family)}&text=${previewText}&display=swap`;
+  link.dataset.falconFontPreview = family;
+  link.href = href;
   document.head.appendChild(link);
+}
+
+/** Loads just enough of a font to show its name and a sample in the font list */
+export function loadFontPreview(family: string): void {
+  loadFontSubset(family, `${family} Ag123`);
 }
 
 /* =============================================================================

@@ -256,6 +256,23 @@ export function CategoryBadgeIcon({
         )}
 
         {/* ══════════════════ 5. PHOTOS ══════════════════ */}
+        {categoryId === "stickers" && (
+          <g>
+            {/* Back squircle */}
+            <rect x="18" y="10" width="70" height="70" rx="22" fill="url(#phBack)" opacity="0.85" />
+            {/* Front squircle */}
+            <rect x="12" y="16" width="70" height="70" rx="22" fill="url(#phFront)" />
+            {/* A sticker with its corner peeling */}
+            <path d="M47,25 C64,25 73,36 73,51 C73,66 62,77 47,77 C32,77 21,66 21,51 C21,36 32,25 47,25 Z" fill="#ffffff" />
+            <circle cx="47" cy="51" r="21" fill="#FFD23F" />
+            <circle cx="40" cy="46" r="3.2" fill="#111111" />
+            <circle cx="54" cy="46" r="3.2" fill="#111111" />
+            <path d="M37,55 Q47,65 57,55" fill="none" stroke="#111111" strokeWidth="2.8" strokeLinecap="round" />
+            <path d="M73,58 C73,68 66,76 56,77 C62,72 60,62 73,58 Z" fill="#e2e8f0" />
+            <path d="M24,31 l3,-6 l3,6 l6,3 l-6,3 l-3,6 l-3,-6 l-6,-3 Z" fill="#ffffff" opacity="0.9" />
+          </g>
+        )}
+
         {categoryId === "photos" && (
           <g>
             {/* Back squircle */}

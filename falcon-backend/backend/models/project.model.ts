@@ -26,6 +26,10 @@ export interface ProjectSummaryDTO {
   title: string;
   thumbnailUrl: string | null;
   pageCount: number;
+  /** Size and background of the first page, so a list can show what kind of design this is */
+  width: number | null;
+  height: number | null;
+  background: string | null;
   createdAt: string;
   updatedAt: string;
 }

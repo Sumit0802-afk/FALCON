@@ -544,3 +544,331 @@ input[type="number"]::-webkit-inner-spin-button {
     transform: none;
   }
 }
+/* ─── Light theme ──────────────────────────────────────────────────────────────
+   Falcon is designed dark. The light theme flips the interface with a colour
+   filter, then flips photos, videos and previews back so they keep their own
+   colours. The design editors are never filtered (see lib/theme.ts). */
+html[data-theme="light"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html[data-theme="light"] :is(img, video, canvas, iframe, [data-theme-keep]) {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Already flipped back by their container, or meant to follow the interface */
+html[data-theme="light"] [data-theme-keep] :is(img, video, canvas, iframe, [data-theme-keep]),
+html[data-theme="light"] img[src*="falcon-logo"] {
+  filter: none;
+}
+
+/* Light theme tuning. Colours here are written as they are BEFORE the filter:
+   a lighter grey here ends up as a darker, more readable grey on the page.
+   :where() keeps these as weak as a normal utility so hover states still win. */
+:where(html[data-theme="light"]) .text-zinc-400 { color: #d4d4d8; }
+:where(html[data-theme="light"]) .text-zinc-500 { color: #b4b4bd; }
+:where(html[data-theme="light"]) .text-zinc-600 { color: #a1a1aa; }
+:where(html[data-theme="light"]) .text-zinc-700 { color: #8b8b94; }
+:where(html[data-theme="light"]) .text-zinc-800 { color: #71717a; }
+:where(html[data-theme="light"]) .text-white\/25,
+:where(html[data-theme="light"]) .text-white\/35 { color: rgb(255 255 255 / 0.55); }
+:where(html[data-theme="light"]) .text-white\/40,
+:where(html[data-theme="light"]) .text-white\/50 { color: rgb(255 255 255 / 0.65); }
+:where(html[data-theme="light"]) .placeholder-zinc-600::placeholder { color: #a1a1aa; }
+
+/* The pale-blue headline accent would turn navy; show it as a clear blue instead */
+:where(html[data-theme="light"]) .text-\[\#a8cdfc\] { color: #65a3ff; }
+
+/* Hairlines and card edges need a little more weight on a white page */
+:where(html[data-theme="light"]) .border-white\/\[0\.06\],
+:where(html[data-theme="light"]) .border-white\/\[0\.07\],
+:where(html[data-theme="light"]) .border-white\/\[0\.08\] { border-color: rgb(255 255 255 / 0.14); }
+:where(html[data-theme="light"]) .border-white\/\[0\.10\],
+:where(html[data-theme="light"]) .border-white\/\[0\.12\] { border-color: rgb(255 255 255 / 0.2); }
+
+/* ─── Poster editor on phones and tablets ──────────────────────────────────────
+   There is no room for a side panel beside the canvas, so panels open on top
+   of it. Tap the same tool again to close the panel. */
+@media (max-width: 1023px) {
+  .falcon-editor-area > aside:not(.falcon-tool-rail) {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 76px;
+    z-index: 40;
+    width: min(340px, calc(100vw - 76px));
+    max-width: calc(100vw - 76px);
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Panels that sit on the right (inspector, AI coach) open from the right */
+  .falcon-editor-area > aside.border-l {
+    left: auto;
+    right: 0;
+    width: min(320px, 100vw);
+    max-width: 100vw;
+    box-shadow: -16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@media (max-width: 639px) {
+  .falcon-editor-area > .falcon-tool-rail { width: 60px; }
+  .falcon-editor-area > aside:not(.falcon-tool-rail):not(.border-l) {
+    left: 60px;
+    width: calc(100vw - 60px);
+    max-width: calc(100vw - 60px);
+  }
+}
+
+@media (max-width: 639px) {
+  .falcon-tool-rail > div { padding-left: 4px; padding-right: 4px; }
+  .falcon-tool-rail span { font-size: 9px; }
+}
+
+@media (max-width: 1023px) {
+  /* Above the canvas's floating toolbar */
+  .falcon-editor-area > aside:not(.falcon-tool-rail) { z-index: 50; }
+
+  /* The close handle sits on the panel's outer edge, where it can be reached */
+  .falcon-editor-area > .falcon-panel-handle {
+    left: auto;
+    right: 0;
+    z-index: 55;
+    width: 28px;
+    height: 72px;
+    border-radius: 12px 0 0 12px;
+  }
+}
+
+/* ─── Homepage quick-start shortcuts ───────────────────────────────────────────
+   Each item sets --qs (its accent colour) and --qs-i (its position, which
+   staggers the entrance and the idle float). */
+.falcon-quick-item {
+  color: #a1a1aa;
+  /* "backwards" holds the hidden start during the delay and then lets go, so hover can move the item */
+  animation: falconQuickIn 0.7s cubic-bezier(0.22, 1.2, 0.36, 1) backwards;
+  animation-delay: calc(0.35s + var(--qs-i) * 70ms);
+  transition: color 0.25s ease, transform 0.35s cubic-bezier(0.22, 1.4, 0.36, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.falcon-quick-orb {
+  color: var(--qs);
+  border: 1px solid color-mix(in srgb, var(--qs) 32%, transparent);
+  background:
+    radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--qs) 26%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 22px rgba(0, 0, 0, 0.35);
+  animation: falconQuickFloat 5s ease-in-out infinite;
+  animation-delay: calc(1.2s + var(--qs-i) * 260ms);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, transform 0.35s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* Expanding ring that pulses outward on hover */
+.falcon-quick-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: 9999px;
+  border: 1px solid var(--qs);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Keeps the sweep of light inside the circle while the ring is free to grow past it */
+.falcon-quick-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Light that sweeps across the circle on hover */
+.falcon-quick-shine {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -70%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.falcon-quick-icon {
+  transition: transform 0.4s cubic-bezier(0.22, 1.5, 0.36, 1);
+}
+
+.falcon-quick-item:hover:not(:disabled),
+.falcon-quick-item:focus-visible {
+  color: #ffffff;
+  transform: translateY(-6px);
+}
+
+.falcon-quick-item:hover:not(:disabled) .falcon-quick-orb,
+.falcon-quick-item:focus-visible .falcon-quick-orb {
+  /* The idle float owns "transform" while it runs, so it stops for the hover scale */
+  animation: none;
+  border-color: var(--qs);
+  transform: scale(1.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 4px color-mix(in srgb, var(--qs) 14%, transparent),
+    0 10px 34px color-mix(in srgb, var(--qs) 42%, transparent);
+}
+
+.falcon-quick-item:hover:not(:disabled) .falcon-quick-icon,
+.falcon-quick-item:focus-visible .falcon-quick-icon {
+  animation: falconQuickWiggle 0.6s cubic-bezier(0.22, 1.5, 0.36, 1);
+  transform: scale(1.12);
+}
+
+.falcon-quick-item:hover:not(:disabled) .falcon-quick-ring {
+  animation: falconQuickRing 1.1s ease-out infinite;
+}
+
+.falcon-quick-item:hover:not(:disabled) .falcon-quick-shine {
+  animation: falconQuickShine 0.75s ease-out;
+}
+
+.falcon-quick-item:active:not(:disabled) {
+  transform: translateY(-2px) scale(0.94);
+  transition-duration: 0.1s;
+}
+
+@keyframes falconQuickIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.8); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes falconQuickFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes falconQuickWiggle {
+  0% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.22) rotate(-10deg); }
+  65% { transform: scale(1.16) rotate(7deg); }
+  100% { transform: scale(1.12) rotate(0deg); }
+}
+
+@keyframes falconQuickRing {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+
+@keyframes falconQuickShine {
+  0% { left: -70%; opacity: 0; }
+  20% { opacity: 1; }
+  100% { left: 130%; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .falcon-quick-item { animation: none; transition: color 0.2s ease; }
+  .falcon-quick-orb { animation: none; }
+  .falcon-quick-item:hover:not(:disabled) { transform: none; }
+  .falcon-quick-item:hover:not(:disabled) .falcon-quick-icon,
+  .falcon-quick-item:hover:not(:disabled) .falcon-quick-ring,
+  .falcon-quick-item:hover:not(:disabled) .falcon-quick-shine { animation: none; }
+}
+
+/* Template library cards far from the screen are skipped by the browser until
+   they scroll near, which keeps a long grid quick to scroll. */
+.falcon-lib-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+/* ── Template collections on the Templates page ───────────────────────────── */
+
+.falcon-col-card {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s ease calc(var(--col-i) * 70ms),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--col-i) * 70ms),
+    border-color 0.3s ease,
+    box-shadow 0.35s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.falcon-col-grid[data-shown="true"] .falcon-col-card {
+  opacity: 1;
+  transform: none;
+}
+
+.falcon-col-grid[data-shown="true"] .falcon-col-card:hover,
+.falcon-col-grid[data-shown="true"] .falcon-col-card:focus-visible {
+  transform: translateY(-6px);
+  transition-delay: 0s;
+  border-color: color-mix(in srgb, var(--col) 45%, transparent);
+  box-shadow: 0 24px 60px -24px color-mix(in srgb, var(--col) 55%, transparent);
+  outline: none;
+}
+
+/* Soft light behind the fanned previews, in the collection's colour */
+.falcon-col-glow {
+  position: absolute;
+  left: 50%;
+  top: -60px;
+  width: 300px;
+  height: 300px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--col) 34%, transparent), transparent 68%);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.falcon-col-card:hover .falcon-col-glow,
+.falcon-col-card:focus-visible .falcon-col-glow {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.25);
+}
+
+.falcon-col-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+  transition: transform 0.55s cubic-bezier(0.22, 1.25, 0.36, 1);
+}
+
+.falcon-col-thumb[data-pos="0"] { transform: translate(-50%, -50%) translateX(-34%) rotate(-9deg) scale(0.9); z-index: 1; }
+.falcon-col-thumb[data-pos="2"] { transform: translate(-50%, -50%) translateX(34%) rotate(9deg) scale(0.9); z-index: 1; }
+.falcon-col-thumb[data-pos="1"] { transform: translate(-50%, -50%); z-index: 2; }
+
+.falcon-col-card:hover .falcon-col-thumb[data-pos="0"],
+.falcon-col-card:focus-visible .falcon-col-thumb[data-pos="0"] { transform: translate(-50%, -50%) translateX(-58%) rotate(-14deg) scale(0.92); }
+.falcon-col-card:hover .falcon-col-thumb[data-pos="2"],
+.falcon-col-card:focus-visible .falcon-col-thumb[data-pos="2"] { transform: translate(-50%, -50%) translateX(58%) rotate(14deg) scale(0.92); }
+.falcon-col-card:hover .falcon-col-thumb[data-pos="1"],
+.falcon-col-card:focus-visible .falcon-col-thumb[data-pos="1"] { transform: translate(-50%, -54%) scale(1.06); }
+
+.falcon-col-arrow {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.4s cubic-bezier(0.22, 1.5, 0.36, 1);
+}
+
+.falcon-col-card:hover .falcon-col-arrow,
+.falcon-col-card:focus-visible .falcon-col-arrow {
+  background: var(--col);
+  border-color: var(--col);
+  color: #05070a;
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .falcon-col-card,
+  .falcon-col-thumb,
+  .falcon-col-glow,
+  .falcon-col-arrow {
+    transition: none;
+  }
+}

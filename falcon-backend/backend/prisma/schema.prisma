@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex", "fullTextSearch"]
 }
 
 datasource db {
@@ -22,6 +23,10 @@ model User {
   otpVerifications    OtpVerification[]
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  templateFavorites   TemplateFavorite[]
+  emailTemplateFavorites EmailTemplateFavorite[]
+  userEmailTemplates  UserEmailTemplate[]
+  libraryFavorites    LibraryTemplateFavorite[]
 
   @@map("users")
 }
@@ -73,6 +78,7 @@ model OtpVerification {
   updatedAt    DateTime @updatedAt
 
   @@index([userId, purpose])
+  @@index([expiresAt])
   @@map("otp_verifications")
 }
 
@@ -103,4 +109,367 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model TemplateCategory {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  parentId    String?
+  sortOrder   Int     @default(0)
+
+  parent   TemplateCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children TemplateCategory[] @relation("CategoryTree")
+
+  templates     DesignTemplate[] @relation("TemplatePrimaryCategory")
+  subTemplates  DesignTemplate[] @relation("TemplateSubcategory")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId, sortOrder])
+  @@map("template_categories")
+}
+
+model TemplateTag {
+  id   String @id @default(uuid())
+  slug String @unique
+  name String
+
+  templates TemplateTagOnTemplate[]
+
+  @@map("template_tags")
+}
+
+model DesignTemplate {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String  @db.Text
+  status      String  @default("draft")
+  featured    Boolean @default(false)
+
+  categoryId    String
+  subcategoryId String
+  category      TemplateCategory @relation("TemplatePrimaryCategory", fields: [categoryId], references: [id])
+  subcategory   TemplateCategory @relation("TemplateSubcategory", fields: [subcategoryId], references: [id])
+
+  style        String
+  industry     String
+  audience     String
+  platform     String
+  orientation  String
+  width        Int
+  height       Int
+  colorFamily  String
+  theme        String
+  language     String  @default("en")
+  thumbnailUrl String? @db.Text
+  previewUrl   String? @db.Text
+  fingerprint  String  @unique
+  searchDocument String @db.Text
+
+  usageCount    Int       @default(0)
+  favoriteCount Int       @default(0)
+  viewCount     Int       @default(0)
+  lastUsedAt    DateTime?
+  publishedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  design    TemplateDesign?
+  tags      TemplateTagOnTemplate[]
+  favorites TemplateFavorite[]
+
+  @@index([status, featured, createdAt])
+  @@index([status, usageCount])
+  @@index([status, viewCount])
+  @@index([categoryId, subcategoryId, status])
+  @@index([slug])
+  @@index([style])
+  @@index([industry])
+  @@index([platform])
+  @@index([orientation, width, height])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@index([featured])
+  @@fulltext([name, description, searchDocument])
+  @@map("design_templates")
+}
+
+model TemplateDesign {
+  templateId    String         @id
+  template      DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  designData    String         @db.LongText
+  schemaVersion Int            @default(1)
+  assetRefs     String         @db.Text
+
+  updatedAt DateTime @updatedAt
+
+  @@map("template_designs")
+}
+
+model TemplateTagOnTemplate {
+  templateId String
+  tagId      String
+  template   DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tag        TemplateTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, tagId])
+  @@index([tagId])
+  @@map("template_tags_on_templates")
+}
+
+model TemplateFavorite {
+  userId     String
+  templateId String
+  createdAt  DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([templateId])
+  @@index([userId, createdAt])
+  @@map("template_favorites")
+}
+
+model TemplateImportJob {
+  id          String    @id @default(uuid())
+  status      String    @default("pending")
+  sourceType  String
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  imported    Int       @default(0)
+  skipped     Int       @default(0)
+  failed      Int       @default(0)
+  errorLog    String    @db.LongText
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("template_import_jobs")
+}
+// ─── Email template library ─────────────────────────────────────────────────
+
+model EmailTemplateCategory {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  parentId    String?
+  sortOrder   Int     @default(0)
+
+  parent   EmailTemplateCategory?  @relation("EmailCategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children EmailTemplateCategory[] @relation("EmailCategoryTree")
+
+  templates    EmailTemplate[] @relation("EmailTemplatePrimaryCategory")
+  subTemplates EmailTemplate[] @relation("EmailTemplateSubcategory")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId, sortOrder])
+  @@map("email_template_categories")
+}
+
+model EmailTemplateTag {
+  id   String @id @default(uuid())
+  slug String @unique
+  name String
+  // Maintained by the seed/import step so the tag list never has to count links
+  templateCount Int @default(0)
+
+  templates EmailTemplateTagLink[]
+
+  @@index([templateCount])
+  @@map("email_template_tags")
+}
+
+model EmailTemplate {
+  id          String @id @default(uuid())
+  slug        String @unique
+  title       String
+  description String @db.Text
+
+  categoryId    String
+  subcategoryId String
+  category      EmailTemplateCategory @relation("EmailTemplatePrimaryCategory", fields: [categoryId], references: [id])
+  subcategory   EmailTemplateCategory @relation("EmailTemplateSubcategory", fields: [subcategoryId], references: [id])
+
+  // Comma-separated copy of the tag names so list queries need no join
+  tagList       String @db.Text
+  // Category, subcategory, tags and keywords folded into one searchable field
+  keywords      String @db.Text
+  schemaVersion Int    @default(1)
+
+  width       Int    @default(600)
+  height      Int
+  orientation String @default("portrait")
+  layoutKey   String
+  paletteKey  String
+  fontKey     String
+  authorId    String?
+  authorName  String @default("Falcon")
+
+  status     String  @default("published")
+  isFeatured Boolean @default(false)
+  isPremium  Boolean @default(false)
+
+  usageCount    Int       @default(0)
+  favoriteCount Int       @default(0)
+  viewCount     Int       @default(0)
+  lastUsedAt    DateTime?
+
+  // Stable pseudo-random order so the default listing mixes categories
+  shuffleKey  Int
+  fingerprint String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content   EmailTemplateContent?
+  tags      EmailTemplateTagLink[]
+  favorites EmailTemplateFavorite[]
+
+  @@index([status, shuffleKey, id])
+  @@index([status, usageCount, id])
+  @@index([status, createdAt, id])
+  @@index([status, lastUsedAt, id])
+  @@index([status, isFeatured, shuffleKey])
+  @@index([status, isPremium, shuffleKey])
+  @@index([categoryId, status, shuffleKey])
+  @@index([subcategoryId, status, shuffleKey])
+  @@fulltext([title, description, keywords])
+  @@map("email_templates")
+}
+
+// The document itself lives apart from its metadata, so browsing and sorting
+// the library never has to read multi-kilobyte rows.
+model EmailTemplateContent {
+  templateId   String        @id
+  template     EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateData String        @db.LongText
+  html         String?       @db.LongText
+
+  @@map("email_template_contents")
+}
+
+model EmailTemplateTagLink {
+  templateId String
+  tagId      String
+  template   EmailTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tag        EmailTemplateTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, tagId])
+  @@index([tagId])
+  @@map("email_template_tag_links")
+}
+
+model EmailTemplateFavorite {
+  userId     String
+  templateId String
+  createdAt  DateTime @default(now())
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([templateId])
+  @@index([userId, createdAt])
+  @@map("email_template_favorites")
+}
+
+// A user's own email design: created from scratch or cloned from a library template
+model UserEmailTemplate {
+  id               String  @id @default(uuid())
+  userId           String
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  sourceTemplateId String?
+  templateData     String  @db.LongText
+  html             String? @db.LongText
+  thumbnailSvg     String? @db.MediumText
+  schemaVersion    Int     @default(1)
+  width            Int     @default(600)
+  height           Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, sourceTemplateId])
+  @@map("user_email_templates")
+}
+
+// ─── Design library (posters and presentations) ─────────────────────────────
+// A row describes a template so it can be found. Its design is rebuilt from
+// `type` + `seq` by templates/library, so no design data is stored here.
+
+model LibraryTemplate {
+  id              String  @id @db.VarChar(24)
+  type            String  @db.VarChar(16)
+  seq             Int
+  title           String  @db.VarChar(160)
+  description     String  @db.VarChar(400)
+  keywords        String  @db.Text
+  category        String  @db.VarChar(40)
+  categoryName    String  @db.VarChar(60)
+  subcategory     String  @db.VarChar(60)
+  subcategoryName String  @db.VarChar(80)
+  style           String  @db.VarChar(32)
+  styleName       String  @db.VarChar(40)
+  industry        String  @db.VarChar(32)
+  colorFamily     String  @db.VarChar(20)
+  mode            String  @db.VarChar(8)
+  orientation     String  @db.VarChar(12)
+  width           Int
+  height          Int
+  sizeId          String  @db.VarChar(24)
+  sizeName        String  @db.VarChar(40)
+  slideCount      Int     @default(1)
+  aspect          String  @db.VarChar(12)
+  layout          String  @db.VarChar(32)
+  palette         String  @db.VarChar(80)
+  fonts           String  @db.VarChar(80)
+  isFeatured      Boolean @default(false)
+  shuffleKey      Int
+  usageCount      Int     @default(0)
+  favoriteCount   Int     @default(0)
+  author          String  @default("Falcon") @db.VarChar(40)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  favorites LibraryTemplateFavorite[]
+
+  @@index([type, shuffleKey, id])
+  @@index([type, category, shuffleKey, id])
+  @@index([type, subcategory, shuffleKey, id])
+  @@index([type, style, shuffleKey, id])
+  @@index([type, colorFamily, shuffleKey, id])
+  @@index([type, sizeId, shuffleKey, id])
+  @@index([type, slideCount, shuffleKey, id])
+  @@index([type, industry, shuffleKey, id])
+  @@index([type, orientation, shuffleKey, id])
+  @@index([type, usageCount, id])
+  @@index([type, isFeatured, shuffleKey, id])
+  @@fulltext([title, keywords])
+  @@map("library_templates")
+}
+
+model LibraryTemplateFavorite {
+  userId     String
+  templateId String   @db.VarChar(24)
+  createdAt  DateTime @default(now())
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template LibraryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([userId, createdAt])
+  @@map("library_template_favorites")
 }

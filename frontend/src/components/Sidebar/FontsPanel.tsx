@@ -134,13 +134,10 @@ export function FontsPanel({
                 Font Library
               </h2>
               <p className="text-[10px] text-zinc-500">
-                {isLoading ? "Connecting to Google Fonts..." : `${catalog.length}+ Google Fonts`}
+                {isLoading ? "Loading fonts..." : "Google Fonts and Fontshare"}
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-mono text-zinc-400">
-            {filteredFonts.length}
-          </span>
         </div>
 
         {/* ── Search Input ── */}
@@ -325,7 +322,7 @@ export function FontsPanel({
               onClick={() => setVisibleCount((prev) => prev + 40)}
               className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs text-zinc-400 hover:bg-white/[0.08] hover:text-white transition"
             >
-              Load more ({filteredFonts.length - displayedFonts.length} remaining)
+              Load more
             </button>
           </div>
         )}

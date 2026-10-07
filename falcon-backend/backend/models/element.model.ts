@@ -5,7 +5,14 @@
  * type safety when they read or validate `Page.elements`.
  */
 
-export type ElementType = "rectangle" | "ellipse" | "text" | "image" | "line" | "group";
+export type ElementType =
+  | "rectangle"
+  | "ellipse"
+  | "text"
+  | "image"
+  | "line"
+  | "group"
+  | "frame";
 
 export interface BaseElement {
   id: string;
@@ -49,9 +56,23 @@ export interface ImageElement extends BaseElement {
   filter?: "none" | "grayscale" | "sepia" | "blur";
 }
 
+export interface FrameElement extends BaseElement {
+  type: "frame";
+  frameShape?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  cornerRadius?: number;
+  imageSrc?: string;
+}
+
 export interface GroupElement extends BaseElement {
   type: "group";
   childIds: string[];
 }
 
-export type CanvasElement = ShapeElement | TextElement | ImageElement | GroupElement;
+export type CanvasElement =
+  | ShapeElement
+  | TextElement
+  | ImageElement
+  | GroupElement
+  | FrameElement;

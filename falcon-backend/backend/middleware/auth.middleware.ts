@@ -47,6 +47,21 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   }
 }
 
+/** Attaches user when a valid session exists; never fails the request. */
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const token = extractAuthToken(req);
+    if (!token) return next();
+    const sessionData = await authService.validateSession(token);
+    req.userId = sessionData.userId;
+    req.userRole = sessionData.role;
+    req.sessionToken = token;
+  } catch {
+    // Public routes ignore invalid/expired tokens
+  }
+  next();
+}
+
 /** Role-based access control guard. Must be used after requireAuth. */
 export function requireRole(role: string) {
   return (req: Request, _res: Response, next: NextFunction) => {
@@ -55,4 +70,11 @@ export function requireRole(role: string) {
     }
     next();
   };
+}
+
+export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (req.userRole !== "admin") {
+    return next(AppError.forbidden("Admin access required"));
+  }
+  next();
 }

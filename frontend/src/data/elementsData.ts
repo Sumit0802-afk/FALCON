@@ -12,6 +12,7 @@ export type ElementCategoryId =
   | "3d"
   | "animations"
   | "photos"
+  | "stickers"
   | "frames"
   | "grids"
   | "forms"

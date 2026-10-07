@@ -243,11 +243,13 @@ export function BrandKitPanel({
               {brandKit.colors.map((color) => {
                 const isJustApplied = appliedItem === color.id;
                 return (
-                  <button
+                  <div
                     key={color.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleApplyColor(color)}
-                    className="group relative flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#14151b] p-2 text-left transition hover:border-cyan-500/50 hover:shadow-md"
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleApplyColor(color); } }}
+                    className="group relative flex cursor-pointer items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#14151b] p-2 text-left transition hover:border-cyan-500/50 hover:shadow-md"
                   >
                     {/* Swatch */}
                     <div
@@ -276,7 +278,7 @@ export function BrandKitPanel({
                         <Trash2 size={12} />
                       </button>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

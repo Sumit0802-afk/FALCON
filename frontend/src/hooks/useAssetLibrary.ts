@@ -213,6 +213,8 @@ import { renderGraphicFromDef } from "@/lib/assetEngine/graphicsEngine";
 import { render3DFromDef } from "@/lib/assetEngine/threeDEngine";
 import { renderAnimationThumbnail, getAnimatedSvg } from "@/lib/assetEngine/animationsEngine";
 import { renderFrameFromDef } from "@/lib/assetEngine/framesEngine";
+import { renderStickerFromDef } from "@/lib/assetEngine/stickersEngine";
+import { renderRealThumbnail } from "@/lib/assetEngine/realEngine";
 import { renderCategoryAsset } from "@/lib/assetEngine/remainingEngines";
 import { getPalette } from "@/lib/assetEngine/palette";
 import { svgDataUri, wrapSvg, linearGrad } from "@/lib/assetEngine/svgUtils";
@@ -222,11 +224,13 @@ export function renderAssetSvg(def: AssetDef): string {
 
   const cat = def.category;
   try {
+    if (def.templateId === "real") return renderRealThumbnail(def);
     if (cat === "shapes") return renderShapeFromDef(def);
     if (cat === "graphics") return renderGraphicFromDef(def);
     if (cat === "3d") return render3DFromDef(def);
     if (cat === "animations") return renderAnimationThumbnail(def);
     if (cat === "frames") return renderFrameFromDef(def);
+    if (cat === "stickers") return renderStickerFromDef(def);
     if (cat === "grids" || cat === "forms" || cat === "mockups" ||
         cat === "charts" || cat === "sheets" || cat === "tables") {
       return renderCategoryAsset(def);

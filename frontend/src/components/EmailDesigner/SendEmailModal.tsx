@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { EmailDesign } from "@/types/email";
-import { exportEmailHtml } from "@/utils/emailUtils";
+import { designToDocument, exportEmailHtml } from "@/utils/emailUtils";
+import { exactHtmlOf } from "@/lib/emailCore/schema";
+import { ApiError } from "@/services/api";
+import { parseRecipients, sendDesignEmail } from "@/services/emailTemplateService";
+
+const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Turns a failed send into a message that tells the user what to do next. */
+function sendErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return "Please sign in to send emails.";
+    if (err.status === 429) return "You've sent several emails in a short time. Please wait a few minutes and try again.";
+    if (err.code === "EMAIL_DELIVERY_FAILED") return err.message || "The mail server did not accept the email. Please try again in a moment.";
+    if (err.status === 400) return err.message.replace(/^[a-z.0-9]+: /i, "");
+    return "Something went wrong on our end. Please try again.";
+  }
+  return "We couldn't reach Falcon. Check your connection and try again.";
+}
 
 interface SendEmailModalProps {
   design: EmailDesign;
@@ -14,7 +31,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
 
   // Form fields prefilled from existing email settings
   const [fromName, setFromName] = useState(design.settings.senderName || "Falcon Studio");
-  const [fromEmail, setFromEmail] = useState(design.settings.replyTo || "notifications@falcon.design");
+  const [fromEmail, setFromEmail] = useState(design.settings.replyTo || "");
   const [to, setTo] = useState("");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -33,6 +50,10 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
 
   // Generated email HTML
   const emailHtml = exportEmailHtml(design);
+
+  // A design written in HTML can use effects mail apps cannot draw, so by default those parts are sent as pictures
+  const isHtmlDesign = exactHtmlOf(designToDocument(design)) !== null;
+  const [exact, setExact] = useState(isHtmlDesign);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,47 +74,50 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
       setTestSending(true);
       setTestResult(null);
 
-      const res = await fetch("/api/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromName,
-          fromEmail,
-          to: testEmail.trim(),
-          subject: `[TEST] ${subject}`,
-          html: emailHtml,
-          isTest: true,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setTestResult({
-          success: true,
-          message: data.message || "Test email sent successfully!",
-        });
-      } else {
-        setTestResult({
-          success: false,
-          message: data.error || "Unable to send email.",
-        });
+      const recipients = parseRecipients(testEmail);
+      if (!recipients.length || recipients.some((r) => !VALID_EMAIL.test(r))) {
+        setTestResult({ success: false, message: "Please enter a valid test email address." });
+        return;
       }
-    } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err?.message || "Unable to send email. Network or server error.",
+      await sendDesignEmail({
+        to: recipients,
+        subject: `[TEST] ${subject.trim() || "Falcon email"}`,
+        html: emailHtml,
+        fromName: fromName.trim() || undefined,
+        replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
+        exact,
       });
+      setTestResult({ success: true, message: `Test email sent to ${recipients.join(", ")}.` });
+    } catch (err) {
+      setTestResult({ success: false, message: sendErrorMessage(err) });
     } finally {
       setTestSending(false);
     }
   };
 
   // Send main email
-  const handleSendEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendEmail = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
+    // Anything missing is asked for on the details tab, where it can be filled in
     if (!to.trim()) {
+      setActiveTab("compose");
       setErrorMessage("Please enter at least one recipient email address.");
+      return;
+    }
+
+    const toList = parseRecipients(to);
+    const ccList = parseRecipients(cc);
+    const bccList = parseRecipients(bcc);
+    const invalid = [...toList, ...ccList, ...bccList].find((r) => !VALID_EMAIL.test(r));
+    if (invalid) {
+      setActiveTab("compose");
+      setErrorMessage(`"${invalid}" is not a valid email address.`);
+      return;
+    }
+    if (!subject.trim()) {
+      setActiveTab("compose");
+      setErrorMessage("Please enter a subject.");
       return;
     }
 
@@ -101,31 +125,20 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
     setErrorMessage("");
 
     try {
-      const res = await fetch("/api/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromName,
-          fromEmail,
-          to: to.trim(),
-          cc: cc.trim() ? cc.trim() : undefined,
-          bcc: bcc.trim() ? bcc.trim() : undefined,
-          subject: subject.trim(),
-          html: emailHtml,
-          isTest: false,
-        }),
+      const result = await sendDesignEmail({
+        to: toList,
+        cc: ccList.length ? ccList : undefined,
+        bcc: bccList.length ? bccList : undefined,
+        subject: subject.trim(),
+        html: emailHtml,
+        fromName: fromName.trim() || undefined,
+        replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
+        exact,
       });
-
-      const data = await res.json();
-      if (data.success) {
-        setStatusMessage(data.message || "Your email has been delivered to the selected recipients.");
-        setView("success");
-      } else {
-        setErrorMessage(data.error || "Email could not be sent.");
-        setView("error");
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || "An unexpected error occurred while communicating with the email server.");
+      setStatusMessage(result.message || "Your email has been sent to the selected recipients.");
+      setView("success");
+    } catch (err) {
+      setErrorMessage(sendErrorMessage(err));
       setView("error");
     }
   };
@@ -280,8 +293,13 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === "compose" && (
                 <form id="send-email-form" onSubmit={handleSendEmail} className="space-y-4">
+                  {errorMessage && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                      {errorMessage}
+                    </div>
+                  )}
                   {/* From Section */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                         Sender Name
@@ -296,13 +314,13 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                     </div>
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Sender Email / Reply-To
+                        Reply-To (optional)
                       </label>
                       <input
                         type="email"
                         value={fromEmail}
                         onChange={(e) => setFromEmail(e.target.value)}
-                        placeholder="notifications@falcon.design"
+                        placeholder="Replies go to your account email"
                         className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
                       />
                     </div>
@@ -344,7 +362,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                   </div>
 
                   {/* CC & BCC Optional */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                         CC (Optional)
@@ -370,6 +388,22 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                       />
                     </div>
                   </div>
+
+                  {/* How the design travels */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <input
+                      type="checkbox"
+                      checked={exact}
+                      onChange={(e) => setExact(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#00D084]"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-semibold text-zinc-300">Keep the design's special effects</span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500">
+                        The email stays real HTML, with real text and buttons. Only the parts mail apps cannot draw, such as 3D objects and glowing or outlined headlines, are sent as small pictures so they look as designed. Animations are shown still. Turn this off to send no pictures at all; those parts will then look plainer.
+                      </span>
+                    </span>
+                  </label>
 
                   {/* ── Test Email Quick Panel ── */}
                   <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -422,7 +456,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                   <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-[12px] text-zinc-400 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-zinc-300 w-16">From:</span>
-                      <span className="text-zinc-200">{fromName} &lt;{fromEmail}&gt;</span>
+                      <span className="text-zinc-200">{fromName}{fromEmail ? ` (replies to ${fromEmail})` : ""}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-zinc-300 w-16">To:</span>
@@ -466,11 +500,12 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                 <button
                   type="button"
                   onClick={() => {
+                    // The form is not on screen while previewing, so the send is started directly
                     if (activeTab === "compose") {
+                      setErrorMessage("");
                       setActiveTab("preview");
                     } else {
-                      const form = document.getElementById("send-email-form") as HTMLFormElement;
-                      if (form) form.requestSubmit();
+                      void handleSendEmail();
                     }
                   }}
                   className="flex items-center gap-2 rounded-lg bg-[#00D084] px-5 py-2 text-[12px] font-bold text-black shadow-lg transition-all hover:bg-[#00b872] active:scale-[0.98]"

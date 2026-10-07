@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Search,
   Sparkles,
@@ -15,7 +15,7 @@ import {
   TEXT_DESIGN_STYLES,
   TextDesignStyle,
 } from "@/data/textDesignStyles";
-import { loadGoogleFont } from "@/services/fontService";
+import { loadGoogleFont, loadFontSubset } from "@/services/fontService";
 
 interface TextPanelProps {
   selectedElement?: CanvasElement;
@@ -63,6 +63,14 @@ const CATEGORY_TABS: { id: StyleCategoryTab; label: string; emoji: string }[] = 
   { id: "futuristic", label: "Future", emoji: "⟁" },
 ];
 
+/** How many style cards are added each time the list grows */
+const STYLE_BATCH = 40;
+
+/** The letters a preview needs, in both cases because styles may change the case */
+function previewLetters(text: string): string {
+  return Array.from(new Set((text + text.toUpperCase() + text.toLowerCase()).split(""))).join("");
+}
+
 export function TextPanel({
   selectedElement,
   onAddHeading,
@@ -97,20 +105,35 @@ export function TextPanel({
     });
   }, [searchQuery, activeTab]);
 
-  // Preload fonts for visible styles
+  // Only a screenful of style cards is drawn at a time; more are added on scrolling
+  const [visibleCount, setVisibleCount] = useState(STYLE_BATCH);
+  const moreRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const topStyles = filteredStyles.slice(0, 24);
-    topStyles.forEach((s) => {
-      loadGoogleFont(s.fontFamily, [s.fontWeight || 400], s.fontStyle === "italic");
-      if (s.secondaryStyle?.fontFamily) {
-        loadGoogleFont(
-          s.secondaryStyle.fontFamily,
-          [s.secondaryStyle.fontWeight || 400],
-          s.secondaryStyle.fontStyle === "italic"
-        );
+    setVisibleCount(STYLE_BATCH);
+  }, [searchQuery, activeTab]);
+
+  const visibleStyles = useMemo(() => filteredStyles.slice(0, visibleCount), [filteredStyles, visibleCount]);
+
+  useEffect(() => {
+    const node = moreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setVisibleCount((n) => Math.min(filteredStyles.length, n + STYLE_BATCH));
+    }, { rootMargin: "500px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filteredStyles.length, visibleCount]);
+
+  // Each card loads only the letters it shows, so a long list stays light
+  useEffect(() => {
+    visibleStyles.forEach((s) => {
+      loadFontSubset(s.fontFamily, previewLetters(s.sampleText), s.fontWeight || 400, s.fontStyle === "italic");
+      if (s.secondaryStyle?.fontFamily && s.secondaryText) {
+        loadFontSubset(s.secondaryStyle.fontFamily, previewLetters(s.secondaryText), s.secondaryStyle.fontWeight || 400, s.secondaryStyle.fontStyle === "italic");
       }
     });
-  }, [filteredStyles]);
+  }, [visibleStyles]);
 
   // Click handler for style cards
   const handleApplyStyle = (style: TextDesignStyle) => {
@@ -158,9 +181,6 @@ export function TextPanel({
             </div>
             <span className="text-[13px] font-semibold text-white tracking-wide">Text</span>
           </div>
-          <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-mono text-zinc-500 border border-white/[0.05]">
-            {TEXT_DESIGN_STYLES.length}+ styles
-          </span>
         </div>
 
         {/* Search */}
@@ -287,7 +307,7 @@ export function TextPanel({
             </span>
             <div>
               <p className="text-[11px] font-semibold text-zinc-300">Font Library</p>
-              <p className="text-[10px] text-zinc-600">100+ Google Fonts</p>
+              <p className="text-[10px] text-zinc-600">Browse every font</p>
             </div>
           </div>
           <ChevronRight size={13} className="text-zinc-600" />
@@ -299,9 +319,6 @@ export function TextPanel({
             <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
               Style presets
             </p>
-            <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-mono text-zinc-600 border border-white/[0.04]">
-              {filteredStyles.length} shown
-            </span>
           </div>
 
           {/* Category pills */}
@@ -333,7 +350,7 @@ export function TextPanel({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 pb-6">
-              {filteredStyles.map((style) => {
+              {visibleStyles.map((style) => {
                 return (
                   <button
                     key={style.id}
@@ -410,6 +427,7 @@ export function TextPanel({
                   </button>
                 );
               })}
+              {visibleCount < filteredStyles.length && <div ref={moreRef} className="col-span-2 h-8" />}
             </div>
           )}
         </div>

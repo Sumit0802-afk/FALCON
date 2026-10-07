@@ -66,7 +66,7 @@ export default function ExportModal({ design, onClose }: ExportModalProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] px-5 py-4">
           <div className="flex items-center gap-2 text-[11px] text-zinc-600">
             <span className="rounded bg-[#00D084]/10 px-2 py-0.5 text-[10px] text-[#00D084]">
               {html.length.toLocaleString()} bytes

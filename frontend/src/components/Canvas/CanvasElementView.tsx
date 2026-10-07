@@ -1,3 +1,4 @@
+import { blendMaskCss } from "@/utils/blend";
 import {
   useEffect,
   useRef,
@@ -367,6 +368,8 @@ export default function CanvasElementView({
           Math.round(
             rotation / 15
           ) * 15;
+      } else {
+        rotation = Math.round(rotation);
       }
 
       lastRotation = rotation;
@@ -523,6 +526,11 @@ export default function CanvasElementView({
         transform: `rotate(${element.rotation}deg)`,
 
         opacity: element.opacity,
+
+        mixBlendMode:
+          element.blendMode && element.blendMode !== "normal"
+            ? (element.blendMode as React.CSSProperties["mixBlendMode"])
+            : undefined,
 
         cursor:
           editing && isText(element)
@@ -791,6 +799,7 @@ export default function CanvasElementView({
         !frameCropMode &&
         activeTool !== "crop" && (
           <SelectionBox
+            zoom={zoom}
             onResizeStart={(
               handle: ResizeHandle
             ) =>
@@ -1013,23 +1022,8 @@ function ElementBody({
       element.height /
       (cropHeight || 1);
 
-    let maskStyle: React.CSSProperties = {};
-    if (element.blendMask === "circular") {
-      maskStyle = {
-        WebkitMaskImage: "radial-gradient(circle at center, black 40%, transparent 95%)",
-        maskImage: "radial-gradient(circle at center, black 40%, transparent 95%)",
-      };
-    } else if (element.blendMask === "linear" || element.blendMask === "linear-bottom") {
-      maskStyle = {
-        WebkitMaskImage: "linear-gradient(to bottom, black 30%, transparent 100%)",
-        maskImage: "linear-gradient(to bottom, black 30%, transparent 100%)",
-      };
-    } else if (element.blendMask === "linear-top") {
-      maskStyle = {
-        WebkitMaskImage: "linear-gradient(to top, black 30%, transparent 100%)",
-        maskImage: "linear-gradient(to top, black 30%, transparent 100%)",
-      };
-    }
+    const mask = blendMaskCss(element);
+    const maskStyle: React.CSSProperties = mask ? { WebkitMaskImage: mask, maskImage: mask } : {};
 
     let effectFilter = "";
     if (element.effect === "glow") {
@@ -1071,7 +1065,6 @@ function ElementBody({
         className="relative h-full w-full overflow-hidden"
         style={{
           pointerEvents: "none",
-          mixBlendMode: (element.blendMode as any) || undefined,
           transform: `scale(${element.flipX ? -1 : 1}, ${element.flipY ? -1 : 1})`,
           ...maskStyle,
         }}

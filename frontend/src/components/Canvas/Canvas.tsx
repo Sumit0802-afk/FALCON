@@ -658,11 +658,8 @@ export function Canvas({
               page.size.height *
               zoom,
 
-            background: page.background
-              ? page.background.startsWith("http") || page.background.startsWith("data:")
-                ? `url("${page.background}") center / cover no-repeat`
-                : page.background
-              : "#ffffff",
+            // The background itself is painted on the element layer below. Painting it
+            // here as well would double any see-through background.
 
             cursor:
               activeTool ===
@@ -701,6 +698,14 @@ export function Canvas({
 
               height:
                 page.size.height,
+
+              // A blended element mixes with what is in its own layer; without the
+              // page background here it would have nothing to mix with on an empty page
+              background: page.background
+                ? page.background.startsWith("http") || page.background.startsWith("data:")
+                  ? `url("${page.background}") center / cover no-repeat`
+                  : page.background
+                : "#ffffff",
 
               transform: `scale(${zoom})`,
             }}

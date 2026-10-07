@@ -1,3 +1,4 @@
+import { EMAIL_ASSET_DIR } from "./services/emailSnapshot";
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -47,6 +48,9 @@ export function createApp(): Application {
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     })
   );
+
+  // Pictures made for sent emails, fetched later by the mail apps that show them
+  app.use("/email-assets", express.static(EMAIL_ASSET_DIR, { maxAge: "365d", immutable: true, index: false, dotfiles: "deny" }));
 
   app.use(cookieParser());
   app.use(express.json({ limit: "50mb" }));

@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { EmailBlock, EmailSettings } from "@/types/email";
+import { LegacyEmailBlock as EmailBlock, EmailSettings } from "@/types/email";
 import { parseHtmlToEmailBlocks } from "@/utils/htmlToBlocks";
+import { importHtmlExact, shouldImportExact } from "@/utils/htmlImportExact";
+import { EmailSection } from "@/lib/emailCore/schema";
 import HtmlCodeEditor from "./HtmlCodeEditor";
 
 interface DesignByHtmlModalProps {
   currentHtml?: string;
   onImport: (blocks: EmailBlock[], settings?: Partial<EmailSettings>) => void;
+  /** Imports the HTML exactly as written, as one HTML block */
+  onImportExact: (sections: EmailSection[], settings?: Partial<EmailSettings>) => void;
   onClose: () => void;
 }
 
@@ -31,11 +35,15 @@ const SAMPLE_HTML = `<!DOCTYPE html>
 export default function DesignByHtmlModal({
   currentHtml = "",
   onImport,
+  onImportExact,
   onClose,
 }: DesignByHtmlModalProps) {
   const [htmlCode, setHtmlCode] = useState(currentHtml.trim() ? currentHtml : SAMPLE_HTML);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  // null follows the recommendation for the pasted code; a click fixes the choice
+  const [modeChoice, setModeChoice] = useState<"exact" | "blocks" | null>(null);
+  const mode = modeChoice ?? (shouldImportExact(htmlCode) ? "exact" : "blocks");
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -45,7 +53,7 @@ export default function DesignByHtmlModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!htmlCode.trim()) {
       setError("Please paste or write some HTML before importing.");
       return;
@@ -54,6 +62,14 @@ export default function DesignByHtmlModal({
     try {
       setImporting(true);
       setError(null);
+
+      if (mode === "exact") {
+        const { sections, settings } = await importHtmlExact(htmlCode);
+        onImportExact(sections, settings);
+        onClose();
+        return;
+      }
+
       const { blocks, settings } = parseHtmlToEmailBlocks(htmlCode);
 
       if (!blocks || blocks.length === 0) {
@@ -141,6 +157,25 @@ export default function DesignByHtmlModal({
             maxHeight="440px"
           />
 
+          <div role="radiogroup" aria-label="How to import" className="mt-4 grid gap-3 sm:grid-cols-2">
+            {([
+              { id: "exact", title: "Keep exact design", text: "Looks the same as your HTML: same width, colours, fonts and spacing. You edit it as code." },
+              { id: "blocks", title: "Convert to editable blocks", text: "Rebuilds the email from Falcon blocks you can drag and edit. Custom styling and layout are simplified." },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={mode === option.id}
+                onClick={() => setModeChoice(option.id)}
+                className={`rounded-xl border p-3.5 text-left transition-colors ${mode === option.id ? "border-[#FF4D4D]/70 bg-[#FF4D4D]/[0.08]" : "border-white/[0.08] hover:border-white/20"}`}
+              >
+                <div className="text-[12.5px] font-semibold text-white">{option.title}</div>
+                <div className="mt-1 text-[11px] leading-relaxed text-zinc-400">{option.text}</div>
+              </button>
+            ))}
+          </div>
+
           {error && (
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3.5 py-2.5 text-[12px] text-red-300">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -152,7 +187,7 @@ export default function DesignByHtmlModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#0c0c0e] px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] bg-[#0c0c0e] px-6 py-4">
           <div className="text-[11px] text-zinc-500">
             Flow: <span className="text-zinc-300">Paste HTML</span> → <span className="text-[#FF4D4D] font-medium">Import &amp; Design</span> → <span className="text-zinc-300">Visual Email Editor</span>
           </div>
@@ -181,7 +216,7 @@ export default function DesignByHtmlModal({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
-                  Converting to Blocks...
+                  Importing...
                 </>
               ) : (
                 <>

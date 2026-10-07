@@ -20,6 +20,9 @@ import { FALCON_TEMPLATES, FalconTemplate } from "@/data/templates";
 import { projectService } from "@/services/projectService";
 import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
 import { PageSize } from "@/types";
+import { UserMenu, useCurrentUser } from "@/components/UserMenu";
+import { LibraryBrowser } from "@/components/LibraryBrowser";
+import { TemplateCollection, TemplateCollections } from "@/components/TemplateCollections";
 
 /* ================================================================
    SEARCH-KEYWORD → CONTEXTUAL UNSPLASH IMAGES
@@ -151,54 +154,26 @@ function getContextualResults(query: string): SearchResult[] {
   }).slice(0, 8);
 }
 
-const CATEGORIES = [
-  "All",
-  "Festivals",
-  "Invitations",
-  "Sports",
-  "Posters",
-  "Tech",
-];
 
 const NAV_LINKS = ["Product", "AI Studio", "Templates", "Resources"];
 
 export default function TemplatesPage() {
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [previewTemplate, setPreviewTemplate] = useState<FalconTemplate | null>(null);
-  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [preset, setPreset] = useState<{ type: TemplateCollection["type"]; filters: TemplateCollection["filters"] } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const carouselRef = useRef<HTMLDivElement | null>(null);
-
-  const filteredTemplates = FALCON_TEMPLATES.filter((tpl) => {
-    const matchesCategory =
-      activeCategory === "All" ||
-      tpl.category.toLowerCase().includes(activeCategory.toLowerCase());
-    const matchesSearch =
-      !searchQuery.trim() ||
-      tpl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tpl.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tpl.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const { signedIn, user, signOut } = useCurrentUser();
 
   // Contextual search results (Canva-like)
   const contextualResults = getContextualResults(searchQuery);
   const showContextualResults = searchQuery.trim().length > 0 && contextualResults.length > 0;
 
-  const scrollCarousel = (direction: "left" | "right") => {
-    if (!carouselRef.current) return;
-    carouselRef.current.scrollBy({
-      left: direction === "left" ? -460 : 460,
-      behavior: "smooth",
-    });
-  };
-
-  const toggleFavorite = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  // Shows one collection in the library further down the page
+  function openCollection(collection: TemplateCollection) {
+    setSearchQuery("");
+    setPreset({ type: collection.type, filters: collection.filters });
+    document.getElementById("template-gallery-section")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   // Layout selector modal state
   const [layoutModalOpen, setLayoutModalOpen] = useState(false);
@@ -216,13 +191,6 @@ export default function TemplatesPage() {
   function startWithContextualItem(item: SearchResult) {
     setPendingTemplate(null);
     setPendingContextualItem(item);
-    setLayoutModalOpen(true);
-  }
-
-  // Show layout selector before opening any template
-  function startWithTemplate(template: FalconTemplate) {
-    setPendingTemplate(template);
-    setPendingContextualItem(null);
     setLayoutModalOpen(true);
   }
 
@@ -533,7 +501,7 @@ export default function TemplatesPage() {
         <header
           className="fixed left-4 right-4 top-4 z-[100] rounded-2xl border border-white/[0.08] bg-black/85 backdrop-blur-xl md:left-6 md:right-6 lg:left-8 lg:right-8 xl:left-[5%] xl:right-[5%]"
         >
-          <div className="mx-auto grid h-[72px] w-full max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center px-5 lg:px-7">
+          <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between gap-3 px-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-7">
 
             {/* Logo */}
             <button
@@ -569,13 +537,17 @@ export default function TemplatesPage() {
 
             {/* Right Actions */}
             <div className="flex shrink-0 items-center gap-3 justify-self-end">
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="hidden text-[13px] text-zinc-400 transition-colors hover:text-white lg:block"
-              >
-                Log in
-              </button>
+              {signedIn ? (
+                <UserMenu user={user} onSignOut={signOut} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.push("/login")}
+                  className="hidden text-[13px] text-zinc-400 transition-colors hover:text-white lg:block"
+                >
+                  Log in
+                </button>
+              )}
 
               <button
                 type="button"
@@ -588,7 +560,7 @@ export default function TemplatesPage() {
               <button
                 type="button"
                 onClick={createBlankDesign}
-                className="flex h-10 items-center gap-2 rounded-full bg-[#f4f1eb] px-5 text-[13px] font-medium text-black transition hover:bg-white"
+                className={`h-10 items-center gap-2 rounded-full bg-[#f4f1eb] px-5 text-[13px] font-medium text-black transition hover:bg-white ${signedIn ? "hidden sm:flex" : "flex"}`}
               >
                 Get started
                 <ArrowRight size={14} />
@@ -624,13 +596,23 @@ export default function TemplatesPage() {
                     {link}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => { setMenuOpen(false); router.push("/login"); }}
-                  className="text-left text-sm text-zinc-400 hover:text-white"
-                >
-                  Log in
-                </button>
+                {signedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); signOut(); }}
+                    className="text-left text-sm text-zinc-400 hover:text-white"
+                  >
+                    Log out{user?.name ? ` (${user.name})` : ""}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); router.push("/login"); }}
+                    className="text-left text-sm text-zinc-400 hover:text-white"
+                  >
+                    Log in
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => { setMenuOpen(false); createBlankDesign(); }}
@@ -726,6 +708,16 @@ export default function TemplatesPage() {
               </button>
             </div>
 
+            {/* The full searchable library is further down this page */}
+            <button
+              type="button"
+              onClick={() => document.getElementById("template-gallery-section")?.scrollIntoView({ behavior: "smooth" })}
+              className="fade-up-delay2 mt-5 inline-flex items-center gap-2 text-[13px] text-zinc-400 underline-offset-4 transition hover:text-white hover:underline"
+            >
+              Search posters, presentations and certificates
+              <ArrowRight size={13} />
+            </button>
+
             {/* Search bar */}
             <div className="mt-12 w-full max-w-2xl mx-auto">
               <div className="relative flex items-center rounded-full border border-white/[0.12] bg-black/40 px-5 py-4 backdrop-blur-md transition focus-within:border-teal-400/40 focus-within:shadow-[0_0_30px_rgba(45,212,191,0.08)]">
@@ -734,7 +726,8 @@ export default function TemplatesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search templates — Holi, Diwali, Football, Kitty Party..."
+                  onKeyDown={(e) => { if (e.key === "Enter") document.getElementById("template-gallery-section")?.scrollIntoView({ behavior: "smooth" }); }}
+                  placeholder="Search templates — Hackathon, Diwali, Pitch deck, Workshop..."
                   className="flex-1 bg-transparent text-sm text-[#f4f1eb] outline-none placeholder:text-zinc-600"
                 />
                 {searchQuery && (
@@ -756,64 +749,34 @@ export default function TemplatesPage() {
             <div className="hidden items-center gap-3 sm:flex">
               <span>01</span>
               <span className="h-px w-20 bg-zinc-800" />
-              <span>{FALCON_TEMPLATES.length} CURATED DESIGNS</span>
+              <span>POSTERS · PRESENTATIONS · CERTIFICATES</span>
             </div>
           </div>
         </section>
 
         {/* =============================================
-            FEATURED CAROUSEL SECTION
+            COLLECTIONS: themed slices of the library
             ============================================= */}
         <section className="relative z-10 border-t border-white/[0.06] px-6 py-16 lg:px-12">
           <div className="mx-auto max-w-[1400px]">
-            {/* Section header */}
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="font-mono text-[9px] tracking-[0.25em] text-zinc-700 uppercase mb-2">
-                  Featured Collection
+                  Collections
                 </p>
                 <h2
                   className="font-serif text-3xl text-[#f4f1eb]"
                   style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
                 >
-                  Trending this week
+                  Find your starting point
                 </h2>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => scrollCarousel("left")}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/40 text-zinc-400 backdrop-blur-md transition hover:border-white/30 hover:bg-white/[0.07] hover:text-white active:scale-95"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollCarousel("right")}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/40 text-zinc-400 backdrop-blur-md transition hover:border-white/30 hover:bg-white/[0.07] hover:text-white active:scale-95"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
+              <p className="max-w-[360px] text-[13px] leading-relaxed text-zinc-500">
+                Pick a collection to see every matching template, ready to open in the editor.
+              </p>
             </div>
 
-            {/* Carousel row */}
-            <div
-              ref={carouselRef}
-              className="no-scrollbar flex gap-5 overflow-x-auto pb-4 pt-2"
-            >
-              {FALCON_TEMPLATES.map((template) => (
-                <ShowcaseCard
-                  key={template.id}
-                  template={template}
-                  isFavorite={Boolean(favorites[template.id])}
-                  onToggleFavorite={(e) => toggleFavorite(template.id, e)}
-                  onUse={() => startWithTemplate(template)}
-                  onPreview={() => setPreviewTemplate(template)}
-                />
-              ))}
-            </div>
+            <TemplateCollections onOpen={openCollection} />
           </div>
         </section>
 
@@ -828,32 +791,14 @@ export default function TemplatesPage() {
             {/* Section header */}
             <div className="mb-10">
               <p className="font-mono text-[9px] tracking-[0.25em] text-zinc-700 uppercase mb-3">
-                Explore by Category
+                All templates
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {CATEGORIES.map((category) => {
-                    const active = activeCategory === category;
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => setActiveCategory(category)}
-                        className={`rounded-full border px-5 py-2 text-[11px] font-medium tracking-wide transition ${
-                          active
-                            ? "border-white bg-white text-black"
-                            : "border-white/[0.10] bg-white/[0.03] text-zinc-500 hover:border-white/25 hover:text-zinc-200"
-                        }`}
-                      >
-                        {category}
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="font-mono text-[10px] tracking-[0.15em] text-zinc-700">
-                  {filteredTemplates.length} DESIGNS
-                </span>
-              </div>
+              <h2
+                className="font-serif text-3xl text-[#f4f1eb]"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                Posters, presentations and certificates
+              </h2>
             </div>
 
             {/* ─── CONTEXTUAL SEARCH RESULTS (Canva-style) ─── */}
@@ -873,7 +818,7 @@ export default function TemplatesPage() {
                       onClick={() => startWithContextualItem(result)}
                       title={`Use ${result.title} as template`}
                     >
-                      <div className="relative h-[200px] w-full overflow-hidden">
+                      <div data-theme-keep="" className="relative h-[200px] w-full overflow-hidden">
                         <img
                           src={result.imageUrl}
                           alt={result.title}
@@ -907,138 +852,16 @@ export default function TemplatesPage() {
               </div>
             )}
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredTemplates.map((template) => (
-                <GridCard
-                  key={template.id}
-                  template={template}
-                  isFavorite={Boolean(favorites[template.id])}
-                  onToggleFavorite={(e) => toggleFavorite(template.id, e)}
-                  onUse={() => startWithTemplate(template)}
-                  onPreview={() => setPreviewTemplate(template)}
-                />
-              ))}
-            </div>
-
-            {/* Empty state */}
-            {filteredTemplates.length === 0 && (
-              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.015] p-8 text-center">
-                <Search size={28} className="text-zinc-700" />
-                <p className="mt-3 text-base font-medium text-zinc-400">No templates found</p>
-                <p className="mt-1 text-sm text-zinc-700">Try a different search or category</p>
-                <button
-                  type="button"
-                  onClick={() => { setActiveCategory("All"); setSearchQuery(""); }}
-                  className="mt-5 rounded-full bg-white px-5 py-2 text-xs font-medium text-black transition hover:bg-zinc-200"
-                >
-                  Reset filters
-                </button>
-              </div>
-            )}
+            {/* The full library: search, filters, preview and "Use template" */}
+            <LibraryBrowser
+              basePath="/templates"
+              heading={false}
+              externalSearch={searchQuery}
+              onSearchChange={setSearchQuery}
+              preset={preset}
+            />
           </div>
         </section>
-
-        {/* =============================================
-            PREVIEW MODAL
-            ============================================= */}
-        {previewTemplate && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-            <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-[#060a0e] shadow-2xl md:flex-row">
-              {/* Left: visual preview */}
-              <div
-                className="relative flex min-h-[280px] flex-1 items-center justify-center overflow-hidden p-10 bg-[#101318]"
-                style={{ background: !previewTemplate.previewImage && !previewTemplate.preview.startsWith("http") ? previewTemplate.preview : undefined }}
-              >
-                {(previewTemplate.previewImage || previewTemplate.preview.startsWith("http")) && (
-                  <img
-                    src={previewTemplate.previewImage || previewTemplate.preview}
-                    alt={previewTemplate.name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
-                <div className="relative z-10 max-w-xs rounded-xl border border-white/20 bg-black/40 p-6 text-center backdrop-blur-md">
-                  <h3
-                    className="text-2xl font-bold text-white"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {previewTemplate.name}
-                  </h3>
-                  <p className="mt-2 text-xs text-white/70">{previewTemplate.description}</p>
-                  <span className="mt-4 inline-block rounded-full bg-white/20 px-3 py-1 font-mono text-[10px] text-white/80">
-                    {previewTemplate.width} × {previewTemplate.height} px
-                  </span>
-                </div>
-              </div>
-
-              {/* Right: details & actions */}
-              <div className="flex w-full flex-col justify-between border-t border-white/[0.07] p-8 md:w-80 md:border-l md:border-t-0">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-white/[0.10] bg-white/[0.05] px-3 py-1 text-[11px] text-zinc-400">
-                      {previewTemplate.category}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTemplate(null)}
-                      className="rounded-full p-1.5 text-zinc-600 hover:text-white"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  <h2
-                    className="mt-5 text-xl font-bold text-[#f4f1eb]"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {previewTemplate.name}
-                  </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                    {previewTemplate.description}
-                  </p>
-
-                  <div className="mt-6 space-y-2 border-t border-white/[0.06] pt-5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Dimensions</span>
-                      <span className="text-zinc-300">{previewTemplate.width} × {previewTemplate.height}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Elements</span>
-                      <span className="text-zinc-300">{previewTemplate.page.elements.length} layers</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Format</span>
-                      <span className="text-zinc-300">Fully editable</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const t = previewTemplate;
-                      setPreviewTemplate(null);
-                      startWithTemplate(t);
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f4f1eb] py-3 text-sm font-semibold text-black transition hover:bg-white"
-                  >
-                    Select Layout & Customize
-                    <ArrowRight size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTemplate(null)}
-                    className="w-full rounded-xl border border-white/[0.08] py-2.5 text-xs text-zinc-500 transition hover:border-white/20 hover:text-zinc-200"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* =============================================
             FOOTER (Homepage-matched dark style)
@@ -1106,197 +929,5 @@ export default function TemplatesPage() {
         />
       )}
     </>
-  );
-}
-
-/* ===========================================================
-   SHOWCASE CARD (Carousel — dark glass style)
-   =========================================================== */
-
-interface CardProps {
-  template: FalconTemplate;
-  isFavorite: boolean;
-  onToggleFavorite: (e: React.MouseEvent) => void;
-  onUse: () => void;
-  onPreview: () => void;
-}
-
-function ShowcaseCard({ template, isFavorite, onToggleFavorite, onUse, onPreview }: CardProps) {
-  const isLandscape = template.width > template.height * 1.2;
-
-  return (
-    <div
-      onClick={onUse}
-      className={`group relative shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0f14] shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/20 hover:shadow-2xl ${
-        isLandscape ? "w-[400px]" : "w-[250px]"
-      }`}
-    >
-      {/* Visual area */}
-      <div
-        className="relative flex h-[260px] w-full items-center justify-center overflow-hidden p-5 text-center bg-[#101318]"
-        style={{ background: !template.previewImage && !template.preview.startsWith("http") ? template.preview : undefined }}
-      >
-        {(template.previewImage || template.preview.startsWith("http")) && (
-          <img
-            src={template.previewImage || template.preview}
-            alt={template.name}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-            loading="lazy"
-          />
-        )}
-        {/* Scrim gradient overlay for depth & crisp text contrast */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25 transition-opacity duration-300 group-hover:via-black/55" />
-        <div className="pointer-events-none absolute inset-0 rounded-none border-[1.5px] border-white/10 opacity-0 transition group-hover:opacity-100" />
-
-        {/* Animated play badge */}
-        {template.isAnimated && (
-          <div className="absolute bottom-4 left-4 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow backdrop-blur-sm">
-            <Play size={12} fill="white" className="ml-0.5" />
-          </div>
-        )}
-
-        {/* Badge */}
-        {template.badge && (
-          <span className="absolute left-4 top-4 z-10 rounded-full border border-white/20 bg-black/50 px-2.5 py-0.5 font-mono text-[9px] tracking-widest text-white/80 backdrop-blur-sm">
-            {template.badge.toUpperCase()}
-          </span>
-        )}
-
-        {/* Favorite */}
-        <button
-          type="button"
-          onClick={onToggleFavorite}
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-zinc-400 backdrop-blur-sm transition hover:text-rose-400"
-        >
-          <Heart
-            size={14}
-            fill={isFavorite ? "#f43f5e" : "transparent"}
-            className={isFavorite ? "text-rose-400" : ""}
-          />
-        </button>
-
-        {/* Content overlay */}
-        <div className="relative z-10 max-w-[80%]">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-white/60 drop-shadow">
-            {template.category}
-          </p>
-          <h4
-            className="mt-1.5 text-lg font-bold leading-tight text-white drop-shadow-md line-clamp-2"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-          >
-            {template.name}
-          </h4>
-        </div>
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/60 p-4 opacity-0 backdrop-blur-[3px] transition-opacity duration-200 group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onUse(); }}
-            className="flex items-center gap-2 rounded-full bg-[#f4f1eb] px-5 py-2.5 text-xs font-medium text-black transition hover:bg-white active:scale-95"
-          >
-            Customize template <ArrowRight size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onPreview(); }}
-            className="text-[11px] text-white/70 underline hover:text-white"
-          >
-            Quick view
-          </button>
-        </div>
-      </div>
-
-      {/* Card footer */}
-      <div className="flex items-center justify-between border-t border-white/[0.06] bg-[#0b0f14] px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold text-zinc-200">{template.name}</p>
-          <p className="text-[10px] text-zinc-600">{template.category}</p>
-        </div>
-        <span className="shrink-0 font-mono text-[10px] text-zinc-700">
-          {template.width}×{template.height}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ===========================================================
-   GRID CARD (Gallery — dark glass style)
-   =========================================================== */
-
-function GridCard({ template, isFavorite, onToggleFavorite, onUse, onPreview }: CardProps) {
-  return (
-    <div
-      onClick={onUse}
-      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0b0f14] shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-white/20 hover:shadow-2xl"
-    >
-      <div
-        className="relative flex h-[220px] w-full items-center justify-center overflow-hidden p-5 text-center bg-[#101318]"
-        style={{ background: !template.previewImage && !template.preview.startsWith("http") ? template.preview : undefined }}
-      >
-        {(template.previewImage || template.preview.startsWith("http")) && (
-          <img
-            src={template.previewImage || template.preview}
-            alt={template.name}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-            loading="lazy"
-          />
-        )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25 transition-opacity duration-300 group-hover:via-black/55" />
-
-        {template.isAnimated && (
-          <div className="absolute bottom-3 left-3 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white shadow backdrop-blur-sm">
-            <Play size={10} fill="white" className="ml-0.5" />
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onToggleFavorite}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/50 text-zinc-400 backdrop-blur-sm transition hover:text-rose-400"
-        >
-          <Heart
-            size={13}
-            fill={isFavorite ? "#f43f5e" : "transparent"}
-            className={isFavorite ? "text-rose-400" : ""}
-          />
-        </button>
-
-        <div className="relative z-10 max-w-[85%]">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-white/60">
-            {template.category}
-          </p>
-          <h4
-            className="mt-1 text-base font-bold leading-tight text-white drop-shadow line-clamp-2"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-          >
-            {template.name}
-          </h4>
-        </div>
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 opacity-0 backdrop-blur-[2px] transition-opacity group-hover:opacity-100">
-          <span className="rounded-full bg-[#f4f1eb] px-5 py-2.5 text-xs font-medium text-black shadow">
-            Customize
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-white/[0.06] px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-zinc-300">{template.name}</p>
-          <p className="text-[10px] text-zinc-700">{template.category}</p>
-        </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onPreview(); }}
-          className="rounded-lg p-1.5 text-zinc-700 transition hover:bg-white/[0.05] hover:text-zinc-400"
-          title="Preview"
-        >
-          <ExternalLink size={13} />
-        </button>
-      </div>
-    </div>
   );
 }

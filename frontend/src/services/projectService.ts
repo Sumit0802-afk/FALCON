@@ -1,11 +1,15 @@
-import { DesignProject, PAGE_PRESETS } from "@/types";
+import { DesignPage, DesignProject, PAGE_PRESETS } from "@/types";
 import { apiFetch } from "./api";
 
-interface ProjectSummary {
+export interface ProjectSummary {
   id: string;
   title: string;
   thumbnailUrl: string | null;
   pageCount: number;
+  /** Size and background of the first page; missing for projects listed by an older server */
+  width?: number | null;
+  height?: number | null;
+  background?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,8 +89,19 @@ function removeLocalProject(id: string): void {
    TRANSFORM HELPERS
    ========================================================= */
 
+function toDesignPage(page: BackendPage): DesignPage {
+  return {
+    id: page.id,
+    name: page.name,
+    size: { width: page.width, height: page.height, name: page.presetName },
+    background: page.background,
+    elements: Array.isArray(page.elements) ? page.elements : [],
+  };
+}
+
 function toDesignProject(project: BackendProject): DesignProject {
-  const pages = Array.isArray(project.pages) ? project.pages : [];
+  // Pages are kept in their saved order, whatever order the server lists them in
+  const pages = (Array.isArray(project.pages) ? [...project.pages] : []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   return {
     id: project.id,
@@ -120,6 +135,9 @@ export const projectService = {
       title: lp.title,
       thumbnailUrl: null,
       pageCount: lp.pages.length,
+      width: lp.pages[0]?.size.width ?? null,
+      height: lp.pages[0]?.size.height ?? null,
+      background: lp.pages[0]?.background ?? null,
       createdAt: lp.createdAt,
       updatedAt: lp.updatedAt,
     }));
@@ -263,6 +281,60 @@ export const projectService = {
       console.warn("Backend save failed, saved to localStorage fallback:", err);
       return project;
     }
+  },
+
+  /** Saves one page. Used by the editor so that editing a slide never rewrites the rest of a deck. */
+  async savePage(projectId: string, page: DesignPage): Promise<void> {
+    const cached = getLocalProjects()[projectId];
+    if (cached) {
+      saveLocalProject({ ...cached, pages: cached.pages.map((p) => (p.id === page.id ? page : p)), updatedAt: new Date().toISOString() });
+    }
+    if (projectId.startsWith("local-")) return;
+    await apiFetch<PageResponse>(`/projects/${projectId}/pages/${page.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: page.name, background: page.background, elements: page.elements }),
+    });
+  },
+
+  async rename(projectId: string, title: string): Promise<void> {
+    const cached = getLocalProjects()[projectId];
+    if (cached) saveLocalProject({ ...cached, title });
+    if (projectId.startsWith("local-")) return;
+    await apiFetch<ProjectResponse>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+  },
+
+  /**
+   * Adds a page after `after`, at the same size. With `copy` it starts as a
+   * duplicate of that page, otherwise blank on the same background.
+   */
+  async addPage(projectId: string, after: DesignPage, copy = false): Promise<DesignPage> {
+    const name = copy ? `${after.name} copy`.slice(0, 100) : "New page";
+    const elements = copy ? after.elements : [];
+    let page: DesignPage;
+    if (projectId.startsWith("local-")) {
+      page = { id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, size: after.size, background: after.background, elements };
+    } else {
+      const response = await apiFetch<PageResponse>(`/projects/${projectId}/pages`, {
+        method: "POST",
+        body: JSON.stringify({ afterPageId: after.id, name, background: after.background, elements }),
+      });
+      page = toDesignPage(response.page);
+    }
+    const cached = getLocalProjects()[projectId];
+    if (cached) {
+      const index = cached.pages.findIndex((p) => p.id === after.id);
+      const pages = [...cached.pages];
+      pages.splice(index === -1 ? pages.length : index + 1, 0, page);
+      saveLocalProject({ ...cached, pages });
+    }
+    return page;
+  },
+
+  async deletePage(projectId: string, pageId: string): Promise<void> {
+    const cached = getLocalProjects()[projectId];
+    if (cached) saveLocalProject({ ...cached, pages: cached.pages.filter((p) => p.id !== pageId) });
+    if (projectId.startsWith("local-")) return;
+    await apiFetch<void>(`/projects/${projectId}/pages/${pageId}`, { method: "DELETE" });
   },
 
   async duplicate(id: string): Promise<DesignProject | undefined> {

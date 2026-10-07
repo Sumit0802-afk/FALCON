@@ -1,11 +1,22 @@
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
+  /** Stable machine-readable identifier clients can branch on (e.g. "OTP_EXPIRED") */
+  public readonly code?: string;
+  /** Extra non-sensitive fields merged into the JSON error response */
+  public readonly details?: Record<string, number | string | boolean>;
 
-  constructor(message: string, statusCode = 400) {
+  constructor(
+    message: string,
+    statusCode = 400,
+    code?: string,
+    details?: Record<string, number | string | boolean>
+  ) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
+    this.code = code;
+    this.details = details;
     Error.captureStackTrace(this, this.constructor);
   }
 

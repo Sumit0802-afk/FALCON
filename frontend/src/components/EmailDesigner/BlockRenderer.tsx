@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback } from "react";
 import {
-  EmailBlock, TextBlock, HeadingBlock, ImageBlock, ButtonBlock,
-  DividerBlock, SpacerBlock, SocialBlock, LogoBlock, HtmlBlock,
-  Columns2Block, Columns3Block, HeroBlock, FeatureBlock,
-  ProductBlock, CtaBlock, FooterBlock, SocialIcon,
+  EmailBlock, ImageBlock, TextAlign,
 } from "@/types/email";
+import { SOCIAL_LABELS, contrastColor, videoPoster } from "@/lib/emailCore/renderHtml";
+import { pickHtml } from "@/utils/htmlPick";
+import { isFullHtmlDocument } from "@/lib/emailCore/schema";
+import HtmlFrame from "./HtmlFrame";
 
 // ─── Inline Editable Text ──────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ function Editable({ value, onChange, style, className, multiline = true }: Edita
 
   const handleBlur = () => {
     setEditing(false);
-    if (ref.current) onChange(ref.current.innerText);
+    if (ref.current && ref.current.innerText !== value) onChange(ref.current.innerText);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -47,21 +48,93 @@ function Editable({ value, onChange, style, className, multiline = true }: Edita
   );
 }
 
-// ─── Social Icon SVG ───────────────────────────────────────────────────────────
-
-function SocialIconSvg({ platform, color, size }: { platform: string; color: string; size: number }) {
-  const paths: Record<string, React.ReactNode> = {
-    twitter:   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.731-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill={color}/>,
-    instagram: <><rect x="2" y="2" width="20" height="20" rx="5" stroke={color} strokeWidth="2" fill="none"/><circle cx="12" cy="12" r="5" stroke={color} strokeWidth="2" fill="none"/><circle cx="17.5" cy="6.5" r="1" fill={color}/></>,
-    facebook:  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" fill={color}/>,
-    linkedin:  <><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" fill={color}/><rect x="2" y="9" width="4" height="12" fill={color}/><circle cx="4" cy="4" r="2" fill={color}/></>,
-    youtube:   <><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-1.96C18.88 4 12 4 12 4s-6.88 0-8.6.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.1C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-1.95 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.4z" fill={color}/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="white"/></>,
-    github:    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>,
-  };
+/** Button label that can be edited in place. */
+function EditableLabel({ value, onChange, style }: { value: string; onChange: (v: string) => void; style: React.CSSProperties }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      {paths[platform] ?? null}
-    </svg>
+    <span
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={(e) => { if (e.currentTarget.innerText !== value) onChange(e.currentTarget.innerText); }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+      style={{ cursor: "text", userSelect: "text", outline: "none", textDecoration: "none", lineHeight: 1.2, ...style }}
+      dangerouslySetInnerHTML={{ __html: value }}
+    />
+  );
+}
+
+function ImagePlaceholder({ height, radius, label, onPick }: { height: number; radius: number; label: string; onPick: (url: string) => void }) {
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height, background: "#f0f0f0",
+        border: "2px dashed #ccc", borderRadius: radius, color: "#999", fontSize: 13, fontFamily: "Arial, sans-serif",
+        cursor: "pointer", boxSizing: "border-box",
+      }}
+      onClick={() => {
+        const url = window.prompt("Enter image URL:");
+        if (url) onPick(url);
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+// ─── Resizable Image ──────────────────────────────────────────────────────────
+
+function ResizableImage({ block, selected, onResize }: { block: ImageBlock; selected: boolean; onResize: (width: number | "100%") => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState<number | null>(null);
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrap = wrapRef.current;
+    if (!wrap || !wrap.parentElement) return;
+    const max = wrap.parentElement.clientWidth;
+    const startX = e.clientX;
+    const startWidth = wrap.getBoundingClientRect().width;
+    // A centred image grows on both sides, so the pointer covers half the change
+    const factor = block.alignment === "center" ? 2 : block.alignment === "right" ? -1 : 1;
+    let latest = startWidth;
+
+    const move = (ev: MouseEvent) => {
+      latest = Math.round(Math.min(max, Math.max(40, startWidth + (ev.clientX - startX) * factor)));
+      setDraft(latest);
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      setDraft(null);
+      // One history entry for the whole drag, snapping back to fluid at full width
+      onResize(latest >= max - 4 ? "100%" : latest);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  const width = draft ?? (block.width === "100%" ? "100%" : block.width);
+  return (
+    <div ref={wrapRef} style={{ display: "inline-block", position: "relative", width, maxWidth: "100%", verticalAlign: "top" }}>
+      <img src={block.src} alt={block.alt} draggable={false} style={{ display: "block", width: "100%", borderRadius: block.borderRadius }} />
+      {selected && (
+        <>
+          <div
+            onMouseDown={startResize}
+            title="Drag to resize"
+            style={{
+              position: "absolute", right: -6, bottom: -6, width: 14, height: 14, borderRadius: 3, background: "#00D084",
+              border: "2px solid #fff", cursor: "nwse-resize", zIndex: 20,
+            }}
+          />
+          {draft !== null && (
+            <div style={{ position: "absolute", right: 6, bottom: 6, padding: "2px 6px", borderRadius: 4, background: "rgba(0,0,0,0.75)", color: "#fff", fontSize: 10, fontFamily: "monospace" }}>
+              {draft}px
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -69,16 +142,24 @@ function SocialIconSvg({ platform, color, size }: { platform: string; color: str
 
 interface BlockRendererProps {
   block: EmailBlock;
+  selected?: boolean;
   onChange: (updated: EmailBlock) => void;
 }
 
-export default function BlockRenderer({ block, onChange }: BlockRendererProps) {
+function justify(align: TextAlign): string {
+  return align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
+}
+
+export default function BlockRenderer({ block, selected = false, onChange }: BlockRendererProps) {
   const pad: React.CSSProperties = {
     paddingTop: block.paddingTop,
     paddingBottom: block.paddingBottom,
     paddingLeft: block.paddingLeft,
     paddingRight: block.paddingRight,
     backgroundColor: block.backgroundColor === "transparent" ? undefined : block.backgroundColor,
+    border: block.borderWidth > 0 ? `${block.borderWidth}px ${block.borderStyle} ${block.borderColor}` : undefined,
+    borderRadius: block.cornerRadius || undefined,
+    boxSizing: "border-box",
   };
 
   const update = useCallback(
@@ -86,445 +167,359 @@ export default function BlockRenderer({ block, onChange }: BlockRendererProps) {
     [block, onChange]
   );
 
-  // ── Text ──────────────────────────────────────────────────────────────────────
-  if (block.type === "text") {
-    const b = block as TextBlock;
-    return (
-      <div style={pad}>
-        <Editable
-          value={b.content}
-          onChange={(v) => update({ content: v })}
-          style={{
-            fontFamily: b.fontFamily,
-            fontSize: b.fontSize,
-            fontWeight: b.fontWeight,
-            color: b.color,
-            textAlign: b.textAlign,
-            lineHeight: b.lineHeight,
-            letterSpacing: b.letterSpacing,
-          }}
-        />
-      </div>
-    );
-  }
-
-  // ── Heading ───────────────────────────────────────────────────────────────────
-  if (block.type === "heading") {
-    const b = block as HeadingBlock;
-    const Tag = `h${b.level}` as "h1" | "h2" | "h3";
-    return (
-      <div style={pad}>
-        <Editable
-          value={b.content}
-          onChange={(v) => update({ content: v })}
-          multiline={false}
-          style={{
-            fontFamily: b.fontFamily,
-            fontSize: b.fontSize,
-            fontWeight: b.fontWeight,
-            color: b.color,
-            textAlign: b.textAlign,
-            lineHeight: b.lineHeight,
-            margin: 0,
-          }}
-        />
-      </div>
-    );
-  }
-
-  // ── Image ─────────────────────────────────────────────────────────────────────
-  if (block.type === "image") {
-    const b = block as ImageBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.alignment }}>
-        {b.src ? (
-          <img
-            src={b.src}
-            alt={b.alt}
+  switch (block.type) {
+    case "text":
+      return (
+        <div style={pad}>
+          <Editable
+            value={block.content}
+            onChange={(v) => update({ content: v })}
             style={{
-              display: "inline-block",
-              maxWidth: "100%",
-              width: b.width === "100%" ? "100%" : b.width,
-              borderRadius: b.borderRadius,
+              fontFamily: block.fontFamily, fontSize: block.fontSize, fontWeight: block.fontWeight, color: block.color,
+              textAlign: block.textAlign, lineHeight: block.lineHeight, letterSpacing: block.letterSpacing,
             }}
           />
-        ) : (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-              height: 180,
-              background: "#f0f0f0",
-              border: "2px dashed #ccc",
-              borderRadius: b.borderRadius,
-              color: "#999",
-              fontSize: 13,
-              fontFamily: "Arial, sans-serif",
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              const url = window.prompt("Enter image URL:");
-              if (url) update({ src: url });
-            }}
-          >
-            📷 Click to set image URL
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Button ────────────────────────────────────────────────────────────────────
-  if (block.type === "button") {
-    const b = block as ButtonBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.alignment }}>
-        <span
-          contentEditable
-          suppressContentEditableWarning
-          onBlur={(e) => update({ text: e.currentTarget.innerText })}
-          style={{
-            display: "inline-block",
-            padding: "12px 28px",
-            backgroundColor: b.bgColor,
-            color: b.textColor,
-            fontFamily: "Arial, sans-serif",
-            fontSize: b.fontSize,
-            fontWeight: b.fontWeight,
-            borderRadius: b.borderRadius,
-            cursor: "text",
-            userSelect: "text",
-            outline: "none",
-            textDecoration: "none",
-          }}
-          dangerouslySetInnerHTML={{ __html: b.text }}
-        />
-      </div>
-    );
-  }
-
-  // ── Divider ───────────────────────────────────────────────────────────────────
-  if (block.type === "divider") {
-    const b = block as DividerBlock;
-    return (
-      <div style={pad}>
-        <hr style={{ border: "none", borderTop: `${b.thickness}px ${b.style} ${b.color}`, margin: 0 }} />
-      </div>
-    );
-  }
-
-  // ── Spacer ────────────────────────────────────────────────────────────────────
-  if (block.type === "spacer") {
-    const b = block as SpacerBlock;
-    return (
-      <div
-        style={{ height: b.height, display: "flex", alignItems: "center", justifyContent: "center" }}
-        className="group"
-      >
-        <div className="hidden w-full border-t border-dashed border-gray-200 text-center text-[10px] text-gray-400 group-hover:block">
-          spacer {b.height}px
         </div>
-      </div>
-    );
-  }
+      );
 
-  // ── Social ────────────────────────────────────────────────────────────────────
-  if (block.type === "social") {
-    const b = block as SocialBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.alignment }}>
-        <div style={{ display: "inline-flex", gap: 12 }}>
-          {b.icons.map((icon) => (
-            <a key={icon.platform} href={icon.url} style={{ textDecoration: "none", display: "inline-block" }}>
-              <SocialIconSvg platform={icon.platform} color={b.color} size={b.iconSize} />
-            </a>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Logo ──────────────────────────────────────────────────────────────────────
-  if (block.type === "logo") {
-    const b = block as LogoBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.alignment }}>
-        {b.src ? (
-          <img src={b.src} alt={b.alt} style={{ display: "inline-block", width: b.width, maxWidth: "100%" }} />
-        ) : (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: b.width,
-              height: 48,
-              background: "#f0f0f0",
-              border: "2px dashed #ccc",
-              borderRadius: 6,
-              color: "#999",
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              const url = window.prompt("Enter logo URL:");
-              if (url) update({ src: url });
-            }}
-          >
-            Set Logo
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── HTML ──────────────────────────────────────────────────────────────────────
-  if (block.type === "html") {
-    const b = block as HtmlBlock;
-    return (
-      <div style={pad}>
-        <div dangerouslySetInnerHTML={{ __html: b.html }} />
-      </div>
-    );
-  }
-
-  // ── Columns 2 ─────────────────────────────────────────────────────────────────
-  if (block.type === "columns2") {
-    const b = block as Columns2Block;
-    return (
-      <div style={pad}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <tbody>
-            <tr>
-              {b.columns.map((col, i) => (
-                <td
-                  key={col.id}
-                  style={{
-                    width: "50%",
-                    verticalAlign: "top",
-                    padding: `0 ${b.gap / 2}px`,
-                  }}
-                >
-                  <Editable
-                    value={col.content}
-                    onChange={(v) => {
-                      const cols = [...b.columns] as typeof b.columns;
-                      cols[i] = { ...cols[i], content: v };
-                      update({ columns: cols });
-                    }}
-                    style={{
-                      fontFamily: col.fontFamily,
-                      fontSize: col.fontSize,
-                      color: col.color,
-                      textAlign: col.textAlign,
-                      fontWeight: col.fontWeight,
-                    }}
-                  />
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  // ── Columns 3 ─────────────────────────────────────────────────────────────────
-  if (block.type === "columns3") {
-    const b = block as Columns3Block;
-    return (
-      <div style={pad}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <tbody>
-            <tr>
-              {b.columns.map((col, i) => (
-                <td
-                  key={col.id}
-                  style={{
-                    width: "33.33%",
-                    verticalAlign: "top",
-                    padding: `0 ${b.gap / 2}px`,
-                  }}
-                >
-                  <Editable
-                    value={col.content}
-                    onChange={(v) => {
-                      const cols = [...b.columns] as typeof b.columns;
-                      cols[i] = { ...cols[i], content: v };
-                      update({ columns: cols });
-                    }}
-                    style={{
-                      fontFamily: col.fontFamily,
-                      fontSize: col.fontSize,
-                      color: col.color,
-                      textAlign: col.textAlign,
-                      fontWeight: col.fontWeight,
-                    }}
-                  />
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  // ── Hero ──────────────────────────────────────────────────────────────────────
-  if (block.type === "hero") {
-    const b = block as HeroBlock;
-    return (
-      <div
-        style={{
-          ...pad,
-          backgroundImage: b.imageSrc ? `url(${b.imageSrc})` : undefined,
-          backgroundColor: b.imageSrc ? undefined : "#222222",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          textAlign: b.textAlign,
-          position: "relative",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: b.overlayColor,
-            opacity: b.overlayOpacity,
-          }}
-        />
-        <div style={{ position: "relative", zIndex: 1, padding: "32px 24px" }}>
+    case "heading":
+      return (
+        <div style={pad}>
           <Editable
-            value={b.heading}
-            onChange={(v) => update({ heading: v })}
+            value={block.content}
+            onChange={(v) => update({ content: v })}
             multiline={false}
             style={{
-              fontFamily: "Arial, sans-serif",
-              fontSize: 36,
-              fontWeight: "bold",
-              color: b.headingColor,
-              marginBottom: 12,
-              display: "block",
+              fontFamily: block.fontFamily, fontSize: block.fontSize, fontWeight: block.fontWeight, color: block.color,
+              textAlign: block.textAlign, lineHeight: block.lineHeight, letterSpacing: block.letterSpacing,
+              textTransform: block.uppercase ? "uppercase" : undefined, margin: 0,
             }}
-          />
-          <Editable
-            value={b.subheading}
-            onChange={(v) => update({ subheading: v })}
-            style={{
-              fontFamily: "Arial, sans-serif",
-              fontSize: 16,
-              color: b.subheadingColor,
-              marginBottom: 24,
-              display: "block",
-            }}
-          />
-          <span
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => update({ buttonText: e.currentTarget.innerText })}
-            style={{
-              display: "inline-block",
-              padding: "12px 28px",
-              backgroundColor: b.buttonBg,
-              color: b.buttonColor,
-              fontFamily: "Arial, sans-serif",
-              fontSize: 14,
-              fontWeight: "bold",
-              borderRadius: 6,
-              cursor: "text",
-              outline: "none",
-            }}
-            dangerouslySetInnerHTML={{ __html: b.buttonText }}
           />
         </div>
-      </div>
-    );
-  }
+      );
 
-  // ── Feature ───────────────────────────────────────────────────────────────────
-  if (block.type === "feature") {
-    const b = block as FeatureBlock;
-    const imgCell = (
-      <td style={{ width: "40%", verticalAlign: "top", paddingRight: b.imageAlign === "left" ? 16 : 0, paddingLeft: b.imageAlign === "right" ? 16 : 0 }}>
-        {b.imageSrc
-          ? <img src={b.imageSrc} alt="" style={{ maxWidth: "100%", borderRadius: 6 }} />
-          : <div style={{ height: 140, background: "#f0f0f0", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", color: "#bbb", fontSize: 12, cursor: "pointer" }} onClick={() => { const u = window.prompt("Image URL:"); if (u) update({ imageSrc: u }); }}>📷 Set image</div>
-        }
-      </td>
-    );
-    const txtCell = (
-      <td style={{ verticalAlign: "top", color: b.color, fontFamily: "Arial, sans-serif" }}>
-        <Editable value={b.heading} onChange={(v) => update({ heading: v })} multiline={false} style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8, display: "block" }} />
-        <Editable value={b.body} onChange={(v) => update({ body: v })} style={{ fontSize: 14, lineHeight: 1.6 }} />
-      </td>
-    );
-    return (
-      <div style={pad}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <tbody>
-            <tr>
-              {b.imageAlign === "left" ? <>{imgCell}{txtCell}</> : <>{txtCell}{imgCell}</>}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  // ── Product ───────────────────────────────────────────────────────────────────
-  if (block.type === "product") {
-    const b = block as ProductBlock;
-    return (
-      <div style={{ ...pad, textAlign: "center", fontFamily: "Arial, sans-serif" }}>
-        {b.imageSrc
-          ? <img src={b.imageSrc} alt={b.name} style={{ maxWidth: "100%", marginBottom: 16 }} />
-          : <div style={{ height: 180, background: "#f0f0f0", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "#bbb", cursor: "pointer" }} onClick={() => { const u = window.prompt("Image URL:"); if (u) update({ imageSrc: u }); }}>📷 Set image</div>
-        }
-        <Editable value={b.name} onChange={(v) => update({ name: v })} multiline={false} style={{ fontSize: 22, fontWeight: "bold", display: "block", marginBottom: 4 }} />
-        <Editable value={b.price} onChange={(v) => update({ price: v })} multiline={false} style={{ fontSize: 20, fontWeight: "bold", color: "#111", display: "block", marginBottom: 8 }} />
-        <Editable value={b.description} onChange={(v) => update({ description: v })} style={{ fontSize: 14, color: "#666", display: "block", marginBottom: 16 }} />
-        <span
-          contentEditable suppressContentEditableWarning
-          onBlur={(e) => update({ buttonText: e.currentTarget.innerText })}
-          style={{ display: "inline-block", padding: "10px 24px", backgroundColor: b.buttonBg, color: b.buttonColor, borderRadius: 6, fontWeight: "bold", cursor: "text", outline: "none" }}
-          dangerouslySetInnerHTML={{ __html: b.buttonText }}
-        />
-      </div>
-    );
-  }
-
-  // ── CTA ───────────────────────────────────────────────────────────────────────
-  if (block.type === "cta") {
-    const b = block as CtaBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.textAlign, fontFamily: "Arial, sans-serif" }}>
-        <Editable value={b.heading} onChange={(v) => update({ heading: v })} multiline={false} style={{ fontSize: 28, fontWeight: "bold", color: b.headingColor, display: "block", marginBottom: 8 }} />
-        <Editable value={b.subheading} onChange={(v) => update({ subheading: v })} style={{ fontSize: 15, color: b.subheadingColor, display: "block", marginBottom: 24 }} />
-        <span
-          contentEditable suppressContentEditableWarning
-          onBlur={(e) => update({ buttonText: e.currentTarget.innerText })}
-          style={{ display: "inline-block", padding: "13px 30px", backgroundColor: b.buttonBg, color: b.buttonColor, borderRadius: 6, fontSize: 15, fontWeight: "bold", cursor: "text", outline: "none" }}
-          dangerouslySetInnerHTML={{ __html: b.buttonText }}
-        />
-      </div>
-    );
-  }
-
-  // ── Footer ────────────────────────────────────────────────────────────────────
-  if (block.type === "footer_block") {
-    const b = block as FooterBlock;
-    return (
-      <div style={{ ...pad, textAlign: b.textAlign, fontFamily: "Arial, sans-serif", fontSize: b.fontSize, color: b.textColor }}>
-        <Editable value={b.companyName} onChange={(v) => update({ companyName: v })} multiline={false} style={{ display: "block", marginBottom: 4, fontWeight: "bold" }} />
-        <Editable value={b.address} onChange={(v) => update({ address: v })} style={{ display: "block", marginBottom: 6 }} />
-        <div>
-          <a href={b.unsubscribeUrl} style={{ color: b.textColor }}>Unsubscribe</a>
+    case "image":
+      return (
+        <div style={{ ...pad, textAlign: block.alignment }}>
+          {block.src ? (
+            <ResizableImage block={block} selected={selected} onResize={(width) => update({ width })} />
+          ) : (
+            <ImagePlaceholder height={180} radius={block.borderRadius} label="📷 Click to set image URL" onPick={(src) => update({ src })} />
+          )}
         </div>
-      </div>
-    );
-  }
+      );
 
-  return <div style={pad}><em style={{ color: "#aaa", fontSize: 12 }}>Unknown block: {(block as any).type}</em></div>;
+    case "button": {
+      const outline = block.outlineColor ? `2px solid ${block.outlineColor}` : undefined;
+      return (
+        <div style={{ ...pad, display: "flex", justifyContent: justify(block.alignment) }}>
+          <EditableLabel
+            value={block.text}
+            onChange={(text) => update({ text })}
+            style={{
+              display: "inline-block", width: block.width === "full" ? "100%" : undefined, boxSizing: "border-box",
+              textAlign: "center", padding: `${block.paddingV}px ${block.paddingH}px`, backgroundColor: block.bgColor,
+              color: block.textColor, fontFamily: block.fontFamily, fontSize: block.fontSize, fontWeight: block.fontWeight,
+              borderRadius: block.borderRadius, border: outline,
+            }}
+          />
+        </div>
+      );
+    }
+
+    case "divider":
+      return (
+        <div style={pad}>
+          <hr style={{ border: "none", borderTop: `${block.thickness}px ${block.style} ${block.color}`, margin: "0 auto", width: `${block.widthPercent}%` }} />
+        </div>
+      );
+
+    case "spacer":
+      return (
+        <div
+          style={{ height: block.height, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: pad.backgroundColor }}
+          className="group/spacer"
+        >
+          <div className="hidden w-full border-t border-dashed border-gray-300 text-center text-[10px] text-gray-400 group-hover/spacer:block">
+            spacer {block.height}px
+          </div>
+        </div>
+      );
+
+    case "social":
+      return (
+        <div style={{ ...pad, display: "flex", justifyContent: justify(block.alignment) }}>
+          <div style={{ display: "inline-flex", gap: block.gap }}>
+            {block.icons.map((icon, i) => (
+              <span
+                key={`${icon.platform}-${i}`}
+                title={SOCIAL_LABELS[icon.platform]?.name}
+                style={{
+                  display: "inline-block", width: block.iconSize, height: block.iconSize, lineHeight: `${block.iconSize}px`,
+                  borderRadius: block.iconSize, backgroundColor: block.color, color: contrastColor(block.color),
+                  fontFamily: "Arial, Helvetica, sans-serif", fontSize: Math.round(block.iconSize * 0.38), fontWeight: "bold",
+                  textAlign: "center",
+                }}
+              >
+                {SOCIAL_LABELS[icon.platform]?.short}
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+
+    case "logo":
+      return (
+        <div style={{ ...pad, textAlign: block.alignment }}>
+          {block.src ? (
+            <img src={block.src} alt={block.alt} draggable={false} style={{ display: "inline-block", width: block.width, maxWidth: "100%" }} />
+          ) : (
+            <Editable
+              value={block.text}
+              onChange={(text) => update({ text })}
+              multiline={false}
+              style={{
+                fontFamily: block.fontFamily, fontSize: block.fontSize, fontWeight: "bold", letterSpacing: block.letterSpacing,
+                color: block.textColor,
+              }}
+            />
+          )}
+        </div>
+      );
+
+    case "html":
+      // A whole document brings its own stylesheet, so it is shown in a frame of its own
+      if (isFullHtmlDocument(block.html)) {
+        return (
+          <div style={pad}>
+            <HtmlFrame html={block.html} onPick={(offset) => pickHtml(block.id, offset)} />
+          </div>
+        );
+      }
+      return (
+        <div style={pad}>
+          <div dangerouslySetInnerHTML={{ __html: block.html }} />
+        </div>
+      );
+
+    case "video": {
+      const poster = block.thumbnailSrc || videoPoster(block.videoUrl);
+      return (
+        <div style={{ ...pad, textAlign: "center" }}>
+          {poster ? (
+            <div style={{ position: "relative" }}>
+              <img src={poster} alt={block.alt} draggable={false} style={{ display: "block", width: "100%", borderRadius: block.borderRadius }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                <div style={{ width: 56, height: 56, borderRadius: 56, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 22, lineHeight: "56px" }}>▶</div>
+              </div>
+            </div>
+          ) : (
+            <ImagePlaceholder height={200} radius={block.borderRadius} label="▶ Click to set a poster image URL" onPick={(thumbnailSrc) => update({ thumbnailSrc })} />
+          )}
+          <div style={{ height: 12 }} />
+          <EditableLabel
+            value={block.buttonText}
+            onChange={(buttonText) => update({ buttonText })}
+            style={{
+              display: "inline-block", padding: "10px 22px", backgroundColor: block.buttonBg, color: block.buttonColor,
+              fontFamily: "Arial, Helvetica, sans-serif", fontSize: 14, fontWeight: "bold", borderRadius: 999,
+            }}
+          />
+        </div>
+      );
+    }
+
+    case "icons": {
+      const badge = (glyph: string) => (
+        <div
+          style={{
+            width: block.iconSize, height: block.iconSize, lineHeight: `${block.iconSize}px`, borderRadius: block.iconSize,
+            backgroundColor: block.iconBg, color: block.iconColor, fontFamily: "Arial, sans-serif",
+            fontSize: Math.round(block.iconSize * 0.45), textAlign: "center", flexShrink: 0, margin: block.layout === "row" ? "0 auto" : undefined,
+          }}
+        >
+          {glyph}
+        </div>
+      );
+      const setItem = (index: number, patch: Partial<(typeof block.items)[number]>) =>
+        update({ items: block.items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
+      const align = block.layout === "row" ? "center" : "left";
+      return (
+        <div style={pad}>
+          <div style={{ display: "flex", flexDirection: block.layout === "row" ? "row" : "column", gap: 12 }}>
+            {block.items.map((item, i) => (
+              <div key={i} style={{ flex: 1, display: "flex", flexDirection: block.layout === "row" ? "column" : "row", gap: block.layout === "row" ? 8 : 14, alignItems: block.layout === "row" ? "stretch" : "center" }}>
+                {badge(item.glyph)}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Editable
+                    value={item.label}
+                    onChange={(label) => setItem(i, { label })}
+                    multiline={false}
+                    style={{ fontFamily: block.fontFamily, fontSize: block.fontSize + 1, fontWeight: "bold", color: block.labelColor, textAlign: align, lineHeight: 1.4 }}
+                  />
+                  {(item.text || selected) && (
+                    <Editable
+                      value={item.text}
+                      onChange={(text) => setItem(i, { text })}
+                      style={{ fontFamily: block.fontFamily, fontSize: block.fontSize, color: block.textColor, textAlign: align, lineHeight: 1.5, minHeight: 4 }}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    case "menu":
+      return (
+        <div style={{ ...pad, textAlign: block.alignment }}>
+          {block.links.map((link, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <span style={{ color: block.color, opacity: 0.5, padding: "0 10px", fontFamily: block.fontFamily, fontSize: block.fontSize }}>
+                  {block.separator || " "}
+                </span>
+              )}
+              <span
+                style={{
+                  fontFamily: block.fontFamily, fontSize: block.fontSize, fontWeight: block.fontWeight, color: block.color,
+                  letterSpacing: block.letterSpacing, textTransform: block.uppercase ? "uppercase" : undefined,
+                }}
+              >
+                {link.label}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
+      );
+
+    case "hero":
+      return (
+        <div
+          style={{
+            backgroundImage: block.imageSrc ? `url(${block.imageSrc})` : undefined, backgroundColor: block.fallbackColor,
+            backgroundSize: "cover", backgroundPosition: "center", position: "relative",
+            border: pad.border, borderRadius: pad.borderRadius, overflow: "hidden",
+          }}
+        >
+          {block.imageSrc && (
+            <div style={{ position: "absolute", inset: 0, backgroundColor: block.overlayColor, opacity: block.overlayOpacity }} />
+          )}
+          <div
+            style={{
+              position: "relative", zIndex: 1, textAlign: block.textAlign, paddingTop: block.paddingTop,
+              paddingBottom: block.paddingBottom, paddingLeft: block.paddingLeft, paddingRight: block.paddingRight,
+            }}
+          >
+            <Editable
+              value={block.heading}
+              onChange={(heading) => update({ heading })}
+              multiline={false}
+              style={{ fontFamily: block.headingFont, fontSize: block.headingSize, lineHeight: 1.2, fontWeight: "bold", color: block.headingColor, marginBottom: 12 }}
+            />
+            <Editable
+              value={block.subheading}
+              onChange={(subheading) => update({ subheading })}
+              style={{ fontFamily: block.fontFamily, fontSize: 16, lineHeight: 1.55, color: block.subheadingColor, marginBottom: block.buttonText ? 24 : 0 }}
+            />
+            {block.buttonText && (
+              <EditableLabel
+                value={block.buttonText}
+                onChange={(buttonText) => update({ buttonText })}
+                style={{
+                  display: "inline-block", padding: "13px 30px", backgroundColor: block.buttonBg, color: block.buttonColor,
+                  fontFamily: block.fontFamily, fontSize: 15, fontWeight: "bold", borderRadius: block.buttonRadius,
+                }}
+              />
+            )}
+          </div>
+        </div>
+      );
+
+    case "feature": {
+      const imgCell = (
+        <td style={{ width: "40%", verticalAlign: "top", paddingRight: block.imageAlign === "left" ? 16 : 0, paddingLeft: block.imageAlign === "right" ? 16 : 0 }}>
+          {block.imageSrc
+            ? <img src={block.imageSrc} alt="" draggable={false} style={{ display: "block", width: "100%", borderRadius: block.imageRadius }} />
+            : <ImagePlaceholder height={140} radius={block.imageRadius} label="📷 Set image" onPick={(imageSrc) => update({ imageSrc })} />}
+        </td>
+      );
+      const txtCell = (
+        <td style={{ verticalAlign: "top", color: block.color }}>
+          <Editable value={block.heading} onChange={(heading) => update({ heading })} multiline={false} style={{ fontFamily: block.headingFont, fontSize: 20, lineHeight: 1.3, fontWeight: "bold", marginBottom: 8 }} />
+          <Editable value={block.body} onChange={(body) => update({ body })} style={{ fontFamily: block.fontFamily, fontSize: 14, lineHeight: 1.6 }} />
+        </td>
+      );
+      return (
+        <div style={pad}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              <tr>{block.imageAlign === "left" ? <>{imgCell}{txtCell}</> : <>{txtCell}{imgCell}</>}</tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case "product":
+      return (
+        <div style={{ ...pad, textAlign: block.textAlign }}>
+          {block.imageSrc
+            ? <img src={block.imageSrc} alt={block.name} draggable={false} style={{ display: "block", width: "100%", borderRadius: block.imageRadius }} />
+            : <ImagePlaceholder height={180} radius={block.imageRadius} label="📷 Set image" onPick={(imageSrc) => update({ imageSrc })} />}
+          <div style={{ height: 16 }} />
+          {block.badge && (
+            <div style={{ marginBottom: 10 }}>
+              <EditableLabel
+                value={block.badge}
+                onChange={(badge) => update({ badge })}
+                style={{
+                  display: "inline-block", padding: "4px 12px", borderRadius: 999, backgroundColor: block.badgeBg, color: block.badgeColor,
+                  fontFamily: block.fontFamily, fontSize: 11, fontWeight: "bold", letterSpacing: 1, textTransform: "uppercase",
+                }}
+              />
+            </div>
+          )}
+          <Editable value={block.name} onChange={(name) => update({ name })} multiline={false} style={{ fontFamily: block.headingFont, fontSize: 22, lineHeight: 1.3, fontWeight: "bold", color: block.nameColor, marginBottom: 4 }} />
+          <Editable value={block.price} onChange={(price) => update({ price })} multiline={false} style={{ fontFamily: block.fontFamily, fontSize: 20, fontWeight: "bold", color: block.priceColor, marginBottom: 8 }} />
+          <Editable value={block.description} onChange={(description) => update({ description })} style={{ fontFamily: block.fontFamily, fontSize: 14, lineHeight: 1.6, color: block.descriptionColor, marginBottom: 16 }} />
+          {block.buttonText && (
+            <EditableLabel
+              value={block.buttonText}
+              onChange={(buttonText) => update({ buttonText })}
+              style={{ display: "inline-block", padding: "11px 24px", backgroundColor: block.buttonBg, color: block.buttonColor, borderRadius: block.buttonRadius, fontFamily: block.fontFamily, fontSize: 14, fontWeight: "bold" }}
+            />
+          )}
+        </div>
+      );
+
+    case "cta":
+      return (
+        <div style={{ ...pad, textAlign: block.textAlign }}>
+          <Editable value={block.heading} onChange={(heading) => update({ heading })} multiline={false} style={{ fontFamily: block.headingFont, fontSize: 28, lineHeight: 1.25, fontWeight: "bold", color: block.headingColor, marginBottom: 8 }} />
+          <Editable value={block.subheading} onChange={(subheading) => update({ subheading })} style={{ fontFamily: block.fontFamily, fontSize: 15, lineHeight: 1.6, color: block.subheadingColor, marginBottom: block.buttonText ? 24 : 0 }} />
+          {block.buttonText && (
+            <EditableLabel
+              value={block.buttonText}
+              onChange={(buttonText) => update({ buttonText })}
+              style={{ display: "inline-block", padding: "13px 30px", backgroundColor: block.buttonBg, color: block.buttonColor, borderRadius: block.buttonRadius, fontFamily: block.fontFamily, fontSize: 15, fontWeight: "bold" }}
+            />
+          )}
+        </div>
+      );
+
+    case "footer_block":
+      return (
+        <div style={{ ...pad, textAlign: block.textAlign, fontFamily: block.fontFamily, fontSize: block.fontSize, lineHeight: 1.5, color: block.textColor }}>
+          <Editable value={block.companyName} onChange={(companyName) => update({ companyName })} multiline={false} style={{ marginBottom: 6, fontWeight: "bold" }} />
+          <Editable value={block.address} onChange={(address) => update({ address })} style={{ marginBottom: 6 }} />
+          <Editable value={block.unsubscribeText} onChange={(unsubscribeText) => update({ unsubscribeText })} multiline={false} style={{ textDecoration: "underline" }} />
+        </div>
+      );
+
+    default:
+      return <div style={pad}><em style={{ color: "#aaa", fontSize: 12 }}>Unknown block: {(block as { type: string }).type}</em></div>;
+  }
 }

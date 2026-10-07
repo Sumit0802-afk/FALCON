@@ -11,7 +11,19 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "ts-node database/seed.ts"
+    "seed": "ts-node database/seed.ts",
+    "templates:seed": "ts-node scripts/generate-templates.ts --count 168 --publish",
+    "templates:generate": "ts-node scripts/generate-templates.ts",
+    "templates:import": "ts-node scripts/import-templates.ts",
+    "email:sync": "ts-node scripts/sync-email-core.ts",
+    "library:seed": "ts-node --transpile-only scripts/seed-library.ts",
+    "library:audit": "ts-node --transpile-only scripts/audit-library.ts",
+    "test:library": "ts-node --transpile-only tests/library.test.ts",
+    "email:seed": "ts-node --transpile-only scripts/seed-email-templates.ts",
+    "test:auth": "ts-node tests/auth.test.ts",
+    "test:account": "ts-node tests/account.test.ts",
+    "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts",
+    "test:templates": "ts-node tests/templates.test.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -22,9 +34,11 @@
     "express": "^4.21.1",
     "helmet": "7.1.0",
     "jsonwebtoken": "9.0.2",
+    "juice": "^12.2.0",
     "morgan": "1.10.0",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.15",
+    "puppeteer-core": "^25.12.0",
     "zod": "3.23.8"
   },
   "devDependencies": {

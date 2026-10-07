@@ -16,6 +16,9 @@ import {
 import type { AssetCategoryId, AssetDef } from "@/lib/assetEngine/types";
 import { useAssetLibrary, useAssetThumbnail, renderAssetSvg } from "@/hooks/useAssetLibrary";
 import { getCategoryCount, getAllCategoryCounts } from "@/lib/assetEngine/registry";
+import { getStickerInsertSrc } from "@/lib/assetEngine/stickersEngine";
+import { RealElement, buildRealAsset } from "@/lib/assetEngine/realEngine";
+import { iconInColor } from "@/lib/assetEngine/artEngine";
 import { FrameDefinition, FRAME_DEFINITIONS } from "@/data/frameDefinitions";
 import { CategoryBadgeIcon } from "./CategoryBadgeIcon";
 
@@ -25,7 +28,7 @@ const BROWSE_CATEGORIES: Array<{ id: AssetCategoryId; label: string }> = [
   { id: "graphics",   label: "Graphics"   },
   { id: "3d",         label: "3D"         },
   { id: "animations", label: "Animations" },
-  { id: "photos",     label: "Photos"     },
+  { id: "stickers",   label: "Stickers"   },
   { id: "frames",     label: "Frames"     },
   { id: "grids",      label: "Grids"      },
   { id: "forms",      label: "Forms"      },
@@ -53,7 +56,12 @@ interface ElementsPanelProps {
   onAddShape: (type: "rectangle" | "ellipse" | "line") => void;
   onAddFrame?: (frameDef: FrameDefinition) => void;
   onAddImage?: (src: string, name?: string) => void;
+  /** Places a ready-made block (a chart, a table, a photo grid) as editable elements */
+  onAddElements?: (elements: RealElement[], width: number, height: number, name: string) => void;
 }
+
+/** Colours an icon can be placed in */
+const ICON_COLORS = ["#111827", "#FFFFFF", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899"];
 
 // ── Skeleton Card ─────────────────────────────────────────────────────────────
 const SkeletonCard = memo(function SkeletonCard() {
@@ -81,6 +89,7 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
     if (def.category === "animations" && def.params?.animatedSvg) {
       return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(def.params.animatedSvg as string)}`;
     }
+    if (def.params?.animatedUrl) return def.params.animatedUrl as string;
     return null;
   }, [def]);
 
@@ -103,7 +112,7 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
   return (
     <button
       type="button"
-      title={def.name}
+      title={def.thumbnailUrl && def.license !== "Falcon" ? `${def.name} (${def.license})` : def.name}
       className="falcon-asset-card"
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
@@ -116,7 +125,7 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
             src={displaySrc}
             alt={def.name}
             loading="lazy"
-            className="falcon-asset-thumb"
+            className={`falcon-asset-thumb${def.category === "stickers" && def.thumbnailUrl ? " falcon-asset-thumb--sticker" : ""}${def.templateId === "art" ? " falcon-asset-thumb--art" : ""}`}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.opacity = "0.3";
             }}
@@ -145,7 +154,8 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
 });
 
 // ── Elements Panel ────────────────────────────────────────────────────────────
-export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPanelProps) {
+export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElements }: ElementsPanelProps) {
+  const [iconColor, setIconColor] = useState(ICON_COLORS[0]);
   const [activeCategory, setActiveCategory] = useState<AssetCategoryId | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -206,6 +216,25 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
       }
     }
 
+    // Editable blocks go on the canvas as real shapes, text and photo frames
+    if (def.templateId === "real") {
+      const built = buildRealAsset(def);
+      if (built) onAddElements?.(built.elements, built.width, built.height, def.name.split("–")[0].trim());
+      return;
+    }
+
+    // Icons are placed in the colour chosen above the list
+    if (def.params?.recolor && def.fileUrl) {
+      onAddImage?.(iconInColor(def, iconColor), def.name.split("–")[0].trim());
+      return;
+    }
+
+    // Stickers get their cut-out border before they go on the canvas
+    if (def.category === "stickers") {
+      getStickerInsertSrc(def).then((src) => { if (src) onAddImage?.(src, def.name.split("–")[0].trim()); });
+      return;
+    }
+
     // Direct photo / CDN URL
     if (def.fileUrl || def.thumbnailUrl) {
       onAddImage?.(def.fileUrl ?? def.thumbnailUrl ?? "", def.name);
@@ -217,7 +246,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
     if (svgData) {
       onAddImage?.(svgData, def.name);
     }
-  }, [onAddShape, onAddFrame, onAddImage]);
+  }, [onAddShape, onAddFrame, onAddImage, onAddElements, iconColor]);
 
   const handleBack = () => {
     setActiveCategory(null);
@@ -226,7 +255,6 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
   };
 
   const activeCatMeta = BROWSE_CATEGORIES.find((c) => c.id === activeCategory);
-  const activeCount = activeCategory ? getCategoryCount(activeCategory) : 0;
 
   return (
     <div className="falcon-elements-panel">
@@ -248,7 +276,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
                 type="button"
                 onClick={() => setActiveCategory(cat.id)}
                 className="falcon-badge-btn group"
-                title={`${cat.label} (${getCategoryCount(cat.id).toLocaleString()}+ assets)`}
+                title={cat.label}
               >
                 <div className="falcon-badge-icon-wrap">
                   <CategoryBadgeIcon categoryId={cat.id} size={66} />
@@ -378,9 +406,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
             <button type="button" className="falcon-back-btn" onClick={handleBack}>
               <ChevronLeft size={16} />
               <span>{activeCatMeta?.label ?? "Categories"}</span>
-              <span className="falcon-cat-badge">
-                {activeCount >= 1000 ? `${(activeCount / 1000).toFixed(1)}k+` : `${activeCount}+`}
-              </span>
+
             </button>
 
             <button
@@ -392,6 +418,43 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
               <SlidersHorizontal size={14} />
             </button>
           </div>
+
+          {(activeCategory === "graphics" || activeCategory === "animations") && (
+            <div className="falcon-icon-colors">
+              <span>Icon colour</span>
+              {ICON_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setIconColor(color)}
+                  aria-label={`Place icons in ${color}`}
+                  aria-pressed={iconColor === color}
+                  className={`falcon-icon-color ${iconColor === color ? "falcon-icon-color--active" : ""}`}
+                  style={{ background: color }}
+                />
+              ))}
+            </div>
+          )}
+          {activeCategory && ["charts", "tables", "sheets", "forms", "mockups", "grids"].includes(activeCategory) && (
+            <p className="falcon-sticker-credit">
+              {activeCategory === "grids" || activeCategory === "mockups"
+                ? "These go on the page as photo frames: drop your own pictures into them."
+                : "These go on the page as real shapes and text: click any number or label to change it."}
+            </p>
+          )}
+          {(activeCategory === "graphics" || activeCategory === "animations" || activeCategory === "3d") && (
+            <p className="falcon-sticker-credit">
+              Artwork from open sets, each under its own licence; hover an item to see its set.
+            </p>
+          )}
+
+          {/* The emoji sets ask to be credited wherever their art is offered */}
+          {activeCategory === "stickers" && (
+            <p className="falcon-sticker-credit">
+              Emoji art: Twemoji (CC BY 4.0), OpenMoji (CC BY-SA 4.0), Noto Emoji (Apache 2.0). More sets via Iconify,
+              including Streamline and Emoji One (CC BY 4.0); hover a sticker to see its set.
+            </p>
+          )}
 
           {/* Search Bar */}
           <div className="falcon-search-wrap">
@@ -444,7 +507,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage }: ElementsPa
 
           {/* Filter Bar */}
           {subcategories.length > 1 && (
-            <div className="falcon-pill-bar">
+            <div className={`falcon-pill-bar${activeCategory === "stickers" ? " falcon-pill-bar--wrap" : ""}`}>
               {subcategories.map((sub) => (
                 <button
                   key={sub}
@@ -850,6 +913,12 @@ const PANEL_STYLES = `
   color: #00dfb6;
 }
 
+/* Stickers have many kinds; showing them all beats hiding most behind a sideways scroll */
+.falcon-pill-bar.falcon-pill-bar--wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
 /* Subcategory Pills */
 .falcon-pill-bar {
   display: flex;
@@ -978,6 +1047,50 @@ const PANEL_STYLES = `
   max-height: 100%;
   object-fit: contain;
   transition: transform 0.2s;
+}
+/* Icons and emoji from outside sets report a tiny natural size; give them the card */
+.falcon-asset-thumb--art {
+  width: 100%;
+  height: 100%;
+  padding: 14px;
+}
+.falcon-asset-thumb--sticker {
+  /* Some sets give their art a tiny natural size; fill the card instead */
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  filter: drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+.falcon-icon-colors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 10px;
+  font-size: 10px;
+  color: #a1a1aa;
+}
+.falcon-icon-colors > span {
+  margin-right: 4px;
+}
+.falcon-icon-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.falcon-icon-color:hover {
+  transform: scale(1.12);
+}
+.falcon-icon-color--active {
+  border-color: #00dfb6;
+  transform: scale(1.18);
+}
+.falcon-sticker-credit {
+  margin: 0 12px 10px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #71717a;
 }
 .falcon-asset-card:hover .falcon-asset-thumb {
   transform: scale(1.06);

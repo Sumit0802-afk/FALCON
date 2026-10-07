@@ -8,11 +8,14 @@ import { getGraphicsAssets, GRAPHICS_COUNT } from "./graphicsEngine";
 import { get3DAssets, THREED_COUNT } from "./threeDEngine";
 import { getAnimationAssets, ANIMATIONS_COUNT } from "./animationsEngine";
 import { getFrameAssets, FRAMES_COUNT } from "./framesEngine";
-import {
-  getGridAssets, getFormAssets, getMockupAssets,
-  getChartAssets, getSheetAssets, getTableAssets,
-  GRIDS_COUNT, FORMS_COUNT, MOCKUPS_COUNT, CHARTS_COUNT, SHEETS_COUNT, TABLES_COUNT,
-} from "./remainingEngines";
+import { getStickerAssets, STICKERS_COUNT } from "./stickersEngine";
+import { getRealAssets, realAssetCount } from "./realEngine";
+import { load3DArtAssets, loadAnimationAssets, loadIconAssets } from "./artEngine";
+
+/** Real artwork first, then Falcon's own generated pieces */
+async function withArt(art: Promise<AssetDef[]>, own: AssetDef[]): Promise<AssetDef[]> {
+  return [...(await art), ...own];
+}
 
 // Photos come from the existing massive seedPhotos.ts (2,384 entries)
 let _photoAssets: AssetDef[] | null = null;
@@ -49,17 +52,18 @@ async function getPhotoAssets(): Promise<AssetDef[]> {
 // ── Category registry ─────────────────────────────────────────────────────────
 const CATEGORY_LOADERS: Record<AssetCategoryId, () => AssetDef[] | Promise<AssetDef[]>> = {
   shapes:     () => getShapeAssets(),
-  graphics:   () => getGraphicsAssets(),
-  "3d":       () => get3DAssets(),
-  animations: () => getAnimationAssets(),
+  graphics:   () => withArt(loadIconAssets(), getGraphicsAssets()),
+  "3d":       () => withArt(load3DArtAssets(), get3DAssets()),
+  animations: () => withArt(loadAnimationAssets(), getAnimationAssets()),
   photos:     () => getPhotoAssets(),
+  stickers:   () => getStickerAssets(),
   frames:     () => getFrameAssets(),
-  grids:      () => getGridAssets(),
-  forms:      () => getFormAssets(),
-  mockups:    () => getMockupAssets(),
-  charts:     () => getChartAssets(),
-  sheets:     () => getSheetAssets(),
-  tables:     () => getTableAssets(),
+  grids:      () => getRealAssets("grids"),
+  forms:      () => getRealAssets("forms"),
+  mockups:    () => getRealAssets("mockups"),
+  charts:     () => getRealAssets("charts"),
+  sheets:     () => getRealAssets("sheets"),
+  tables:     () => getRealAssets("tables"),
 };
 
 const CATEGORY_COUNTS: Record<AssetCategoryId, number> = {
@@ -68,13 +72,14 @@ const CATEGORY_COUNTS: Record<AssetCategoryId, number> = {
   "3d":       THREED_COUNT,
   animations: ANIMATIONS_COUNT,
   photos:     2384,
+  stickers:   STICKERS_COUNT,
   frames:     FRAMES_COUNT,
-  grids:      GRIDS_COUNT,
-  forms:      FORMS_COUNT,
-  mockups:    MOCKUPS_COUNT,
-  charts:     CHARTS_COUNT,
-  sheets:     SHEETS_COUNT,
-  tables:     TABLES_COUNT,
+  grids:      realAssetCount("grids"),
+  forms:      realAssetCount("forms"),
+  mockups:    realAssetCount("mockups"),
+  charts:     realAssetCount("charts"),
+  sheets:     realAssetCount("sheets"),
+  tables:     realAssetCount("tables"),
 };
 
 export function getTotalAssetCount(): number {
@@ -156,7 +161,7 @@ export async function searchAssets(opts: SearchOptions): Promise<AssetPage> {
     assets = await loadCategoryAssets(category);
   } else {
     // Cross-category search — load all (expensive, only for search)
-    const allCategories = Object.keys(CATEGORY_LOADERS) as AssetCategoryId[];
+    const allCategories = (Object.keys(CATEGORY_LOADERS) as AssetCategoryId[]).filter((c) => c !== "stickers" && c !== "graphics" && c !== "3d" && c !== "animations");
     const loaded = await Promise.all(allCategories.map((c) => loadCategoryAssets(c)));
     assets = loaded.flat();
   }

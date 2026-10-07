@@ -6,6 +6,13 @@ interface ShortcutHandlers {
   onRedo?: () => void;
   onDuplicate?: () => void;
   onDeselect?: () => void;
+  /** These return false when there was nothing to act on, which leaves the key to the browser */
+  onCopy?: () => boolean | void;
+  onCut?: () => boolean | void;
+  onPaste?: () => boolean | void;
+  onSelectAll?: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
 
   // Selected element movement
   onMoveLeft?: (amount: number) => void;
@@ -20,7 +27,11 @@ interface ShortcutHandlers {
  * Delete / Backspace  -> Delete
  * Cmd/Ctrl + Z        -> Undo
  * Cmd/Ctrl + Shift+Z -> Redo
+ * Cmd/Ctrl + Y        -> Redo
  * Cmd/Ctrl + D        -> Duplicate
+ * Cmd/Ctrl + C / X / V -> Copy, cut, paste
+ * Cmd/Ctrl + A        -> Select all
+ * Cmd/Ctrl + G        -> Group (with Shift: ungroup)
  * Escape              -> Deselect
  * Arrow keys          -> Move selected element
  * Shift + Arrow       -> Move faster
@@ -58,6 +69,43 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         e.preventDefault();
         handlers.onRedo();
         return;
+      }
+
+      // Redo, the Windows way
+      if (meta && e.key.toLowerCase() === "y" && handlers.onRedo) {
+        e.preventDefault();
+        handlers.onRedo();
+        return;
+      }
+
+      if (meta && e.key.toLowerCase() === "c" && handlers.onCopy) {
+        if (handlers.onCopy() !== false) e.preventDefault();
+        return;
+      }
+
+      if (meta && e.key.toLowerCase() === "x" && handlers.onCut) {
+        if (handlers.onCut() !== false) e.preventDefault();
+        return;
+      }
+
+      if (meta && e.key.toLowerCase() === "v" && handlers.onPaste) {
+        if (handlers.onPaste() !== false) e.preventDefault();
+        return;
+      }
+
+      if (meta && e.key.toLowerCase() === "a" && handlers.onSelectAll) {
+        e.preventDefault();
+        handlers.onSelectAll();
+        return;
+      }
+
+      if (meta && e.key.toLowerCase() === "g") {
+        const run = e.shiftKey ? handlers.onUngroup : handlers.onGroup;
+        if (run) {
+          e.preventDefault();
+          run();
+          return;
+        }
       }
 
       // Undo

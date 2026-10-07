@@ -9,7 +9,15 @@ export function notFoundHandler(req: Request, res: Response) {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({ error: err.message });
+    const retryAfter = err.details?.retryAfterSeconds;
+    if (typeof retryAfter === "number") {
+      res.setHeader("Retry-After", String(retryAfter));
+    }
+    return res.status(err.statusCode).json({
+      ...err.details,
+      error: err.message,
+      ...(err.code ? { code: err.code } : {}),
+    });
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {

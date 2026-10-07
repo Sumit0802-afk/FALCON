@@ -8,6 +8,7 @@ export type AssetCategoryId =
   | "3d"
   | "animations"
   | "photos"
+  | "stickers"
   | "frames"
   | "grids"
   | "forms"
