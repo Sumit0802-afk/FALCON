@@ -6,7 +6,7 @@ import {
 } from "../templates/email/core/schema";
 import { renderEmailHtml } from "../templates/email/core/renderHtml";
 import { estimateEmailHeight, renderThumbnailSvg } from "../templates/email/core/renderThumbnail";
-import { emailService } from "./email.service";
+import { emailService, EmailDeliveryError, EmailFailureReason } from "./email.service";
 
 const MAX_PER_USER = 500;
 const MAX_DOCUMENT_BYTES = 1_500_000;
@@ -45,6 +45,23 @@ function blankDocument(): EmailDocument {
   return createDocument([
     createSection([100], [[createBlock("heading"), createBlock("text"), createBlock("button")]], { paddingTop: 16, paddingBottom: 16 }),
   ]);
+}
+
+const DELIVERY_MESSAGES: Record<EmailFailureReason, string> = {
+  not_configured: "Sending is not set up on this server yet. Add the SMTP settings to the backend's .env file and restart it.",
+  sign_in: "The mail server refused Falcon's sign-in. Check the SMTP username and app password in the backend's .env file.",
+  recipient: "The mail server rejected a recipient address. Check the addresses and try again.",
+  too_large: "This email is too large to send. Use smaller images, or link to them instead of embedding them.",
+  limit: "The mail server is limiting how much can be sent right now. Wait a while and try again.",
+  connection: "Falcon couldn't reach the mail server. Check the internet connection and try again.",
+  unknown: "The mail server did not accept the email. Please try again in a moment.",
+};
+
+/** The error shown to the person sending, saying what went wrong where that is known */
+function deliveryError(err: unknown, what: string): AppError {
+  const reason: EmailFailureReason = err instanceof EmailDeliveryError ? err.reason : "unknown";
+  const message = reason === "unknown" ? `We couldn't send the ${what}. Please try again in a moment.` : DELIVERY_MESSAGES[reason];
+  return new AppError(message, 502, "EMAIL_DELIVERY_FAILED");
 }
 
 function cleanName(name: unknown, fallback: string): string {
@@ -154,8 +171,8 @@ export const userEmailTemplateService = {
         fromName: cleanName(input.fromName, user.name),
         replyTo: input.replyTo || user.email,
       });
-    } catch {
-      throw new AppError("We couldn't send the email. Please try again in a moment.", 502, "EMAIL_DELIVERY_FAILED");
+    } catch (err) {
+      throw deliveryError(err, "email");
     }
     return { success: true, recipients, message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.` };
   },
@@ -171,8 +188,8 @@ export const userEmailTemplateService = {
     const subject = cleanName(input.subject, document.document.settings.subject || "Falcon email").slice(0, 200);
     try {
       await emailService.sendDesignTest({ to: user.email, subject: `[Test] ${subject}`, html: renderEmailHtml(document) });
-    } catch {
-      throw new AppError("We couldn't send the test email. Please try again in a moment.", 502, "EMAIL_DELIVERY_FAILED");
+    } catch (err) {
+      throw deliveryError(err, "test email");
     }
     return { success: true, sentTo: user.email };
   },

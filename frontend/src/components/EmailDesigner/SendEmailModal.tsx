@@ -11,7 +11,7 @@ function sendErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401) return "Please sign in to send emails.";
     if (err.status === 429) return "You've sent several emails in a short time. Please wait a few minutes and try again.";
-    if (err.code === "EMAIL_DELIVERY_FAILED") return "The mail server did not accept the email. Please try again in a moment.";
+    if (err.code === "EMAIL_DELIVERY_FAILED") return err.message || "The mail server did not accept the email. Please try again in a moment.";
     if (err.status === 400) return err.message.replace(/^[a-z.0-9]+: /i, "");
     return "Something went wrong on our end. Please try again.";
   }

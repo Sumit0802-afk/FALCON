@@ -104,7 +104,8 @@ function getSmtpTransporter(config: SmtpConfig): Transporter {
     auth: { user: config.user, pass: config.pass },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
-    socketTimeout: 20000,
+    // Long enough for a large design to upload on a slow line
+    socketTimeout: 60000,
   });
 
   return _smtpTransporter;
@@ -116,6 +117,28 @@ let _testLastSupportRequest: { to: string; replyTo: string; subject: string; htm
 let _testFailNextSend = false;
 
 // ─── Core Email Dispatcher ───────────────────────────────────────────────────
+
+/** Why a send failed, in terms the person sending can act on */
+export type EmailFailureReason = "not_configured" | "sign_in" | "recipient" | "too_large" | "limit" | "connection" | "unknown";
+
+export class EmailDeliveryError extends Error {
+  constructor(public reason: EmailFailureReason) {
+    super("Email delivery failed");
+  }
+}
+
+/** Sorts a mail server's refusal into a reason, without keeping any of its text */
+function failureReason(err: any): EmailFailureReason {
+  const code = String(err?.code || "");
+  const status = Number(err?.responseCode) || 0;
+  const reply = String(err?.response || "");
+  if (code === "EAUTH" || status === 534 || status === 535) return "sign_in";
+  if (status === 552 || /5.[23].[34]/.test(reply) || code === "EMESSAGE") return "too_large";
+  if (/5.4.5|4.7.0|5.7.1[^0-9]*(?:rate|limit)|quota|too many/i.test(reply) || [421, 450, 451, 452, 454].includes(status)) return "limit";
+  if (code === "EENVELOPE" || [501, 550, 551, 553].includes(status)) return "recipient";
+  if (["ETIMEDOUT", "ECONNECTION", "ESOCKET", "EDNS", "ECONNRESET", "ECONNREFUSED", "ETLS", "EPIPE"].includes(code)) return "connection";
+  return "unknown";
+}
 
 /** Sends one email. Throws on any failure; callers decide what the user sees. */
 async function dispatchEmail(email: OutgoingEmail): Promise<void> {
@@ -133,30 +156,40 @@ async function dispatchEmail(email: OutgoingEmail): Promise<void> {
     console.error(
       `[email.service] Cannot send email to ${maskEmail(email.to)}: missing ${missing.join(", ")} in backend/.env`
     );
-    throw new Error("Email is not configured");
+    throw new EmailDeliveryError("not_configured");
   }
 
   const fromName = email.fromName || "Falcon";
   const formattedFrom = config.from.includes("<") ? config.from : `"${fromName}" <${config.from}>`;
 
+  const message = {
+    from: formattedFrom,
+    to: email.to,
+    cc: email.cc || undefined,
+    bcc: email.bcc || undefined,
+    replyTo: email.replyTo || undefined,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
+  };
+
   try {
-    const info = await getSmtpTransporter(config).sendMail({
-      from: formattedFrom,
-      to: email.to,
-      cc: email.cc || undefined,
-      bcc: email.bcc || undefined,
-      replyTo: email.replyTo || undefined,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
+    let info;
+    try {
+      info = await getSmtpTransporter(config).sendMail(message);
+    } catch (first: any) {
+      // A dropped or slow connection is worth one more try on a fresh one
+      if (failureReason(first) !== "connection") throw first;
+      _smtpTransporter = null;
+      info = await getSmtpTransporter(config).sendMail(message);
+    }
     console.log(`[email.service] Email delivered to ${maskEmail(email.to.split(",")[0])}${email.to.includes(",") || email.cc || email.bcc ? " and others" : ""} (id: ${info.messageId})`);
   } catch (err: any) {
     // Log only the error class, never the message body or server transcript
     console.error(
       `[email.service] SMTP delivery to ${maskEmail(email.to)} failed (code: ${err?.code || "UNKNOWN"}, response: ${err?.responseCode || "n/a"})`
     );
-    throw new Error("Email delivery failed");
+    throw new EmailDeliveryError(failureReason(err));
   }
 }
 
