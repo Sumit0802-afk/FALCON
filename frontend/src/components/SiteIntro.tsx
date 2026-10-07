@@ -36,7 +36,7 @@ const STROKES: [string, number, number][] = [
   ["M157 44 C152 80 144 125 138 157", 1.22, 0.16],
   ["M196 104 C192 94 180 98 174 116 C167 136 170 157 182 157 C190 157 196 153 200 149", 1.42, 0.22],
   ["M232 108 C220 100 210 116 210 134 C210 150 220 159 230 155 C242 150 248 127 240 112 C234 102 224 108 226 118", 1.68, 0.26],
-  ["M270 157 C270 136 272 112 277 104 C282 98 285 120 285 152 C288 126 300 100 314 100 C328 100 338 114 342 130 C345 142 348 152 349 158", 1.98, 0.3],
+  ["M277 102 C275 120 272 140 270 157 C272 134 282 104 299 101 C313 99 317 112 315 128 C313 140 311 150 312 157", 1.98, 0.3],
 ];
 
 /**
@@ -106,9 +106,9 @@ export default function SiteIntro() {
       <script dangerouslySetInnerHTML={{ __html: SEEN_SCRIPT }} />
       {/* The intro keeps its own colours, so the site's theme leaves it alone */}
       <div id="falcon-intro" ref={root} role="dialog" aria-label="Welcome" data-theme-keep="" onClick={() => finish.current()}>
-        <svg viewBox="0 0 380 190" role="img" aria-label="falcon">
+        <svg viewBox="0 0 340 190" role="img" aria-label="falcon">
           <defs>
-            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="14" x2="360" y1="0" y2="0">
+            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="14" x2="322" y1="0" y2="0">
               <stop offset="0" stopColor="#1b9aa6" />
               <stop offset=".17" stopColor="#6fd68c" />
               <stop offset=".32" stopColor="#ffd23f" />
