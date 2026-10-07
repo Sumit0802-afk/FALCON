@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 /** Remembered for the browser session, so the intro plays once per visit and not on every return to the homepage */
 const SEEN_KEY = "falcon_intro_seen";
 
-/** The word is written in about 2.2s; it is then held for a moment before the page appears */
-const HOLD_MS = 3400;
+/** The word and its smiley are written in about 3.2s; it is then held for a moment before the page appears */
+const HOLD_MS = 4400;
 
 /*
  * Every rule is scoped to #falcon-intro and every animation name starts with
@@ -16,7 +16,7 @@ html[data-falcon-intro-seen] #falcon-intro{display:none}
 #falcon-intro.done{opacity:0;pointer-events:none}
 #falcon-intro svg{width:min(90vw,560px);height:auto;overflow:visible;filter:drop-shadow(0 8px 14px rgba(90,80,160,.22))}
 #falcon-intro .fin-s{stroke-dasharray:1 1;stroke-dashoffset:1;opacity:0;animation:fin-w ease-in-out forwards}
-#falcon-intro .fin-word{animation:fin-up .4s 2.25s ease-out forwards}
+#falcon-intro .fin-word{animation:fin-up .4s 3.25s ease-out forwards}
 @keyframes fin-w{from{opacity:1}to{stroke-dashoffset:0;opacity:1}}
 @keyframes fin-up{to{transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){#falcon-intro .fin-s,#falcon-intro .fin-word{animation:none;stroke-dashoffset:0;opacity:1}}
@@ -37,6 +37,11 @@ const STROKES: [string, number, number][] = [
   ["M196 104 C192 94 180 98 174 116 C167 136 170 157 182 157 C190 157 196 153 200 149", 1.42, 0.22],
   ["M232 108 C220 100 210 116 210 134 C210 150 220 159 230 155 C242 150 248 127 240 112 C234 102 224 108 226 118", 1.68, 0.26],
   ["M277 102 C275 120 272 140 270 157 C272 134 282 104 299 101 C313 99 317 112 315 128 C313 140 311 150 312 157", 1.98, 0.3],
+  // A smiling face after the word: outline, two eyes, then the smile
+  ["M352 107 C338 106 329 118 329 131 C329 145 339 154 352 154 C365 154 375 143 375 130 C375 117 366 107 352 107", 2.4, 0.32],
+  ["M345 123 L344 129", 2.78, 0.07],
+  ["M359 123 L358 129", 2.9, 0.07],
+  ["M341 137 C345 146 358 146 363 137", 3.02, 0.18],
 ];
 
 /**
@@ -106,9 +111,9 @@ export default function SiteIntro() {
       <script dangerouslySetInnerHTML={{ __html: SEEN_SCRIPT }} />
       {/* The intro keeps its own colours, so the site's theme leaves it alone */}
       <div id="falcon-intro" ref={root} role="dialog" aria-label="Welcome" data-theme-keep="" onClick={() => finish.current()}>
-        <svg viewBox="0 0 340 190" role="img" aria-label="falcon">
+        <svg viewBox="0 0 392 190" role="img" aria-label="falcon, with a smiling face">
           <defs>
-            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="14" x2="322" y1="0" y2="0">
+            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="14" x2="376" y1="0" y2="0">
               <stop offset="0" stopColor="#1b9aa6" />
               <stop offset=".17" stopColor="#6fd68c" />
               <stop offset=".32" stopColor="#ffd23f" />
