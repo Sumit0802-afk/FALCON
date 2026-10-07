@@ -51,7 +51,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
   // Generated email HTML
   const emailHtml = exportEmailHtml(design);
 
-  // A design written in HTML uses effects mail apps cannot draw, so by default it is sent as a picture of itself
+  // A design written in HTML can use effects mail apps cannot draw, so by default those parts are sent as pictures
   const isHtmlDesign = exactHtmlOf(designToDocument(design)) !== null;
   const [exact, setExact] = useState(isHtmlDesign);
 
@@ -398,9 +398,9 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                       className="mt-0.5 h-4 w-4 accent-[#00D084]"
                     />
                     <span>
-                      <span className="block text-[12px] font-semibold text-zinc-300">Send an exact copy of the design</span>
+                      <span className="block text-[12px] font-semibold text-zinc-300">Keep the design's special effects</span>
                       <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500">
-                        The email is sent as a picture of the design, so glow, outlined text, 3D and layered effects arrive just as you see them, and buttons and links still work. Animations are shown still, and the text cannot be selected. Turn this off to send ordinary HTML, which Gmail and other apps simplify.
+                        The email stays real HTML, with real text and buttons. Only the parts mail apps cannot draw, such as 3D objects and glowing or outlined headlines, are sent as small pictures so they look as designed. Animations are shown still. Turn this off to send no pictures at all; those parts will then look plainer.
                       </span>
                     </span>
                   </label>

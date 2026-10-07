@@ -43,7 +43,7 @@ interface OutgoingEmail {
 }
 
 /**
- * The body of a designed email as it will be sent. A design sent as a picture
+ * The body of a designed email as it will be sent. A design sent with its effects
  * is drawn by a browser so it arrives exactly as made; if that cannot be done,
  * or it was not asked for, the design goes as HTML with its styles inlined.
  */
@@ -53,7 +53,7 @@ async function designBody(html: string, subject: string, asPicture: boolean | un
       const shot = await snapshotEmail(html, subject);
       return { html: shot.html, text: shot.text, attachments: shot.attachments, picture: true };
     } catch (err: any) {
-      console.error(`[email.service] Could not draw the design as a picture (${err?.name || "Error"}); sending it as HTML`);
+      console.error(`[email.service] Could not draw the design effects (${err?.name || "Error"}); sending it without them`);
     }
   }
   // Mail clients drop stylesheets, so the styles travel on the elements themselves

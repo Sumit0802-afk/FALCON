@@ -178,7 +178,7 @@ export const userEmailTemplateService = {
       throw deliveryError(err, "email");
     }
     // Said plainly when an exact copy was asked for but could not be made
-    const note = input.exact && !picture ? " It went as ordinary HTML, because this server has no browser to draw an exact copy with, so some effects may look simpler." : "";
+    const note = input.exact && !picture ? " Glow, outline and 3D effects were left out, because this server has no browser to draw them with." : "";
     return { success: true, recipients, exact: picture, message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.${note}` };
   },
 

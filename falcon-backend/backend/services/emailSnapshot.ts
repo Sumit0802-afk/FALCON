@@ -1,21 +1,30 @@
 /**
  * emailSnapshot.ts
  *
- * Sends a design exactly as it was drawn.
+ * Gets a design into real inboxes looking the way it was made.
  *
- * Mail clients such as Gmail cannot show glow, outlined text, 3D transforms or
- * layered positioning, however the HTML is written. To deliver those designs
- * unchanged, the email is drawn here by a real browser and sent as pictures.
- * The picture is cut around every link, so buttons and links still work.
+ * Mail apps such as Gmail cannot show glow, outlined text or 3D transforms,
+ * however the HTML is written. So the design is opened in a real browser, the
+ * few parts that depend on those effects are drawn as pictures with a clear
+ * background, and they are put back into the live HTML in place of the
+ * originals. Everything else stays real: text can be selected and buttons are
+ * ordinary links.
  *
  * Needs Chrome, Edge or Chromium on the server (CHROME_PATH can point to it).
- * When none is found the caller falls back to ordinary HTML.
+ * When none is found the caller falls back to HTML without the pictures.
+ *
+ * Pictures travel inside the message unless EMAIL_ASSET_BASE_URL gives this
+ * server's public address for them; mail apps list embedded pictures as
+ * attachments, and fetched ones not.
  */
 
+import crypto from "crypto";
 import fs from "fs";
+import path from "path";
 import net from "net";
 import type { Browser, Page } from "puppeteer-core";
 import { stripActiveHtml } from "../templates/email/core/renderHtml";
+import { inlineEmailStyles } from "./emailInliner";
 
 // The measuring function below runs inside the page, where these exist
 declare const document: any;
@@ -39,10 +48,10 @@ export interface EmailSnapshot {
 const WIDTH = 720;
 /** Pictures are drawn at twice the size so they stay sharp on dense screens */
 const SCALE = 2;
-const MAX_HEIGHT = 14000;
-/** Tall plain areas are cut into pieces so no single picture is enormous */
-const MAX_SLICE = 1400;
-const MAX_LINKS = 60;
+/** More pictures than this and the email stops being mostly text */
+const MAX_PICTURES = 6;
+/** Where pictures are kept when they are served from this server */
+export const EMAIL_ASSET_DIR = path.join(__dirname, "..", "storage", "email-assets");
 
 function findBrowser(): string | null {
   const candidates = [
@@ -104,56 +113,178 @@ function isPublicUrl(raw: string): boolean {
   return true;
 }
 
-interface Box { x: number; y: number; w: number; h: number }
-interface LinkBox extends Box { href: string; label: string }
-interface Cell extends Box { href?: string; label?: string }
+interface Effect {
+  id: number;
+  /** The area to draw, in page pixels: the element plus room for its glow */
+  x: number; y: number; w: number; h: number;
+}
 
 function escapeAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** Cuts the page into rows of cells so that each link gets a picture of its own */
-function layout(links: LinkBox[], height: number): Cell[][] {
-  // Links that share a horizontal strip are kept in one row
-  const bands: { top: number; bottom: number; links: LinkBox[] }[] = [];
-  for (const link of [...links].sort((a, b) => a.y - b.y)) {
-    const band = bands[bands.length - 1];
-    if (band && link.y < band.bottom) {
-      band.bottom = Math.max(band.bottom, link.y + link.h);
-      band.links.push(link);
-    } else {
-      bands.push({ top: link.y, bottom: link.y + link.h, links: [link] });
-    }
-  }
-
-  const rows: Cell[][] = [];
-  const plain = (from: number, to: number) => {
-    for (let y = from; y < to; y += MAX_SLICE) rows.push([{ x: 0, y, w: WIDTH, h: Math.min(MAX_SLICE, to - y) }]);
+/**
+ * Runs in the page. Finds the parts of the design a mail app cannot draw and
+ * marks each with data-fx-id: 3D objects, and headline text that is outlined,
+ * gradient-filled or glowing. Text inside links is left alone so buttons stay real.
+ */
+function markEffects(pageWidth: number, maxPictures: number): Effect[] {
+  const all: any[] = Array.from(document.body.querySelectorAll("*"));
+  const seen = (el: any) => {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return r.width > 2 && r.height > 2 && cs.display !== "none" && cs.visibility !== "hidden" && Number(cs.opacity) > 0.02;
   };
+  const words = (el: any) => String(el.innerText || "").replace(/\s+/g, " ").trim();
+  const ownText = (el: any) => Array.from(el.childNodes as any[]).some((n: any) => n.nodeType === 3 && String(n.textContent).trim());
 
-  let cursor = 0;
-  for (const band of bands) {
-    if (band.top > cursor) plain(cursor, band.top);
-    const row: Cell[] = [];
-    let x = 0;
-    for (const link of band.links.sort((a, b) => a.x - b.x)) {
-      // Links lying over one another cannot each have their own cell; the first keeps it
-      if (link.x < x) continue;
-      if (link.x > x) row.push({ x, y: band.top, w: link.x - x, h: band.bottom - band.top });
-      row.push({ x: link.x, y: band.top, w: link.w, h: band.bottom - band.top, href: link.href, label: link.label });
-      x = link.x + link.w;
-    }
-    if (x < WIDTH) row.push({ x, y: band.top, w: WIDTH - x, h: band.bottom - band.top });
-    rows.push(row);
-    cursor = band.bottom;
+  for (const el of all) {
+    if (getComputedStyle(el).transformStyle !== "preserve-3d" || !seen(el) || el.closest("[data-fx]")) continue;
+    // The stage a 3D object stands on goes with it, as long as it holds nothing else
+    let target = el;
+    const tall = el.getBoundingClientRect().height;
+    while (
+      target.parentElement && target.parentElement !== document.body &&
+      words(target.parentElement) === words(target) &&
+      !target.parentElement.querySelector("img,a") &&
+      target.parentElement.getBoundingClientRect().height <= Math.max(tall * 2.5, tall + 120)
+    ) target = target.parentElement;
+    target.setAttribute("data-fx", "3d");
   }
-  if (cursor < height) plain(cursor, height);
-  return rows;
+
+  for (const el of all) {
+    if (el.closest("[data-fx]") || el.closest("a") || !ownText(el) || !seen(el)) continue;
+    const cs = getComputedStyle(el);
+    const outlined = parseFloat(cs.webkitTextStrokeWidth) > 0;
+    const filled = (cs.webkitBackgroundClip || cs.backgroundClip) === "text";
+    // A faint shadow on small text is not worth turning words into a picture
+    const glowing = cs.textShadow !== "none" && parseFloat(cs.fontSize) >= 28;
+    if (outlined || filled || glowing) el.setAttribute("data-fx", "text");
+  }
+
+  // Neighbouring lines of one headline become a single picture, which keeps their spacing
+  for (const el of Array.from(document.body.querySelectorAll('[data-fx="text"]')) as any[]) {
+    if (!el.parentElement || el.parentElement.hasAttribute("data-fx-run")) continue;
+    const run: any[] = [el];
+    while (run[run.length - 1].nextElementSibling && run[run.length - 1].nextElementSibling.getAttribute("data-fx") === "text") run.push(run[run.length - 1].nextElementSibling);
+    if (run.length < 2) continue;
+    const group = document.createElement("div");
+    group.setAttribute("data-fx-run", "1");
+    el.parentElement.insertBefore(group, el);
+    for (const member of run) {
+      member.removeAttribute("data-fx");
+      group.appendChild(member);
+    }
+    group.setAttribute("data-fx", "text");
+  }
+
+  // Lines of one headline are drawn together
+  for (const el of Array.from(document.body.querySelectorAll('[data-fx="text"]')) as any[]) {
+    const parent = el.parentElement;
+    if (!parent || parent === document.body || parent.hasAttribute("data-fx") || ownText(parent)) continue;
+    const children: any[] = Array.from(parent.children);
+    if (children.length > 1 && children.every((c: any) => c.getAttribute("data-fx") === "text")) {
+      for (const c of children) c.removeAttribute("data-fx");
+      parent.setAttribute("data-fx", "text");
+    }
+  }
+
+  const effects: Effect[] = [];
+  const marked: any[] = Array.from(document.body.querySelectorAll("[data-fx]"));
+  marked.slice(maxPictures).forEach((el: any) => el.removeAttribute("data-fx"));
+  marked.slice(0, maxPictures).forEach((el: any, index: number) => {
+    const kind = el.getAttribute("data-fx");
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity, glow = kind === "3d" ? 8 : 4;
+    for (const node of [el, ...Array.from(el.querySelectorAll("*") as any[])]) {
+      const r = node.getBoundingClientRect();
+      if (r.width < 1 && r.height < 1) continue;
+      left = Math.min(left, r.left); top = Math.min(top, r.top); right = Math.max(right, r.right); bottom = Math.max(bottom, r.bottom);
+      const shadow = getComputedStyle(node).textShadow;
+      if (shadow && shadow !== "none") {
+        for (const px of shadow.match(/-?[\d.]+px/g) || []) glow = Math.max(glow, Math.abs(parseFloat(px)));
+      }
+    }
+    glow = Math.min(glow, 32);
+    const x = Math.max(0, Math.floor(left + window.scrollX - glow));
+    const y = Math.max(0, Math.floor(top + window.scrollY - glow));
+    const w = Math.min(pageWidth, Math.ceil(right + window.scrollX + glow)) - x;
+    const h = Math.ceil(bottom + window.scrollY + glow) - y;
+    if (w < 4 || h < 4) { el.removeAttribute("data-fx"); return; }
+
+    // What the picture needs to take the element's place is worked out now, while the element is still laid out
+    const box = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const holder = el.parentElement.getBoundingClientRect();
+    const above = Math.max(0, Math.round((parseFloat(cs.marginTop) || 0) - (box.top + window.scrollY - y)));
+    const below = Math.max(0, Math.round((parseFloat(cs.marginBottom) || 0) - (y + h - (box.bottom + window.scrollY))));
+    const centre = x + w / 2 - window.scrollX;
+    const align = Math.abs(centre - (holder.left + holder.width / 2)) < 8 ? "center" : centre < holder.left + holder.width / 2 ? "left" : "right";
+    el.setAttribute("data-fx-id", String(index));
+    el.setAttribute("data-fx-place", JSON.stringify({ w, above, below, align, alt: words(el).slice(0, 200) }));
+    effects.push({ id: index, x, y, w, h });
+  });
+  return effects;
+}
+
+/** Runs in the page. Shows one marked element alone on a clear background, or puts everything back */
+function isolate(id: number | null): void {
+  const old = document.getElementById("falcon-fx-style");
+  if (old) old.remove();
+  for (const el of Array.from(document.querySelectorAll("[data-fx-shot]")) as any[]) el.removeAttribute("data-fx-shot");
+  if (id === null) return;
+  const target = document.querySelector(`[data-fx-id="${id}"]`);
+  if (!target) return;
+  target.setAttribute("data-fx-shot", "1");
+  const style = document.createElement("style");
+  style.id = "falcon-fx-style";
+  style.textContent =
+    "html,body{background:transparent!important}" +
+    "*,*::before,*::after{visibility:hidden!important}" +
+    "[data-fx-shot],[data-fx-shot] *,[data-fx-shot]::before,[data-fx-shot]::after,[data-fx-shot] *::before,[data-fx-shot] *::after{visibility:visible!important}";
+  document.head.appendChild(style);
+}
+
+/** Runs in the page. Swaps each marked element for its picture and returns the document */
+function placePictures(): string {
+  for (const el of Array.from(document.querySelectorAll("[data-fx-id]")) as any[]) {
+    const place = JSON.parse(el.getAttribute("data-fx-place") || "{}");
+    const img = document.createElement("img");
+    img.setAttribute("src", `falcon-fx:${el.getAttribute("data-fx-id")}`);
+    img.setAttribute("width", String(place.w));
+    img.setAttribute("alt", place.alt || "");
+    const side = place.align === "center" ? "margin:0 auto;" : place.align === "right" ? "margin:0 0 0 auto;" : "margin:0;";
+    img.setAttribute("style", `display:block;width:${place.w}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;${side}`);
+    const holder = document.createElement("div");
+    holder.setAttribute("style", `margin:${place.above}px 0 ${place.below}px;padding:0;font-size:0;line-height:0;text-align:${place.align};`);
+    holder.appendChild(img);
+    el.replaceWith(holder);
+  }
+  for (const el of Array.from(document.querySelectorAll("[data-fx]")) as any[]) el.removeAttribute("data-fx");
+  return "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
 }
 
 /**
- * Draws the email in a browser and returns it as a picture-based message.
- * Throws when no browser is available or the design cannot be drawn.
+ * Where a picture can be fetched from by mail apps, when this server has a
+ * public address (EMAIL_ASSET_BASE_URL). Without one the picture travels
+ * inside the message instead.
+ */
+function hostPicture(content: Buffer): string | null {
+  const base = (process.env.EMAIL_ASSET_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(base) || !isPublicUrl(base)) return null;
+  try {
+    fs.mkdirSync(EMAIL_ASSET_DIR, { recursive: true });
+    const name = `${crypto.randomBytes(16).toString("hex")}.png`;
+    fs.writeFileSync(path.join(EMAIL_ASSET_DIR, name), content);
+    return `${base}/${name}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Turns a design into an email that keeps its look in real inboxes: live HTML
+ * with styles on the elements, plus pictures for the few parts that could not
+ * be shown otherwise. Throws when no browser is available.
  */
 export async function snapshotEmail(sourceHtml: string, title: string): Promise<EmailSnapshot> {
   const instance = await getBrowser();
@@ -188,84 +319,33 @@ export async function snapshotEmail(sourceHtml: string, title: string): Promise<
         }
       }
     }).catch(() => undefined);
-    await page.addStyleTag({ content: "*,*::before,*::after{transition:none!important;caret-color:transparent!important}html,body{overflow-x:hidden!important}" });
 
-    const measured = await page.evaluate((maxLinks: number) => {
-      const doc = document.documentElement;
-      const height = Math.ceil(Math.max(doc.scrollHeight, document.body ? document.body.scrollHeight : 0));
-      const links: { x: number; y: number; w: number; h: number; href: string; label: string }[] = [];
-      for (const a of Array.from(document.querySelectorAll("a[href]")).slice(0, maxLinks) as any[]) {
-        const href = a.getAttribute("href") || "";
-        if (!/^(https?:|mailto:|tel:)/i.test(href.trim())) continue;
-        const r = a.getBoundingClientRect();
-        if (r.width < 4 || r.height < 4) continue;
-        links.push({ x: r.left + window.scrollX, y: r.top + window.scrollY, w: r.width, h: r.height, href: href.trim(), label: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 120) });
-      }
-      const background = getComputedStyle(document.body).backgroundColor;
-      const rootBackground = getComputedStyle(doc).backgroundColor;
-      const text = (document.body ? document.body.innerText : "").replace(/\n{3,}/g, "\n\n").trim().slice(0, 20000);
-      return { height, links, background: /rgba?\(0, 0, 0, 0\)|transparent/.test(background) ? rootBackground : background, text };
-    }, MAX_LINKS);
-
-    const height = Math.min(Math.max(measured.height, 50), MAX_HEIGHT);
-    const links: LinkBox[] = measured.links
-      .map((l) => {
-        const x = Math.max(0, Math.floor(l.x));
-        const y = Math.max(0, Math.floor(l.y));
-        return { ...l, x, y, w: Math.min(WIDTH, Math.ceil(l.x + l.w)) - x, h: Math.min(height, Math.ceil(l.y + l.h)) - y };
-      })
-      .filter((l) => l.w > 3 && l.h > 3);
-    const rows = layout(links, height);
+    const text = String(await page.evaluate(() => (document.body ? document.body.innerText : ""))).replace(/\n{3,}/g, "\n\n").trim().slice(0, 20000);
+    const effects = (await page.evaluate(markEffects, WIDTH, MAX_PICTURES)) as Effect[];
 
     const attachments: EmailAttachment[] = [];
-    const stamp = Date.now().toString(36);
-    const picture = async (cell: Cell, alt: string): Promise<string> => {
-      const shot = await page.screenshot({ type: "jpeg", quality: 90, clip: { x: cell.x, y: cell.y, width: cell.w, height: cell.h }, captureBeyondViewport: true });
-      const cid = `falcon-${stamp}-${attachments.length}@falcon`;
-      attachments.push({ filename: `design-${attachments.length + 1}.jpg`, content: Buffer.from(shot), cid, contentType: "image/jpeg" });
-      const img = `<img src="cid:${cid}" width="${cell.w}" alt="${escapeAttr(alt)}" style="display:block;width:100%;max-width:${cell.w}px;height:auto;border:0;outline:none;text-decoration:none;">`;
-      return cell.href ? `<a href="${escapeAttr(cell.href)}" target="_blank" style="display:block;text-decoration:none;">${img}</a>` : img;
-    };
-
-    const summary = measured.text.replace(/\s+/g, " ").slice(0, 300);
-    const TABLE = `role="presentation" cellpadding="0" cellspacing="0" border="0"`;
-    let body = "";
-    let first = true;
-    for (const row of rows) {
-      let cells = "";
-      for (const cell of row) {
-        // The first picture carries the email's words, for readers who have pictures turned off
-        const alt = cell.href ? cell.label || "Link" : first ? summary : "";
-        first = false;
-        const pct = Math.round((cell.w / WIDTH) * 10000) / 100;
-        cells += `<td width="${pct}%" valign="top" style="padding:0;font-size:0;line-height:0;width:${pct}%;">${await picture(cell, alt)}</td>`;
+    const sources = new Map<number, string>();
+    const stamp = crypto.randomBytes(6).toString("hex");
+    for (const effect of effects) {
+      await page.evaluate(isolate, effect.id);
+      const shot = Buffer.from(await page.screenshot({
+        type: "png", omitBackground: true, captureBeyondViewport: true,
+        clip: { x: effect.x, y: effect.y, width: effect.w, height: effect.h },
+      }));
+      const hosted = hostPicture(shot);
+      if (hosted) {
+        sources.set(effect.id, hosted);
+      } else {
+        const cid = `art-${stamp}-${effect.id}@falcon`;
+        attachments.push({ filename: `artwork-${attachments.length + 1}.png`, content: shot, cid, contentType: "image/png" });
+        sources.set(effect.id, `cid:${cid}`);
       }
-      body += `<tr><td style="padding:0;font-size:0;line-height:0;"><table ${TABLE} width="100%" style="width:100%;border-collapse:collapse;"><tr>${cells}</tr></table></td></tr>`;
     }
+    await page.evaluate(isolate, null);
 
-    const background = /^rgba?\(/.test(measured.background) && !/rgba?\(0, 0, 0, 0\)/.test(measured.background) ? measured.background : "#ffffff";
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="x-apple-disable-message-reformatting">
-<title>${escapeAttr(title)}</title>
-</head>
-<body style="margin:0;padding:0;background-color:${background};">
-<table ${TABLE} width="100%" style="width:100%;background-color:${background};border-collapse:collapse;">
-<tr><td align="center" style="padding:0;">
-<table ${TABLE} width="${WIDTH}" style="width:100%;max-width:${WIDTH}px;border-collapse:collapse;">
-${body}
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
-
-    const linkList = [...new Set(links.map((l) => (l.label ? `${l.label}: ${l.href}` : l.href)))].join("\n");
-    const text = [measured.text, linkList].filter(Boolean).join("\n\n") || title;
-    return { html, text, attachments };
+    const rebuilt = String(await page.evaluate(placePictures));
+    const html = inlineEmailStyles(rebuilt).replace(/falcon-fx:(\d+)/g, (_match, id: string) => escapeAttr(sources.get(Number(id)) || ""));
+    return { html, text: text || title, attachments };
   } finally {
     await page.close().catch(() => undefined);
   }

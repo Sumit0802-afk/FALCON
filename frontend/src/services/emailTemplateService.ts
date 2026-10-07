@@ -169,7 +169,7 @@ export interface SendEmailInput {
   html: string;
   fromName?: string;
   replyTo?: string;
-  /** Send the design as a picture of itself, so it arrives exactly as made */
+  /** Draw the effects mail apps cannot show as pictures, so the design keeps its look */
   exact?: boolean;
 }
 

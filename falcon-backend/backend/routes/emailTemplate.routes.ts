@@ -54,7 +54,7 @@ const sendSchema = z.object({
   html: z.string().min(1).max(600_000, "This email is too large to send"),
   fromName: z.string().max(80).optional(),
   replyTo: address.optional(),
-  /** Send the design as a picture of itself, so it arrives exactly as made */
+  /** Draw the effects mail apps cannot show as pictures, so the design keeps its look */
   exact: z.boolean().optional(),
 });
 
