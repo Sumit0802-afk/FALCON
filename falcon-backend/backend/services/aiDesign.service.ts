@@ -9,13 +9,12 @@
  * the template library) then sets that out as real elements, so every option
  * opens in the editor with text that can be edited and nothing baked in.
  *
- * A picture, when asked for, is made by the image model and saved on this
- * server; otherwise photo layouts use a stock photograph on the same subject.
+ * Every design carries a picture on its subject. The model says what to look
+ * for, a photograph is found and cut to fit the layout (see aiImages.ts), and
+ * a design that somehow ends up without one is sent back to a picture layout
+ * before anyone sees it. A picture can also be made by the image model.
  */
 
-import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 import OpenAI from "openai";
 import { z } from "zod";
 import { prisma } from "../database/prismaClient";
@@ -28,9 +27,9 @@ import { POSTER_LAYOUTS, PosterCtx } from "../templates/library/posterLayouts";
 import { POSTER_SIZES } from "../templates/library/posterCatalog";
 import { renderPageSvg } from "../templates/library/thumbnail";
 import { CATEGORY_PHOTOS, photoUrl } from "../templates/email/photos";
+import { AI_ASSET_DIR, cropSource, fetchSource, findPhotos, hasSource, saveSource } from "./aiImages";
 
-/** Where generated pictures are kept; served from /ai-assets */
-export const AI_ASSET_DIR = path.join(__dirname, "..", "storage", "ai-images");
+export { AI_ASSET_DIR };
 
 /**
  * Which AI service is used. By default it is OpenAI with OPENAI_API_KEY. Any
@@ -56,9 +55,24 @@ const LAYOUT_IDS = POSTER_LAYOUTS.map((l) => l.id);
 const PHOTO_LAYOUT_IDS = POSTER_LAYOUTS.filter((l) => l.photo).map((l) => l.id);
 const FONT_IDS = FONT_PAIRS.map((f) => f.id);
 const SUBJECTS = Object.keys(CATEGORY_PHOTOS);
-const SIZE_BY_ID = Object.fromEntries(POSTER_SIZES.map((s) => [s.id, s]));
+/** Formats AI Studio designs for: the library's poster sizes and a few more that people ask for by name */
+const SIZES = [
+  ...POSTER_SIZES.map((s) => ({ id: s.id, name: s.name, width: s.width, height: s.height })),
+  { id: "youtube", name: "YouTube thumbnail 1280 × 720", width: 1280, height: 720 },
+  { id: "presentation", name: "Presentation 1920 × 1080", width: 1920, height: 1080 },
+];
+const SIZE_BY_ID = Object.fromEntries(SIZES.map((s) => [s.id, s]));
 
-export const AI_DESIGN_SIZES = POSTER_SIZES.map((s) => ({ id: s.id, name: s.name, width: s.width, height: s.height }));
+export const AI_DESIGN_SIZES = SIZES;
+
+/** The four directions every request is answered in, so the options are real alternatives */
+const DIRECTIONS = ["modern", "premium", "bold", "creative"] as const;
+const DIRECTION_NOTES: Record<(typeof DIRECTIONS)[number], string> = {
+  modern: "Modern: clean and current, generous space, a confident sans-serif, one clear accent colour.",
+  premium: "Premium: refined and expensive-looking, restrained palette, elegant serif or fine sans, quiet luxury.",
+  bold: "Bold: loud and high-contrast, very large heavy type, strong saturated colour, built to stop a scroll.",
+  creative: "Creative: unexpected and expressive, unusual colour pairing and layout, playful or artistic.",
+};
 
 // ─── The brief the model fills in ─────────────────────────────────────────────
 
@@ -69,6 +83,7 @@ const line = (max: number) => z.string().trim().max(max);
 /** One design as the model describes it. Also what the browser sends back to open a design. */
 export const designSpecSchema = z.object({
   name: line(80).min(1),
+  direction: z.enum(DIRECTIONS).default("modern"),
   style: z.enum(STYLE_IDS as [string, ...string[]]),
   layout: z.enum(LAYOUT_IDS as [string, ...string[]]),
   font: z.enum(FONT_IDS as [string, ...string[]]),
@@ -81,9 +96,11 @@ export const designSpecSchema = z.object({
   details: z.array(z.object({ label: line(24), value: line(48) })).max(3),
   brand: line(48),
   subject: z.enum(SUBJECTS as [string, ...string[]]),
+  /** What to search for to find this design's photograph, from exact to general */
+  imageQueries: z.array(line(60)).max(5).default([]),
   imagePrompt: line(600),
-  /** A picture made for this request, by its file name on this server */
-  image: z.string().regex(/^[0-9a-f]{32}\.(jpg|png)$/).optional(),
+  /** The pictures chosen for this design, by the id they are kept under on this server */
+  photos: z.array(z.string().regex(/^[0-9a-f]{32}$/)).max(4).default([]),
 });
 
 export type DesignSpec = z.infer<typeof designSpecSchema>;
@@ -104,11 +121,12 @@ function specJsonSchema(count: number) {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["name", "style", "layout", "font", "mode", "colors", "kicker", "title", "tagline", "cta", "details", "brand", "subject", "imagePrompt"],
+          required: ["name", "direction", "style", "layout", "font", "mode", "colors", "kicker", "title", "tagline", "cta", "details", "brand", "subject", "imageQueries", "imagePrompt"],
           properties: {
             name: { ...text, description: "Two to four words naming this design direction" },
+            direction: { type: "string", enum: [...DIRECTIONS] },
             style: { type: "string", enum: STYLE_IDS },
-            layout: { type: "string", enum: LAYOUT_IDS },
+            layout: { type: "string", enum: PHOTO_LAYOUT_IDS },
             font: { type: "string", enum: FONT_IDS },
             mode: { type: "string", enum: ["dark", "light"] },
             colors: {
@@ -132,7 +150,14 @@ function specJsonSchema(count: number) {
               },
             },
             brand: { ...text, description: "Name of the organiser or brand" },
-            subject: { type: "string", enum: SUBJECTS, description: "Closest subject for a stock photograph" },
+            subject: { type: "string", enum: SUBJECTS, description: "Closest subject, used only if no photograph is found" },
+            imageQueries: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: text,
+              description: "Four stock photo searches in English for this design's picture: most exact first, and the last two a single common word each",
+            },
             imagePrompt: { ...text, description: "A description of one photograph or illustration that would suit this design, with no text in it" },
           },
         },
@@ -141,20 +166,45 @@ function specJsonSchema(count: number) {
   };
 }
 
-function instructions(count: number, sizeName: string, photoOnly: boolean): string {
+const COPY_RULES = [
+  "Use any names, dates, places, prices or wording the person gave, exactly.",
+  "Never invent facts. If the person did not give a date, time, place, price, prize, deadline, number, organiser or brand name, do not make one up: write a short placeholder they will replace, such as \"Add date\", \"Add venue\", \"Add prize\" or \"Your brand\". Headlines, labels and taglines are yours to write freely, as long as they state no made-up facts.",
+  "Write in the language of the request. Keep the headline to five words or fewer so it can be set large.",
+  "details are up to three label and value pairs such as Date, Time, Venue, Price or Contact, chosen to suit the request.",
+];
+
+const LOOK_RULES = [
+  "Choose colours as a designer would for this subject and mood, not at random: for example dark blues and cyan for technology, black and gold for luxury, neon and high contrast for gaming, calm trustworthy tones for finance, clean light tones for education. text must be clearly readable on background, and accent must stand out from background. surface is a panel colour close to background. muted is a quieter text colour.",
+  "Choose one font pairing that fits the mood and the kind of design, and a layout that suits the amount of text and the shape of the page.",
+  `Every design is built around a photograph, so layout must be one of: ${PHOTO_LAYOUT_IDS.join(", ")}.`,
+];
+
+const IMAGE_RULES = [
+  "imageQueries are three or four stock photo searches, in English, for the one picture this design is built around. Think about the subject, the audience and the mood: a hackathon wants developers at laptops, a sports day wants athletes in action, a food offer wants the dish itself. Start exact and end very general, so that something is always found: the first search is two or three words, the next is two words, and the last two are each ONE common word. For example: \"students coding hackathon\", \"programmer laptop\", \"coding\", \"technology\". Use plain everyday words a photo library would tag a real photograph with (things, people, places), never abstract or stylistic words such as glitch, neon, premium or futuristic, and never the name of the event or brand.",
+  "Give each option a different picture idea.",
+  "imagePrompt describes that picture in one or two sentences, with no words or lettering in it.",
+];
+
+function instructions(count: number, sizeName: string): string {
   return [
-    "You are the senior designer inside Falcon, a design tool. A person describes what they need and you produce finished design options for them.",
-    `Produce exactly ${count} options for a ${sizeName} design. Make them clearly different from each other: a different style, layout and colour scheme each, as a studio would present alternatives.`,
-    "For every option write the real copy for this request. Use any names, dates, places, prices or wording the person gave, exactly.",
-    "Never invent facts. If the person did not give a date, time, place, price, prize, deadline, number, organiser or brand name, do not make one up: write a short placeholder they will replace, such as \"Add date\", \"Add venue\", \"Add prize\" or \"Your brand\". Headlines, labels and taglines are yours to write freely, as long as they state no made-up facts.",
-    "Write in the language of the request. Keep the headline to five words or fewer so it can be set large.",
-    "details are up to three label and value pairs such as Date, Time, Venue, Price or Contact, chosen to suit the request.",
-    "Choose colours as a designer would for this subject and mood. text must be clearly readable on background, and accent must stand out from background. surface is a panel colour close to background. muted is a quieter text colour.",
-    "Choose the font pairing and style that fit the mood, and a layout that suits the amount of text.",
-    photoOnly
-      ? `A picture is being made for this design, so every option must use one of these picture layouts: ${PHOTO_LAYOUT_IDS.join(", ")}.`
-      : "Use a mix of layouts with and without photographs.",
-    "imagePrompt describes a single picture for the design, in one or two sentences, with no words or lettering in the picture.",
+    "You are the senior designer inside Falcon, a design tool. A person describes what they need and you produce finished design options for them, as a studio would present alternatives to a client.",
+    `Produce exactly ${count} options for a ${sizeName} design, one in each of these directions and in this order:`,
+    ...DIRECTIONS.slice(0, count).map((d, i) => `${i + 1}. ${DIRECTION_NOTES[d]}`),
+    "The options must look clearly different from one another: a different style, layout, font pairing and colour scheme each. Never give two options the same layout.",
+    "For every option write the real copy for this request.",
+    ...COPY_RULES,
+    ...LOOK_RULES,
+    ...IMAGE_RULES,
+  ].join("\n");
+}
+
+function variationInstructions(count: number, sizeName: string): string {
+  return [
+    "You are the senior designer inside Falcon, a design tool. You are given one finished design as JSON. The person likes its content and wants to see it designed differently.",
+    `Produce exactly ${count} new versions for a ${sizeName} design. Keep every piece of text exactly as it is. Change only how it looks: the style, layout, font pairing, colour scheme and mode.`,
+    "Make the versions clearly different from the original and from one another, each in a recognisable look such as minimal, luxury, futuristic, editorial, neon, corporate, brutalist, gradient, dark cinematic or magazine. name says which look it is, in two to four words. Never give two versions the same layout.",
+    ...LOOK_RULES,
+    "Copy imageQueries and imagePrompt from the original unchanged.",
   ].join("\n");
 }
 
@@ -208,11 +258,10 @@ function readJson(content: string): any {
   }
 }
 
-async function askForSpecs(prompt: string, count: number, sizeName: string, photoOnly: boolean): Promise<unknown[]> {
+async function askForSpecs(system: string, prompt: string, count: number): Promise<unknown[]> {
   const models = provider().textModels;
   if (!models.length) models.push("gpt-5.4-mini");
   const schema = specJsonSchema(count);
-  const system = instructions(count, sizeName, photoOnly);
   const ask = (model: string, format: any, extra = "") =>
     ai().chat.completions.create({
       model,
@@ -258,7 +307,7 @@ async function askForSpecs(prompt: string, count: number, sizeName: string, phot
   return Array.isArray(parsed.designs) ? parsed.designs : [];
 }
 
-/** Makes one picture and saves it, returning its file name */
+/** Makes one picture and keeps it, returning the id it is known by */
 async function makeImage(prompt: string, width: number, height: number): Promise<string> {
   const size = width > height * 1.2 ? "1536x1024" : height > width * 1.2 ? "1024x1536" : "1024x1024";
   const result = await ai().images.generate({
@@ -271,10 +320,7 @@ async function makeImage(prompt: string, width: number, height: number): Promise
   } as any);
   const data = result.data?.[0]?.b64_json;
   if (!data) throw new Error("The image model returned no picture");
-  fs.mkdirSync(AI_ASSET_DIR, { recursive: true });
-  const name = `${crypto.randomBytes(16).toString("hex")}.jpg`;
-  fs.writeFileSync(path.join(AI_ASSET_DIR, name), Buffer.from(data, "base64"));
-  return name;
+  return saveSource(Buffer.from(data, "base64"));
 }
 
 // ─── From a brief to a page ───────────────────────────────────────────────────
@@ -306,7 +352,7 @@ export function assetUrl(baseUrl: string, name: string): string {
 }
 
 /** Sets a design out as a page of editable elements */
-export function buildDesign(spec: DesignSpec, sizeId: string, baseUrl: string): LibPage {
+export async function buildDesign(spec: DesignSpec, sizeId: string, baseUrl: string): Promise<LibPage> {
   const size = SIZE_BY_ID[sizeId] || SIZE_BY_ID["portrait-4x5"];
   const { width: W, height: H } = size;
   const style = STYLE_BY_ID[spec.style];
@@ -314,33 +360,108 @@ export function buildDesign(spec: DesignSpec, sizeId: string, baseUrl: string): 
   const palette = paletteOf(spec);
   // Seeded from the brief, so the same design is rebuilt identically when it is opened
   const h = hashString(`${spec.name}|${spec.title}|${spec.layout}|${spec.style}`);
-  const rng = rngFrom(h);
-  const sheet = new Sheet(`ai${(h >>> 0).toString(36)}`);
   // A wide banner is read from further away than its short side suggests, so its type runs larger
   const u = (Math.min(W, H) / 100) * (W > H * 1.25 ? 1.3 : 1);
   const bg = makeBackground(pick(style.backgrounds, h >>> 6), palette, h >>> 9);
-  // Layouts that are built on a photo carry their own backdrop
-  if (!["photo-full", "photo-tint", "photo-card"].includes(layout.id)) decorate(sheet, pick(style.decorations, h >>> 3), W, H, palette, rng);
+  const stock = CATEGORY_PHOTOS[spec.subject] || CATEGORY_PHOTOS.events || [];
+  const own = spec.photos.filter(hasSource);
 
-  const photos = CATEGORY_PHOTOS[spec.subject] || CATEGORY_PHOTOS.events || [];
-  const ctx: PosterCtx = {
-    W, H, u, m: u * 7,
-    orient: W > H * 1.25 ? "landscape" : Math.abs(W - H) < 4 ? "square" : "portrait",
-    pal: palette, fonts: FONT_BY_ID[spec.font] || FONT_BY_ID[style.fonts[0]], style, sheet, rng,
-    kicker: spec.kicker || spec.brand,
-    title: spec.title,
-    tagline: spec.tagline,
-    cta: spec.cta || "Learn more",
-    details: spec.details.filter((d) => d.label && d.value).map((d) => [d.label, d.value] as [string, string]),
-    brand: spec.brand || "Your brand",
-    photo: (w, hh, n = 0) =>
-      spec.image
-        ? assetUrl(baseUrl, spec.image)
-        : photoUrl(pick(photos, (h >>> 4) + n), Math.min(1600, w), Math.min(1600, w) * (hh / w)),
-    variant: h % 97,
+  const draw = (photo: PosterCtx["photo"]): LibPage => {
+    const rng = rngFrom(h);
+    const sheet = new Sheet(`ai${(h >>> 0).toString(36)}`);
+    // Layouts that are built on a photo carry their own backdrop
+    if (!["photo-full", "photo-tint", "photo-card"].includes(layout.id)) decorate(sheet, pick(style.decorations, h >>> 3), W, H, palette, rng);
+    const ctx: PosterCtx = {
+      W, H, u, m: u * 7,
+      orient: W > H * 1.25 ? "landscape" : Math.abs(W - H) < 4 ? "square" : "portrait",
+      pal: palette, fonts: FONT_BY_ID[spec.font] || FONT_BY_ID[style.fonts[0]], style, sheet, rng,
+      kicker: spec.kicker || spec.brand,
+      title: spec.title,
+      tagline: spec.tagline,
+      cta: spec.cta || "Learn more",
+      details: spec.details.filter((d) => d.label && d.value).map((d) => [d.label, d.value] as [string, string]),
+      brand: spec.brand || "Your brand",
+      photo,
+      variant: h % 97,
+    };
+    layout.draw(ctx);
+    return { name: "Page 1", width: W, height: H, background: backgroundCss(bg), backgroundSpec: bg, elements: sheet.elements };
   };
-  layout.draw(ctx);
-  return { name: "Page 1", width: W, height: H, background: backgroundCss(bg), backgroundSpec: bg, elements: sheet.elements };
+
+  const stockPhoto: PosterCtx["photo"] = (w, hh, n = 0) => photoUrl(pick(stock, (h >>> 4) + n), Math.min(1600, w), Math.min(1600, w) * (hh / w));
+  if (!own.length) return draw(stockPhoto);
+
+  // The layout is run once to learn which boxes want a picture and how large they are;
+  // each picture is then cut to its box, and the layout is run again with the results
+  const wanted = new Map<string, { id: string; w: number; h: number; backdrop: boolean }>();
+  const key = (w: number, hh: number, n: number) => `${Math.round(w)}x${Math.round(hh)}#${n}`;
+  draw((w, hh, n = 0) => {
+    // A picture that fills the page lies behind the text
+    wanted.set(key(w, hh, n), { id: own[n % own.length], w, h: hh, backdrop: w * hh >= W * H * 0.85 });
+    return "";
+  });
+  const cut = new Map<string, string>();
+  await Promise.all([...wanted].map(async ([k, box]) => {
+    const name = await cropSource(box.id, box.w, box.h, box.backdrop);
+    if (name) cut.set(k, assetUrl(baseUrl, name));
+  }));
+  return draw((w, hh, n = 0) => cut.get(key(w, hh, n)) || stockPhoto(w, hh, n));
+}
+
+/** Whether a page shows at least one picture */
+function hasPicture(page: LibPage): boolean {
+  return page.elements.some((el: any) => (el.type === "image" && el.src) || (el.type === "frame" && el.imageSrc));
+}
+
+/**
+ * Builds a design and makes sure it is fit to show: it must carry a picture.
+ * One that does not is moved to a picture layout and built again.
+ */
+async function buildChecked(spec: DesignSpec, sizeId: string, baseUrl: string): Promise<LibPage> {
+  let page = await buildDesign(spec, sizeId, baseUrl);
+  for (let attempt = 0; attempt < PHOTO_LAYOUT_IDS.length && !hasPicture(page); attempt++) {
+    spec.layout = PHOTO_LAYOUT_IDS[(hashString(spec.title) + attempt) % PHOTO_LAYOUT_IDS.length];
+    page = await buildDesign(spec, sizeId, baseUrl);
+  }
+  return page;
+}
+
+/** No two options share a layout, and none is left on a layout without a picture */
+function spreadLayouts(specs: DesignSpec[]): void {
+  const taken = new Set<string>();
+  for (const spec of specs) {
+    if (!PHOTO_LAYOUT_IDS.includes(spec.layout) || taken.has(spec.layout)) {
+      const start = hashString(`${spec.name}|${spec.title}`);
+      const free = PHOTO_LAYOUT_IDS.map((_, i) => PHOTO_LAYOUT_IDS[(start + i) % PHOTO_LAYOUT_IDS.length]).find((id) => !taken.has(id));
+      spec.layout = free || PHOTO_LAYOUT_IDS[start % PHOTO_LAYOUT_IDS.length];
+    }
+    taken.add(spec.layout);
+  }
+}
+
+/** Finds each option a photograph of its own on the subject, and keeps it on this server */
+async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> {
+  const used = new Set<string>();
+  await Promise.all(specs.map(async (spec, index) => {
+    const found = await findPhotos(spec.imageQueries.length ? spec.imageQueries : [prompt]);
+    // Each option starts from a different result, so they do not all open on the same picture
+    const order = found.map((_, i) => found[(i + index * 2) % found.length]);
+    const ids: string[] = [];
+    for (const photo of order) {
+      if (ids.length >= 2) break;
+      if (used.has(photo.url)) continue;
+      const id = await fetchSource(photo);
+      if (id) {
+        used.add(photo.url);
+        ids.push(id);
+      }
+    }
+    spec.photos = ids;
+  }));
+}
+
+function present(spec: DesignSpec, page: LibPage): GeneratedDesign {
+  return { spec, name: spec.name, direction: spec.direction, width: page.width, height: page.height, preview: renderPageSvg(page) };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -348,10 +469,22 @@ export function buildDesign(spec: DesignSpec, sizeId: string, baseUrl: string): 
 export interface GeneratedDesign {
   spec: DesignSpec;
   name: string;
+  /** Which of the four directions this option answers */
+  direction: string;
   width: number;
   height: number;
   /** A preview of the page as SVG markup */
   preview: string;
+}
+
+function checkSpecs(raw: unknown[]): DesignSpec[] {
+  const specs: DesignSpec[] = [];
+  for (const item of raw) {
+    const checked = designSpecSchema.safeParse(item);
+    if (checked.success) specs.push(checked.data);
+  }
+  if (!specs.length) throw new AppError("Falcon could not design that just now. Please try again.", 502, "AI_FAILED");
+  return specs;
 }
 
 export const aiDesignService = {
@@ -360,43 +493,70 @@ export const aiDesignService = {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
     let raw: unknown[];
     try {
-      raw = await askForSpecs(input.prompt, input.count, size.name, input.withImage);
+      raw = await askForSpecs(instructions(input.count, size.name), input.prompt, input.count);
     } catch (err) {
       throw aiError(err, "design that");
     }
 
-    const specs: DesignSpec[] = [];
-    for (const item of raw) {
-      const checked = designSpecSchema.safeParse(item);
-      if (checked.success) specs.push(checked.data);
-    }
-    if (!specs.length) throw new AppError("Falcon could not design that just now. Please try again.", 502, "AI_FAILED");
+    const specs = checkSpecs(raw);
+    specs.forEach((spec, i) => { spec.direction = DIRECTIONS[i % DIRECTIONS.length]; });
+    spreadLayouts(specs);
 
-    // One picture is made and shared by the options, which keeps a request quick and its cost low
+    // A picture made for the request is shared by the options, which keeps a request quick and its cost low
     let imageMade = false;
     if (input.withImage && canMakeAiImages()) {
       try {
         const image = await makeImage(specs[0].imagePrompt || input.prompt, size.width, size.height);
-        for (const spec of specs) spec.image = image;
+        for (const spec of specs) spec.photos = [image];
         imageMade = true;
       } catch (err) {
-        // The designs are still worth having; they fall back to stock photographs
+        // The designs are still worth having; they use found photographs instead
         aiError(err, "make a picture");
       }
     }
+    if (!imageMade) await choosePhotos(specs, input.prompt);
 
-    const designs = specs.map((spec) => {
-      const page = buildDesign(spec, size.id, input.baseUrl);
-      return { spec, name: spec.name, width: page.width, height: page.height, preview: renderPageSvg(page) };
-    });
+    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
     return { designs, imageMade };
+  },
+
+  /** The same content in new looks. The words and the pictures stay; style, layout and colours change */
+  async variations(input: { spec: DesignSpec; sizeId: string; count: number; baseUrl: string }): Promise<{ designs: GeneratedDesign[] }> {
+    const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
+    const original = input.spec;
+    const { photos, ...shown } = original;
+    let raw: unknown[];
+    try {
+      raw = await askForSpecs(variationInstructions(input.count, size.name), JSON.stringify(shown), input.count);
+    } catch (err) {
+      throw aiError(err, "make variations");
+    }
+    const specs = checkSpecs(raw).filter((spec) => !(spec.layout === original.layout && spec.style === original.style));
+    if (!specs.length) throw new AppError("Falcon could not make variations just now. Please try again.", 502, "AI_FAILED");
+    for (const spec of specs) {
+      // Whatever the model returned for these, the content is the original's
+      Object.assign(spec, {
+        direction: original.direction, kicker: original.kicker, title: original.title, tagline: original.tagline, cta: original.cta,
+        details: original.details, brand: original.brand, subject: original.subject, imageQueries: original.imageQueries,
+        imagePrompt: original.imagePrompt, photos: photos.filter(hasSource),
+      });
+    }
+    spreadLayouts(specs);
+    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    return { designs };
+  },
+
+  /** The same designs set out again for another format. Nothing is stretched: each layout is run afresh at the new size */
+  async resize(input: { specs: DesignSpec[]; sizeId: string; baseUrl: string }): Promise<{ designs: GeneratedDesign[] }> {
+    const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
+    const designs = await Promise.all(input.specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    return { designs };
   },
 
   /** Saves a chosen design as a project of the signed-in user */
   async use(userId: string, input: { spec: DesignSpec; sizeId: string; baseUrl: string }): Promise<{ projectId: string }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
-    if (input.spec.image && !fs.existsSync(path.join(AI_ASSET_DIR, input.spec.image))) delete input.spec.image;
-    const page = buildDesign(input.spec, size.id, input.baseUrl);
+    const page = await buildChecked(input.spec, size.id, input.baseUrl);
     const project = await prisma.project.create({
       data: {
         title: (input.spec.title || input.spec.name).slice(0, 190),

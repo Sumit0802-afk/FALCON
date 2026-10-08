@@ -10,6 +10,7 @@ import {
   Command,
   Crosshair,
   ImagePlus,
+  Layers,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -18,7 +19,7 @@ import {
 
 import { ApiError } from "@/services/api";
 import { isAuthenticated } from "@/services/authService";
-import { AI_SIZES, AiDesign, generateAiDesigns, openAiDesign } from "@/services/aiService";
+import { AI_SIZES, AiDesign, generateAiDesigns, openAiDesign, resizeAiDesigns, varyAiDesign } from "@/services/aiService";
 
 const PROMPTS = [
   "Futuristic fintech hackathon poster",
@@ -51,6 +52,10 @@ export default function AIStudioPage() {
   const [made, setMade] = useState<{ prompt: string; size: string; image: boolean } | null>(null);
   const [notice, setNotice] = useState("");
   const [opening, setOpening] = useState<number | null>(null);
+  /** The four directions, kept while variations of one of them are on screen so the person can go back */
+  const [directions, setDirections] = useState<AiDesign[] | null>(null);
+  /** Which card variations are being made for, or "size" while the designs are set out for another format */
+  const [busy, setBusy] = useState<number | "size" | null>(null);
 
   const results = useRef<HTMLDivElement>(null);
   const generated = designs.length > 0;
@@ -75,6 +80,7 @@ export default function AIStudioPage() {
     try {
       const result = await generateAiDesigns(request);
       setDesigns(result.designs);
+      setDirections(null);
       setMade(request);
       // Said plainly when a picture was asked for and could not be made
       if (request.image && !result.imageMade) setNotice("The picture could not be made this time, so these use stock photographs instead.");
@@ -89,6 +95,62 @@ export default function AIStudioPage() {
     const value = prompt.trim();
     if (value.length < 3) return;
     void runGenerate({ prompt: value, size, image: withImage });
+  };
+
+  /* =========================================================
+     ANOTHER FORMAT
+  ========================================================== */
+
+  /** Picking a format while designs are on screen sets those same designs out again for it */
+  const chooseSize = async (next: string) => {
+    if (next === size || busy !== null || loading) return;
+    setSize(next);
+    if (!designs.length || !made) return;
+
+    try {
+      setBusy("size");
+      setError("");
+      const result = await resizeAiDesigns(designs.map((design) => design.spec), next);
+      setDesigns(result.designs);
+      setMade({ ...made, size: next });
+      // The directions behind a set of variations are set out afresh when the person goes back to them
+      if (directions) {
+        const back = await resizeAiDesigns(directions.map((design) => design.spec), next);
+        setDirections(back.designs);
+      }
+    } catch (err) {
+      setError(failureMessage(err));
+      setSize(made.size);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /* =========================================================
+     VARIATIONS OF ONE DESIGN
+  ========================================================== */
+
+  const makeVariations = async (index: number) => {
+    const design = designs[index];
+    if (!design || !made || busy !== null || opening !== null) return;
+
+    try {
+      setBusy(index);
+      setError("");
+      const result = await varyAiDesign(design.spec, made.size);
+      if (!directions) setDirections(designs);
+      setDesigns(result.designs);
+    } catch (err) {
+      setError(failureMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const backToDirections = () => {
+    if (!directions) return;
+    setDesigns(directions);
+    setDirections(null);
   };
 
   /* =========================================================
@@ -113,7 +175,7 @@ export default function AIStudioPage() {
 
   const openDesign = async (index: number) => {
     const design = designs[index];
-    if (!design || !made || opening !== null) return;
+    if (!design || !made || opening !== null || busy !== null) return;
 
     try {
       setOpening(index);
@@ -394,7 +456,7 @@ export default function AIStudioPage() {
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => setSize(item.id)}
+                        onClick={() => void chooseSize(item.id)}
                         aria-pressed={size === item.id}
                         className={`rounded-full border px-3.5 py-1.5 text-[10px] transition-all duration-300 ${
                           size === item.id
@@ -502,7 +564,7 @@ export default function AIStudioPage() {
                 <div className="flex items-center justify-center gap-3">
                   <Loader2 size={13} className="animate-spin text-cyan-300" />
                   <span className="font-mono text-[9px] tracking-[0.22em] text-cyan-300/70">
-                    {withImage ? "DESIGNING AND MAKING A PICTURE" : "DESIGNING YOUR OPTIONS"}
+                    {withImage ? "DESIGNING AND MAKING A PICTURE" : "DESIGNING AND CHOOSING PICTURES"}
                   </span>
                 </div>
 
@@ -529,7 +591,11 @@ export default function AIStudioPage() {
                   <div className="min-w-0">
 
                     <div className="font-mono text-[9px] tracking-[0.22em] text-cyan-300/70">
-                      {designs.length} DIRECTIONS READY
+                      {busy === "size"
+                        ? "SETTING OUT FOR THE NEW FORMAT"
+                        : directions
+                          ? `${designs.length} VARIATIONS`
+                          : `${designs.length} DIRECTIONS READY`}
                     </div>
 
                     <p className="mt-2 truncate text-[15px] font-medium text-white">
@@ -537,19 +603,34 @@ export default function AIStudioPage() {
                     </p>
 
                     <p className="mt-1 text-[12px] text-zinc-500">
-                      Pick one to open it in the editor. Everything in it can be changed.
+                      Open one in the editor, where everything in it can be changed. Pick another format above to see these set out for it.
                     </p>
 
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => void runGenerate(made)}
-                    className="flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-2.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
-                  >
-                    <RefreshCw size={12} />
-                    More options
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+
+                    {directions && (
+                      <button
+                        type="button"
+                        onClick={backToDirections}
+                        className="flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-2.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
+                      >
+                        <ArrowLeft size={12} />
+                        Back to directions
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => void runGenerate(made)}
+                      className="flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-2.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
+                    >
+                      <RefreshCw size={12} />
+                      New directions
+                    </button>
+
+                  </div>
 
                 </div>
 
@@ -557,42 +638,65 @@ export default function AIStudioPage() {
                   <p className="mt-4 text-[12px] text-amber-200/70">{notice}</p>
                 )}
 
-                <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <div className={`mt-6 grid grid-cols-2 gap-4 transition-opacity duration-300 lg:grid-cols-4 ${busy === "size" ? "opacity-40" : ""}`}>
 
                   {designs.map((design, index) => (
-                    <button
+                    <div
                       key={`${design.name}-${index}`}
-                      type="button"
-                      onClick={() => void openDesign(index)}
-                      disabled={opening !== null}
-                      className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-white/[0.012] text-left transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/30 disabled:cursor-wait disabled:hover:translate-y-0"
+                      className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-white/[0.012] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/30"
                     >
 
                       {/* The preview is drawn by Falcon's own server from the design's elements */}
-                      <div
+                      <button
+                        type="button"
+                        onClick={() => void openDesign(index)}
+                        disabled={opening !== null || busy !== null}
+                        aria-label={`Open ${design.name} in the editor`}
                         data-theme-keep=""
-                        className="falcon-ai-preview flex w-full items-center justify-center bg-black/40 p-3"
+                        className="falcon-ai-preview flex w-full flex-1 items-center justify-center bg-black/40 p-3 disabled:cursor-wait"
                         dangerouslySetInnerHTML={{ __html: design.preview }}
                       />
 
-                      <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] px-4 py-3">
+                      <div className="border-t border-white/[0.07] px-4 py-3">
 
-                        <span className="truncate text-[12px] font-medium text-zinc-200">
+                        {!directions && design.direction && (
+                          <div className="font-mono text-[8px] uppercase tracking-[0.22em] text-cyan-300/60">
+                            {design.direction}
+                          </div>
+                        )}
+
+                        <div className="mt-0.5 truncate text-[12px] font-medium text-zinc-200">
                           {design.name}
-                        </span>
+                        </div>
 
-                        <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-zinc-500 transition-colors group-hover:text-cyan-200">
-                          {opening === index ? "Opening…" : "Edit"}
-                          {opening === index ? (
-                            <Loader2 size={11} className="animate-spin" />
-                          ) : (
-                            <ArrowUpRight size={12} />
-                          )}
-                        </span>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+
+                          <button
+                            type="button"
+                            onClick={() => void makeVariations(index)}
+                            disabled={opening !== null || busy !== null}
+                            title="Keep these words and pictures, and see them in other looks"
+                            className="flex items-center gap-1.5 text-[10px] text-zinc-500 transition-colors hover:text-cyan-200 disabled:opacity-40"
+                          >
+                            {busy === index ? <Loader2 size={11} className="animate-spin" /> : <Layers size={11} />}
+                            {busy === index ? "Making…" : "Variations"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void openDesign(index)}
+                            disabled={opening !== null || busy !== null}
+                            className="flex items-center gap-1.5 text-[10px] text-zinc-400 transition-colors hover:text-cyan-200 disabled:opacity-40"
+                          >
+                            {opening === index ? "Opening…" : "Edit"}
+                            {opening === index ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={12} />}
+                          </button>
+
+                        </div>
 
                       </div>
 
-                    </button>
+                    </div>
                   ))}
 
                 </div>

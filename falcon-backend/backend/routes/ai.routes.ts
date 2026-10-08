@@ -31,6 +31,17 @@ const useSchema = z.object({
   size: z.enum(SIZE_IDS).default("portrait-4x5"),
 });
 
+const variationsSchema = z.object({
+  spec: designSpecSchema,
+  size: z.enum(SIZE_IDS).default("portrait-4x5"),
+  count: z.number().int().min(1).max(4).default(4),
+});
+
+const resizeSchema = z.object({
+  specs: z.array(designSpecSchema).min(1).max(8),
+  size: z.enum(SIZE_IDS),
+});
+
 /** The public address of this server, used for pictures saved here */
 function baseUrl(req: { protocol: string; get(name: string): string | undefined }): string {
   return (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
@@ -69,6 +80,27 @@ router.post("/designs", aiRateLimit, validateBody(designsSchema), async (req, re
   try {
     const { prompt, size, count, image } = req.body;
     const result = await aiDesignService.generate({ prompt, sizeId: size, count, withImage: image, baseUrl: baseUrl(req) });
+    res.status(200).json({ success: true, size, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/designs/variations", aiRateLimit, validateBody(variationsSchema), async (req, res, next) => {
+  try {
+    const { spec, size, count } = req.body;
+    const result = await aiDesignService.variations({ spec, sizeId: size, count, baseUrl: baseUrl(req) });
+    res.status(200).json({ success: true, size, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Setting the same designs out for another format asks nothing of the AI service
+router.post("/designs/resize", validateBody(resizeSchema), async (req, res, next) => {
+  try {
+    const { specs, size } = req.body;
+    const result = await aiDesignService.resize({ specs, sizeId: size, baseUrl: baseUrl(req) });
     res.status(200).json({ success: true, size, ...result });
   } catch (error) {
     next(error);
