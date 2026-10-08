@@ -158,6 +158,8 @@ function aiError(err: any, what: string): AppError {
   const status = Number(err?.status) || 0;
   console.error(`[ai] ${what} failed (status: ${status || "n/a"}, code: ${err?.code || err?.name || "unknown"})`);
   if (status === 401 || status === 403) return new AppError("The AI service refused Falcon's key. Check OPENAI_API_KEY in the backend's .env file.", 502, "AI_KEY_REJECTED");
+  // Out of credit is not something waiting will fix, so it is told apart from a busy moment
+  if (/credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) return new AppError("The AI account has run out of credit, so AI Studio cannot make designs. Add credit to the OpenAI account whose key is in the backend's .env file, then try again.", 502, "AI_NO_CREDIT");
   if (status === 429) return new AppError("The AI service is at its usage limit right now. Check the account's credit, or try again in a little while.", 502, "AI_LIMIT");
   if (status === 400 && /moderation|safety|content_policy/i.test(String(err?.code || err?.type || ""))) return new AppError("The AI service would not make that. Try describing it differently.", 400, "AI_REFUSED");
   return new AppError(`Falcon could not ${what} just now. Please try again.`, 502, "AI_FAILED");
