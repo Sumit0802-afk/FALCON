@@ -83,7 +83,7 @@ export default function DemoVideo() {
         </div>
 
         <p className="mt-4 text-center text-[12px] text-zinc-500">
-          A one-minute tour: templates, AI Studio and the editor.
+          A short tour: templates, the email designer, AI Studio and the editor.
         </p>
 
       </div>

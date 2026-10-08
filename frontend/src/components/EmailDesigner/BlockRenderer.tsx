@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useLayoutEffect } from "react";
 import {
   EmailBlock, ImageBlock, TextAlign,
 } from "@/types/email";
@@ -20,6 +20,16 @@ interface EditableProps {
 function Editable({ value, onChange, style, className, multiline = true }: EditableProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
+
+  // The text is written into the element here rather than through React. Handing React the
+  // HTML only while not editing made it empty the element the moment editing began, so the
+  // words vanished as soon as a block was clicked, and typing then replaced them for good.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || editing) return;
+    const html = value.replace(/\n/g, "<br>");
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }, [value, editing]);
 
   const handleBlur = () => {
     setEditing(false);
@@ -43,7 +53,6 @@ function Editable({ value, onChange, style, className, multiline = true }: Edita
       onKeyDown={handleKeyDown}
       style={style}
       className={`outline-none ${editing ? "ring-2 ring-blue-400/40 ring-offset-1" : ""} ${className ?? ""}`}
-      dangerouslySetInnerHTML={editing ? undefined : { __html: value.replace(/\n/g, "<br>") }}
     />
   );
 }
