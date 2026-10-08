@@ -2351,7 +2351,7 @@ const openTemplateByName = (name: string) => {
                     <li><a href="#intelligence" className="hover:text-white transition-colors">Design Metrics</a></li>
                     <li><a href="#why" className="hover:text-white transition-colors">Case Studies</a></li>
                     <li><a href="#product" className="hover:text-white transition-colors">Documentation</a></li>
-                    <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
+                    <li><button type="button" onClick={() => router.push("/help")} className="hover:text-white transition-colors">FAQ</button></li>
                   </ul>
                 </div>
 

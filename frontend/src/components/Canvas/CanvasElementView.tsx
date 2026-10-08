@@ -201,11 +201,16 @@ export default function CanvasElementView({
    * If the element becomes unselected,
    * stop editing and reset crop tool.
    */
+  const wasSelectedRef = useRef(selected);
   useEffect(() => {
+    // Only the element that has just lost the selection ends crop mode. Every other
+    // element on the page is unselected too, and used to cancel the crop the moment it began
+    const lostSelection = wasSelectedRef.current && !selected;
+    wasSelectedRef.current = selected;
     if (!selected) {
       setEditing(false);
       editingRef.current = false;
-      if (activeTool === "crop") {
+      if (activeTool === "crop" && lostSelection) {
         setCropRect(null);
         cropInitializedRef.current = false;
         onToolChange?.("select");

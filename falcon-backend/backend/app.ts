@@ -1,5 +1,6 @@
 import { EMAIL_ASSET_DIR } from "./services/emailSnapshot";
 import { AI_ASSET_DIR } from "./services/aiDesign.service";
+import { PROJECT_THUMB_DIR } from "./services/projectThumb";
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -54,6 +55,9 @@ export function createApp(): Application {
   app.use("/email-assets", express.static(EMAIL_ASSET_DIR, { maxAge: "365d", immutable: true, index: false, dotfiles: "deny" }));
   // Pictures made by AI Studio. Any page may load them, so the editor can draw and export them
   app.use("/ai-assets", express.static(AI_ASSET_DIR, { maxAge: "365d", immutable: true, index: false, dotfiles: "deny", setHeaders: (res) => res.setHeader("Access-Control-Allow-Origin", "*") }));
+
+  // Preview pictures of projects, drawn by the editor for the "My Projects" page
+  app.use("/project-thumbs", express.static(PROJECT_THUMB_DIR, { maxAge: "365d", immutable: true, index: false, dotfiles: "deny" }));
 
   app.use(cookieParser());
   app.use(express.json({ limit: "50mb" }));

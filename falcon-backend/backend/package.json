@@ -22,8 +22,7 @@
     "email:seed": "ts-node --transpile-only scripts/seed-email-templates.ts",
     "test:auth": "ts-node tests/auth.test.ts",
     "test:account": "ts-node tests/account.test.ts",
-    "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts",
-    "test:templates": "ts-node tests/templates.test.ts"
+    "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

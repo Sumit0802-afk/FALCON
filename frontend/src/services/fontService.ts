@@ -137,15 +137,28 @@ function fontStylesheetUrl(family: string, weights: number[], italic: boolean, t
   return `${GOOGLE_FONTS_CSS2}?family=${encodeURIComponent(family).replace(/%20/g, "+")}${axis}${subset}&display=swap`;
 }
 
+/** Fonts every device already has, which no font service needs to be asked for */
+const SYSTEM_FONTS = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|inherit|arial|helvetica|helvetica neue|times|times new roman|georgia|verdana|tahoma|trebuchet ms|courier|courier new|segoe ui|impact|comic sans ms)$/i;
+
+/**
+ * The one family to load from what an element holds, which may be a CSS list
+ * such as "Inter, sans-serif". Empty when it is a font the device already has.
+ */
+export function fontFamilyName(value: string): string {
+  const first = (value || "").split(",")[0].trim().replace(/^["']|["']$/g, "").trim();
+  return SYSTEM_FONTS.test(first) ? "" : first;
+}
+
 /**
  * Loads a font with the given weights (and italics, where the family has them)
  * into the document. Loading the same thing twice costs nothing.
  */
 export function loadGoogleFont(
-  family: string,
+  name: string,
   weights: number[] = [400, 500, 600, 700],
   italic = false
 ): Promise<void> {
+  const family = fontFamilyName(name);
   if (typeof document === "undefined" || !family) {
     return Promise.resolve();
   }

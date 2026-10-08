@@ -86,6 +86,31 @@ export async function renderPageToDataUrl(
   );
 }
 
+/**
+ * A small JPEG of a page, for lists of projects. Null when the page cannot be
+ * drawn, which happens when a picture on it comes from a site that forbids copying.
+ */
+export async function renderPageThumbnail(page: DesignPage, maxSide = 560): Promise<string | null> {
+  try {
+    const full = new Image();
+    full.src = await renderPageToDataUrl(page);
+    await full.decode();
+    const scale = Math.min(1, maxSide / Math.max(full.naturalWidth, full.naturalHeight, 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(full.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(full.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(full, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } catch {
+    return null;
+  }
+}
+
 /** Splits on commas that are not inside brackets, so "rgba(0, 0, 0, 1)" stays whole */
 function splitTopLevel(text: string): string[] {
   const parts: string[] = [];

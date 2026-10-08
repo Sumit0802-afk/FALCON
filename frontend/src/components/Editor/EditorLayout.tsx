@@ -8,6 +8,9 @@ import React, {
 } from "react";
 
 import { useRouter } from "next/router";
+import { fetchCurrentUser } from "@/services/authService";
+import { DEFAULT_TEXT_COLOR } from "@/utils/constants";
+import { renderPageThumbnail } from "@/utils/canvasExport";
 
 import {
   CanvasElement,
@@ -349,8 +352,19 @@ export function EditorLayout({
   const elementCount = editor.page?.elements?.length ?? 0;
   useEffect(() => {
     if (window.matchMedia("(max-width: 1023px)").matches) setActiveSidebarTab(null);
+    // The panel button that added something keeps the keyboard, so Space or Enter
+    // pressed next would add the same thing again. Hand the keyboard back to the page
+    const focused = document.activeElement as HTMLElement | null;
+    if (focused?.tagName === "BUTTON" && focused.closest("aside")) focused.blur();
   }, [elementCount]);
   const [assetAdminOpen, setAssetAdminOpen] = useState(false);
+  // The asset admin window is offered to administrators only
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetchCurrentUser().then((user) => live && setIsAdmin(user?.role === "admin")).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
 
   /* =======================================================
      EDITOR THEME (DARK / LIGHT)
@@ -435,6 +449,13 @@ export function EditorLayout({
   }
 
   const selectedElement = editor.selectedElements[0];
+
+  // The filter panel belongs to the selected picture. Left open with nothing selected it
+  // showed an empty space, and came back mid-click so the picture could not be picked again
+  const filterTarget = !!selectedElement && isImage(selectedElement);
+  useEffect(() => {
+    if (activeSidebarTab === "filters" && !filterTarget) setActiveSidebarTab(null);
+  }, [activeSidebarTab, filterTarget]);
   const isSelectedImage = Boolean(
     selectedElement &&
     editor.selectedElements.length === 1 &&
@@ -1422,6 +1443,19 @@ export function EditorLayout({
     projectId,
   ]);
 
+  // "My Projects" shows a picture of the first page. It is redrawn once the page has been
+  // left alone for a few seconds, and once on opening so older projects get one too
+  const isFirstPage = !pages || pages.length === 0 || pageIndex === 0;
+  useEffect(() => {
+    if (!isFirstPage) return;
+    const page = editor.page;
+    const timer = setTimeout(async () => {
+      const image = await renderPageThumbnail(page);
+      if (image) projectService.saveThumbnail(projectId, image).catch(() => undefined);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [editor.page, projectId, isFirstPage]);
+
   /* =======================================================
      KEYBOARD SHORTCUTS
      ======================================================= */
@@ -1601,19 +1635,50 @@ export function EditorLayout({
     }
   }
 
+  /* White on a dark spot of the page, dark on a light one */
+  function readableColorAt(px: number, py: number): string {
+    let behind = editor.page.background || "";
+    // Later elements lie on top, so the last solid shape under the point is what shows
+    for (const el of editor.page.elements) {
+      if (!isShape(el) || el.type === "line" || el.hidden || el.opacity < 0.6 || !/^#/.test(el.fill || "")) continue;
+      if (px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height) behind = el.fill;
+    }
+    const found = behind.match(/#([0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/i);
+    if (!found) return DEFAULT_TEXT_COLOR;
+    const hex = found[1].length === 3 ? found[1].replace(/./g, (ch) => ch + ch) : found[1];
+    const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5 ? "#FFFFFF" : DEFAULT_TEXT_COLOR;
+  }
+
+  /*
+   * Adds a line of text in the middle of the page. Sizes are given for a small
+   * page and grow with the real one, so a heading is a heading on a large poster too.
+   */
+  function addPageText(spec: { text: string; fontSize: number; fontWeight: number; width: number; at: number; fontFamily?: string }) {
+    const { width: pageWidth, height: pageHeight } = editor.page.size;
+    const unit = Math.max(1, Math.min(pageWidth, pageHeight) / 640);
+    const fontSize = Math.round(spec.fontSize * unit);
+    const width = Math.min(Math.round(spec.width * unit), Math.round(pageWidth * 0.9));
+    const x = Math.round((pageWidth - width) / 2);
+    const y = Math.round(pageHeight * spec.at);
+    return editor.addElement({
+      type: "text",
+      x,
+      y,
+      text: spec.text,
+      fontSize,
+      fontWeight: spec.fontWeight,
+      width,
+      height: Math.round(fontSize * 1.3),
+      align: "center",
+      color: readableColorAt(x + width / 2, y + fontSize / 2),
+      ...(spec.fontFamily ? { fontFamily: spec.fontFamily } : {}),
+    });
+  }
+
   function handleAddTextWithFont(fontFamily: string) {
     loadGoogleFont(fontFamily, [300, 400, 500, 600, 700, 800]);
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round(canvasWidth / 4),
-      y: Math.round(canvasHeight / 2 - 20),
-      text: "Your Text Here",
-      fontFamily,
-      fontSize: 32,
-      fontWeight: 600,
-    });
+    addPageText({ text: "Your Text Here", fontSize: 32, fontWeight: 600, width: 320, at: 0.46, fontFamily });
   }
 
   /* =======================================================
@@ -1642,45 +1707,15 @@ export function EditorLayout({
      ======================================================= */
 
   function handleAddHeading() {
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round((canvasWidth - 340) / 2),
-      y: Math.round(canvasHeight * 0.3),
-      text: "Add a heading",
-      fontSize: 40,
-      fontWeight: 700,
-      width: 340,
-    });
+    addPageText({ text: "Add a heading", fontSize: 40, fontWeight: 700, width: 380, at: 0.3 });
   }
 
   function handleAddSubheading() {
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round((canvasWidth - 300) / 2),
-      y: Math.round(canvasHeight * 0.45),
-      text: "Add a subheading",
-      fontSize: 26,
-      fontWeight: 600,
-      width: 300,
-    });
+    addPageText({ text: "Add a subheading", fontSize: 26, fontWeight: 600, width: 320, at: 0.45 });
   }
 
   function handleAddBodyText() {
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round((canvasWidth - 280) / 2),
-      y: Math.round(canvasHeight * 0.6),
-      text: "Add body text here",
-      fontSize: 16,
-      fontWeight: 400,
-      width: 280,
-    });
+    addPageText({ text: "Add body text here", fontSize: 16, fontWeight: 400, width: 300, at: 0.6 });
   }
 
   function handleAddStyledText(style: TextDesignStyle) {
@@ -1851,34 +1886,12 @@ export function EditorLayout({
 
   function handleAddBrandHeadingText(fontFamily: string) {
     loadGoogleFont(fontFamily, [700]);
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round((canvasWidth - 360) / 2),
-      y: Math.round(canvasHeight * 0.35),
-      text: "Brand Heading",
-      fontFamily,
-      fontSize: 42,
-      fontWeight: 700,
-      width: 360,
-    });
+    addPageText({ text: "Brand Heading", fontSize: 42, fontWeight: 700, width: 380, at: 0.35, fontFamily });
   }
 
   function handleAddBrandBodyText(fontFamily: string) {
     loadGoogleFont(fontFamily, [400]);
-    const canvasWidth = editor.page.size.width;
-    const canvasHeight = editor.page.size.height;
-    editor.addElement({
-      type: "text",
-      x: Math.round((canvasWidth - 300) / 2),
-      y: Math.round(canvasHeight * 0.5),
-      text: "Consistent brand body text goes here.",
-      fontFamily,
-      fontSize: 18,
-      fontWeight: 400,
-      width: 300,
-    });
+    addPageText({ text: "Consistent brand body text goes here.", fontSize: 18, fontWeight: 400, width: 340, at: 0.5, fontFamily });
   }
 
   /* =======================================================
@@ -2335,7 +2348,7 @@ export function EditorLayout({
         }}
         theme={editorTheme}
         onToggleTheme={() => setEditorTheme(prev => prev === "dark" ? "light" : "dark")}
-        onOpenAssetAdmin={() => setAssetAdminOpen(true)}
+        onOpenAssetAdmin={isAdmin ? () => setAssetAdminOpen(true) : undefined}
       />
 
       {/* ===================================================

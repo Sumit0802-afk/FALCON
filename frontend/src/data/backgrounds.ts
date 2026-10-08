@@ -1172,21 +1172,6 @@ export const BACKGROUNDS_DATA: BackgroundItem[] = [
     ]
   },
   {
-    "id": "geometric-010-terrazzo-stone-chips",
-    "name": "Venetian Terrazzo Stone",
-    "category": "geometric",
-    "type": "image",
-    "value": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1400&q=80",
-    "preview": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=400&q=80",
-    "tags": [
-      "geometric",
-      "terrazzo",
-      "mosaic",
-      "stone",
-      "italian"
-    ]
-  },
-  {
     "id": "geometric-011-rhombus-optical-weave",
     "name": "Optical Rhombus Wave",
     "category": "geometric",
@@ -4741,15 +4726,6 @@ export const BACKGROUNDS_DATA: BackgroundItem[] = [
   // =========================================================================
   // ADDITIONAL CURATED CLASSICS (TEXTURES, NATURE & STUDIO)
   // =========================================================================
-  {
-    id: "tex-geometric-tiles",
-    name: "Moroccan Geometric Mosaic",
-    category: "textures",
-    type: "image",
-    value: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1400&q=80",
-    preview: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=400&q=80",
-    tags: ["tiles", "mosaic", "pattern", "geometry", "moroccan"]
-  },
   {
     id: "tex-wood-grain",
     name: "Warm Scandinavian Oak",

@@ -33,9 +33,13 @@ export interface FoundPhoto {
   height: number;
 }
 
-async function getJson(url: string, headers: Record<string, string> = {}): Promise<any> {
+/** How long one search may take, and how long all the searches for one design may take together */
+const SEARCH_TIMEOUT = 6_000;
+const SEARCH_BUDGET = 14_000;
+
+async function getJson(url: string, headers: Record<string, string> = {}, timeout = SEARCH_TIMEOUT): Promise<any> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12_000);
+  const timer = setTimeout(() => controller.abort(), Math.max(1_000, timeout));
   try {
     const res = await fetch(url, { headers: { "User-Agent": USER_AGENT, ...headers }, signal: controller.signal });
     if (!res.ok) throw new Error(`search answered ${res.status}`);
@@ -45,15 +49,15 @@ async function getJson(url: string, headers: Record<string, string> = {}): Promi
   }
 }
 
-async function searchPexels(query: string, key: string): Promise<FoundPhoto[]> {
-  const data = await getJson(`https://api.pexels.com/v1/search?per_page=12&query=${encodeURIComponent(query)}`, { Authorization: key });
+async function searchPexels(query: string, key: string, timeout?: number): Promise<FoundPhoto[]> {
+  const data = await getJson(`https://api.pexels.com/v1/search?per_page=12&query=${encodeURIComponent(query)}`, { Authorization: key }, timeout);
   return (data.photos || []).map((p: any) => ({ url: String(p.src?.large2x || p.src?.large || ""), width: Number(p.width) || 0, height: Number(p.height) || 0 }));
 }
 
-async function searchOpenverse(query: string, stockOnly: boolean): Promise<FoundPhoto[]> {
+async function searchOpenverse(query: string, stockOnly: boolean, timeout?: number): Promise<FoundPhoto[]> {
   // StockSnap is tried first: its pictures are taken as stock photography, so they are clean and well lit
   const source = stockOnly ? "&source=stocksnap" : "&category=photograph&size=large,medium";
-  const data = await getJson(`https://api.openverse.org/v1/images/?license=cc0,pdm&mature=false&page_size=12${source}&q=${encodeURIComponent(query)}`);
+  const data = await getJson(`https://api.openverse.org/v1/images/?license=cc0,pdm&mature=false&page_size=12${source}&q=${encodeURIComponent(query)}`, {}, timeout);
   return (data.results || []).map((r: any) => ({ url: String(r.url || ""), width: Number(r.width) || 0, height: Number(r.height) || 0 }));
 }
 
@@ -61,6 +65,11 @@ async function searchOpenverse(query: string, stockOnly: boolean): Promise<Found
 const LOOK_WORDS = new Set(["abstract", "modern", "premium", "luxury", "luxurious", "futuristic", "creative", "bold", "minimal", "minimalist", "colorful", "colourful", "vibrant", "background", "style", "design", "poster", "with", "from", "that", "this"]);
 
 const searched = new Map<string, FoundPhoto[]>();
+
+// A photo service that stops answering is left alone for a minute. Asking it again for
+// every phrase of every design is what once made a set of designs take three minutes
+let failuresInARow = 0;
+let restingUntil = 0;
 
 /** Photographs for the first of the phrases that finds any; an empty list when none does */
 export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
@@ -70,20 +79,30 @@ export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
   // in "programmer coding laptop" the thing pictured tends to come last
   const words = clean.flatMap((q) => q.split(" ").reverse()).filter((w) => w.length >= 4 && !LOOK_WORDS.has(w));
   const phrases = [...new Set([...clean, ...words])].slice(0, 14);
-  const attempts: [string, () => Promise<FoundPhoto[]>][] = [];
+  const attempts: [string, (timeout: number) => Promise<FoundPhoto[]>][] = [];
   for (const phrase of phrases) {
-    if (pexels) attempts.push([`pexels:${phrase}`, () => searchPexels(phrase, pexels)]);
-    attempts.push([`stock:${phrase}`, () => searchOpenverse(phrase, true)]);
+    if (pexels) attempts.push([`pexels:${phrase}`, (timeout) => searchPexels(phrase, pexels, timeout)]);
+    attempts.push([`stock:${phrase}`, (timeout) => searchOpenverse(phrase, true, timeout)]);
   }
-  for (const phrase of phrases) attempts.push([`open:${phrase}`, () => searchOpenverse(phrase, false)]);
+  for (const phrase of phrases) attempts.push([`open:${phrase}`, (timeout) => searchOpenverse(phrase, false, timeout)]);
 
+  const deadline = Date.now() + SEARCH_BUDGET;
   for (const [key, run] of attempts) {
     let found = searched.get(key);
     if (!found) {
+      const left = deadline - Date.now();
+      // Out of time, or the service is being rested: answers already known may still be used
+      if (left < 800 || Date.now() < restingUntil) continue;
       try {
-        found = (await run()).filter((p) => /^https:\/\//.test(p.url) && isPublicUrl(p.url) && Math.min(p.width, p.height) >= 500);
+        found = (await run(Math.min(SEARCH_TIMEOUT, left))).filter((p) => /^https:\/\//.test(p.url) && isPublicUrl(p.url) && Math.min(p.width, p.height) >= 500);
+        failuresInARow = 0;
       } catch {
-        found = [];
+        // Not remembered: a search that failed may well work the next time it is asked
+        if (++failuresInARow >= 3) {
+          failuresInARow = 0;
+          restingUntil = Date.now() + 60_000;
+        }
+        continue;
       }
       if (searched.size > 400) searched.clear();
       searched.set(key, found);

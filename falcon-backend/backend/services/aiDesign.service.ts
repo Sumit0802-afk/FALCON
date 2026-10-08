@@ -218,7 +218,9 @@ function ai(): OpenAI {
   if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add an AI key (AI_API_KEY or OPENAI_API_KEY) to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
   const wanted = `${baseURL}|${apiKey.length}|${apiKey.slice(-4)}`;
   if (!client || clientFor !== wanted) {
-    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 1 });
+    // No retries by the client itself: it waits as long as a busy service asks it to, which left
+    // people watching "Designing…" for minutes. The list of models below is the retry instead
+    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 75_000, maxRetries: 0 });
     clientFor = wanted;
   }
   return client;
@@ -285,19 +287,24 @@ async function askForSpecs(system: string, prompt: string, count: number): Promi
 
   let response: Awaited<ReturnType<typeof askModel>> | undefined;
   let failure: any;
-  for (const model of models) {
-    try {
-      response = await askModel(model);
-      break;
-    } catch (err: any) {
-      failure = err;
-      // A model that is overloaded, rate limited, withdrawn or slow is passed over for the next one.
-      // A bad key or an empty account would fail the same way on every model, so those stop here
-      const status = Number(err?.status) || 0;
-      const outOfCredit = /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`);
-      const worthAnother = !outOfCredit && (!status || [404, 408, 429, 500, 502, 503, 504, 529].includes(status));
-      console.error(`[ai] model ${model} did not answer (status: ${status || "n/a"})${worthAnother && model !== models[models.length - 1] ? "; trying the next" : ""}`);
-      if (!worthAnother) break;
+  // The models are gone through twice. A service that is busy or over its per-minute
+  // allowance often answers a few seconds later, so the second round follows a short pause
+  rounds: for (let round = 0; round < 2; round++) {
+    if (round) await new Promise((done) => setTimeout(done, 5000));
+    for (const model of models) {
+      try {
+        response = await askModel(model);
+        break rounds;
+      } catch (err: any) {
+        failure = err;
+        // A model that is overloaded, rate limited, withdrawn or slow is passed over for the next one.
+        // A bad key or an empty account would fail the same way on every model, so those stop here
+        const status = Number(err?.status) || 0;
+        const outOfCredit = /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`);
+        const worthAnother = !outOfCredit && (!status || [404, 408, 429, 500, 502, 503, 504, 529].includes(status));
+        console.error(`[ai] model ${model} did not answer (status: ${status || "n/a"})`);
+        if (!worthAnother) break rounds;
+      }
     }
   }
   if (!response) throw failure;

@@ -2,6 +2,7 @@ import { Page, Project } from "@prisma/client";
 import { prisma } from "../database/prismaClient";
 import { AppError } from "../utils/AppError";
 import { CanvasElement } from "../models/element.model";
+import { copyProjectThumb, removeProjectThumb, saveProjectThumb } from "./projectThumb";
 import {
   CreateProjectInput,
   PAGE_PRESETS,
@@ -237,7 +238,7 @@ export const projectService = {
     projectId: string,
     userId: string
   ): Promise<void> {
-    await requireOwnedProject(
+    const project = await requireOwnedProject(
       projectId,
       userId
     );
@@ -247,6 +248,21 @@ export const projectService = {
         id: projectId,
       },
     });
+    await removeProjectThumb(project.thumbnailUrl);
+  },
+
+  /** Replaces the project's preview picture with one the editor has just drawn */
+  async setThumbnail(
+    projectId: string,
+    userId: string,
+    image: string
+  ): Promise<string> {
+    const project = await requireOwnedProject(projectId, userId);
+    const thumbnailUrl = await saveProjectThumb(image);
+    // updateMany leaves updatedAt alone: a new preview is not an edit to the design
+    await prisma.project.updateMany({ where: { id: projectId }, data: { thumbnailUrl, updatedAt: project.updatedAt } });
+    await removeProjectThumb(project.thumbnailUrl);
+    return thumbnailUrl;
   },
 
   async duplicate(
@@ -265,6 +281,8 @@ export const projectService = {
           title: `${source.title} (copy)`,
 
           ownerId: userId,
+
+          thumbnailUrl: await copyProjectThumb(source.thumbnailUrl),
 
           pages: {
             create: source.pages.map(

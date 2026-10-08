@@ -34,6 +34,11 @@ export const projectController = {
     res.status(204).send();
   }),
 
+  setThumbnail: asyncHandler(async (req: Request, res: Response) => {
+    const thumbnailUrl = await projectService.setThumbnail(req.params.projectId, userId(req), req.body.image);
+    res.status(200).json({ thumbnailUrl });
+  }),
+
   duplicate: asyncHandler(async (req: Request, res: Response) => {
     const project = await projectService.duplicate(req.params.projectId, userId(req));
     res.status(201).json({ project });

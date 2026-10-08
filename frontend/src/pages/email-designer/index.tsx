@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { LayoutTemplate, Plus, SlidersHorizontal } from "lucide-react";
@@ -139,7 +140,7 @@ function friendlyError(err: unknown, fallback: string): string {
 
 // ─── Main Email Designer Page ─────────────────────────────────────────────────
 
-export default function EmailDesignerPage() {
+function EmailDesignerPage() {
   const router = useRouter();
   const [design, setDesign] = useState<EmailDesign>(newEmailDesign);
   const { sections, push, undo, redo, reset, canUndo, canRedo } = useHistory(design.sections);
@@ -780,3 +781,7 @@ export default function EmailDesignerPage() {
     </>
   );
 }
+
+// A new design is given random block ids, so the page drawn on the server could never match
+// the one drawn in the browser. The designer is therefore drawn in the browser only
+export default dynamic(() => Promise.resolve(EmailDesignerPage), { ssr: false });

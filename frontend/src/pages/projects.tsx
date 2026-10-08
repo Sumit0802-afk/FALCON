@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { Copy, FileImage, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { isAuthenticated } from "@/services/authService";
 import { projectService, ProjectSummary } from "@/services/projectService";
+import { apiAssetUrl } from "@/services/emailTemplateService";
 import {
   UserEmailTemplateSummary, deleteUserEmailTemplate, duplicateUserEmailTemplate, listUserEmailTemplates,
 } from "@/services/emailTemplateService";
@@ -152,7 +153,12 @@ function Preview({ item }: { item: Item }) {
       ? <div className="h-full w-full overflow-hidden bg-white"><TemplateThumb svg={item.thumbnailSvg} title={item.title} /></div>
       : <Mail size={28} className="text-zinc-700" />;
   }
-  if (item.thumbnailUrl) return <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />;
+  if (item.thumbnailUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={apiAssetUrl(item.thumbnailUrl)} alt="" className="max-h-[86%] max-w-[86%] rounded-[3px] object-contain shadow-[0_10px_30px_rgba(0,0,0,0.45)]" />
+    );
+  }
   if (item.width && item.height) {
     const plain = item.background && /^(#|rgb|hsl|[a-z]+$)/i.test(item.background.trim()) ? item.background : "#ffffff";
     return (

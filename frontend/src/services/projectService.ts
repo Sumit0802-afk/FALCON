@@ -296,6 +296,12 @@ export const projectService = {
     });
   },
 
+  /** Stores a small picture of the project for "My Projects". Never worth failing a save over */
+  async saveThumbnail(projectId: string, image: string): Promise<void> {
+    if (projectId.startsWith("local-")) return;
+    await apiFetch<{ thumbnailUrl: string }>(`/projects/${projectId}/thumbnail`, { method: "POST", body: JSON.stringify({ image }) });
+  },
+
   async rename(projectId: string, title: string): Promise<void> {
     const cached = getLocalProjects()[projectId];
     if (cached) saveLocalProject({ ...cached, title });
