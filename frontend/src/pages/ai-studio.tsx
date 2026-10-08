@@ -1,29 +1,24 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Brain,
-  Check,
   Command,
   Crosshair,
+  ImagePlus,
+  Loader2,
+  RefreshCw,
   Sparkles,
-  Target,
   Wand2,
 } from "lucide-react";
 
-import { DesignProject, PAGE_PRESETS } from "@/types";
-import { projectService } from "@/services/projectService";
+import { ApiError } from "@/services/api";
 import { isAuthenticated } from "@/services/authService";
-import { generateId } from "@/utils/id";
-import type {
-  CanvasElement,
-  ShapeElement,
-  TextElement,
-} from "@/types/element";
+import { AI_SIZES, AiDesign, generateAiDesigns, openAiDesign } from "@/services/aiService";
 
 const PROMPTS = [
   "Futuristic fintech hackathon poster",
@@ -32,25 +27,68 @@ const PROMPTS = [
   "Tech startup launch announcement",
 ];
 
+/** Says what went wrong in words the person can act on */
+function failureMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return "Please sign in to use AI Studio.";
+    if (err.status === 429) return "You've asked for a lot of designs in a short time. Please wait a few minutes and try again.";
+    if (err.message) return err.message.replace(/^[a-z.0-9]+: /i, "");
+  }
+  return "Falcon couldn't reach AI Studio. Check your connection and try again.";
+}
+
 export default function AIStudioPage() {
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
-  const [generated, setGenerated] = useState(false);
-  const [activePrompt, setActivePrompt] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [size, setSize] = useState(AI_SIZES[0].id);
+  const [withImage, setWithImage] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [designs, setDesigns] = useState<AiDesign[]>([]);
+  /** What the shown designs were made for, kept so "more options" asks for the same thing */
+  const [made, setMade] = useState<{ prompt: string; size: string; image: boolean } | null>(null);
+  const [notice, setNotice] = useState("");
+  const [opening, setOpening] = useState<number | null>(null);
+
+  const results = useRef<HTMLDivElement>(null);
+  const generated = designs.length > 0;
 
   /* =========================================================
      GENERATE
   ========================================================== */
 
+  const runGenerate = async (request: { prompt: string; size: string; image: boolean }) => {
+    if (loading) return;
+
+    if (!isAuthenticated()) {
+      router.push(`/login?redirect=${encodeURIComponent("/ai-studio")}`);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setNotice("");
+    setTimeout(() => results.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+
+    try {
+      const result = await generateAiDesigns(request);
+      setDesigns(result.designs);
+      setMade(request);
+      // Said plainly when a picture was asked for and could not be made
+      if (request.image && !result.imageMade) setNotice("The picture could not be made this time, so these use stock photographs instead.");
+    } catch (err) {
+      setError(failureMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGenerate = () => {
     const value = prompt.trim();
-
-    if (!value) return;
-
-    setActivePrompt(value);
-    setGenerated(true);
+    if (value.length < 3) return;
+    void runGenerate({ prompt: value, size, image: withImage });
   };
 
   /* =========================================================
@@ -59,8 +97,6 @@ export default function AIStudioPage() {
 
   const handlePromptClick = (value: string) => {
     setPrompt(value);
-    setActivePrompt("");
-    setGenerated(false);
   };
 
   /* =========================================================
@@ -72,63 +108,21 @@ export default function AIStudioPage() {
   };
 
   /* =========================================================
-     CREATE EDITABLE DESIGN
+     OPEN A DESIGN IN THE EDITOR
   ========================================================== */
 
-  const createDesign = async () => {
-    const value = activePrompt.trim();
-
-    if (!value || creating) return;
-
-    if (!isAuthenticated()) {
-      alert("Please log in first to generate and save designs in Falcon.");
-      router.push(`/login?redirect=${encodeURIComponent("/ai-studio")}`);
-      return;
-    }
+  const openDesign = async (index: number) => {
+    const design = designs[index];
+    if (!design || !made || opening !== null) return;
 
     try {
-      setCreating(true);
-
-      const project = await projectService.create(
-        getDesignTitle(value),
-        "local-user"
-      );
-
-      const preset = PAGE_PRESETS[0];
-
-      const page = {
-        id: project.pages[0]?.id || generateId("page"),
-        name: "AI Generated Design",
-        size: preset,
-        background: "#050708",
-        elements: createElementsFromPrompt(value, preset),
-      };
-
-      const updatedProject: DesignProject = {
-        ...project,
-        title: getDesignTitle(value),
-        pages: [page],
-      };
-
-      await projectService.save(updatedProject);
-
-      router.push(
-        `/editor/${project.id}?from=ai-studio`
-      );
-    } catch (error) {
-      console.error(
-        "Failed to create AI design:",
-        error
-      );
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Falcon could not create the design. Please try again.";
-
-      alert(message);
-
-      setCreating(false);
+      setOpening(index);
+      setError("");
+      const { projectId } = await openAiDesign(design.spec, made.size);
+      router.push(`/editor/${projectId}?from=ai-studio`);
+    } catch (err) {
+      setError(failureMessage(err));
+      setOpening(null);
     }
   };
 
@@ -330,8 +324,8 @@ export default function AIStudioPage() {
             {/* Description */}
 
             <p className="mx-auto mt-9 max-w-[680px] text-[15px] leading-7 text-zinc-500 md:text-[16px]">
-              Describe an idea in natural language and let Falcon understand
-              the intent, visual style, audience, and design direction.
+              Describe what you need in your own words. Falcon writes the copy,
+              chooses the style and colours, and gives you finished designs to edit.
             </p>
 
           </div>
@@ -371,10 +365,7 @@ export default function AIStudioPage() {
 
                 <textarea
                   value={prompt}
-                  onChange={(e) => {
-                    setPrompt(e.target.value);
-                    setGenerated(false);
-                  }}
+                  onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={(e) => {
                     if (
                       (e.ctrlKey || e.metaKey) &&
@@ -389,25 +380,76 @@ export default function AIStudioPage() {
 
                 {/* Bottom */}
 
-                <div className="flex flex-col gap-5 border-t border-white/[0.07] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-5 border-t border-white/[0.07] pt-5">
 
-                  <span className="font-mono text-[9px] leading-5 tracking-[0.06em] text-zinc-700">
-                    Example: Create a futuristic fintech hackathon poster
-                  </span>
+                  {/* Format */}
 
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={!prompt.trim()}
-                    className="group flex h-12 shrink-0 items-center justify-center gap-3 rounded-xl bg-white/[0.86] px-7 text-[11px] font-medium text-black transition-all duration-300 hover:bg-white hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    Generate
+                  <div className="flex flex-wrap items-center gap-2">
 
-                    <ArrowRight
-                      size={14}
-                      className="transition-transform group-hover:translate-x-1"
-                    />
-                  </button>
+                    <span className="mr-1 font-mono text-[9px] tracking-[0.22em] text-zinc-600">
+                      FORMAT
+                    </span>
+
+                    {AI_SIZES.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSize(item.id)}
+                        aria-pressed={size === item.id}
+                        className={`rounded-full border px-3.5 py-1.5 text-[10px] transition-all duration-300 ${
+                          size === item.id
+                            ? "border-cyan-300/40 bg-cyan-300/[0.07] text-cyan-100"
+                            : "border-white/[0.09] bg-white/[0.015] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+
+                  </div>
+
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                    {/* Picture */}
+
+                    <button
+                      type="button"
+                      onClick={() => setWithImage((value) => !value)}
+                      aria-pressed={withImage}
+                      title="Falcon makes a new picture for your design. This takes a little longer."
+                      className={`flex items-center gap-2.5 text-left text-[10px] leading-4 transition-colors ${
+                        withImage ? "text-cyan-200" : "text-zinc-600 hover:text-zinc-400"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                          withImage ? "border-cyan-300/40 bg-cyan-300/[0.08]" : "border-white/[0.1]"
+                        }`}
+                      >
+                        <ImagePlus size={13} />
+                      </span>
+                      {withImage ? "A new picture will be made for this design" : "Make a new picture for this design"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={prompt.trim().length < 3 || loading}
+                      className="group flex h-12 shrink-0 items-center justify-center gap-3 rounded-xl bg-white/[0.86] px-7 text-[11px] font-medium text-black transition-all duration-300 hover:bg-white hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      {loading ? "Designing…" : "Generate"}
+
+                      {loading ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <ArrowRight
+                          size={14}
+                          className="transition-transform group-hover:translate-x-1"
+                        />
+                      )}
+                    </button>
+
+                  </div>
 
                 </div>
 
@@ -442,79 +484,123 @@ export default function AIStudioPage() {
               GENERATED RESULT
           ======================================================== */}
 
-          {generated && activePrompt && (
-            <div className="mx-auto mt-10 max-w-[880px] animate-[fadeIn_.45s_ease-out]">
+          <div ref={results} className="mx-auto mt-10 max-w-[1150px] scroll-mt-24">
 
-              <div className="border border-cyan-300/[0.16] bg-cyan-300/[0.012] p-6 md:p-7">
+            {/* Something went wrong */}
 
-                <div className="flex items-start gap-5">
+            {error && (
+              <div role="alert" className="mx-auto max-w-[880px] animate-[fadeIn_.45s_ease-out] rounded-2xl border border-red-400/20 bg-red-400/[0.04] px-6 py-5 text-[13px] leading-6 text-red-200/90">
+                {error}
+              </div>
+            )}
 
-                  {/* Check */}
+            {/* Working */}
 
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/[0.04]">
+            {loading && (
+              <div className="animate-[fadeIn_.45s_ease-out]">
 
-                    <Check
-                      size={18}
-                      className="text-cyan-300"
+                <div className="flex items-center justify-center gap-3">
+                  <Loader2 size={13} className="animate-spin text-cyan-300" />
+                  <span className="font-mono text-[9px] tracking-[0.22em] text-cyan-300/70">
+                    {withImage ? "DESIGNING AND MAKING A PICTURE" : "DESIGNING YOUR OPTIONS"}
+                  </span>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  {[0, 1, 2, 3].map((item) => (
+                    <div
+                      key={item}
+                      className="aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.08] bg-white/[0.02]"
+                      style={{ animationDelay: `${item * 120}ms` }}
                     />
+                  ))}
+                </div>
 
-                  </div>
+              </div>
+            )}
 
-                  {/* Content */}
+            {/* Design options */}
+
+            {!loading && generated && made && (
+              <div className="animate-[fadeIn_.45s_ease-out]">
+
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
 
                   <div className="min-w-0">
 
                     <div className="font-mono text-[9px] tracking-[0.22em] text-cyan-300/70">
-                      DIRECTION READY
+                      {designs.length} DIRECTIONS READY
                     </div>
 
-                    <p className="mt-3 text-[14px] leading-6 text-zinc-400">
-                      Falcon understood your intent and prepared an editable
-                      visual direction for:
+                    <p className="mt-2 truncate text-[15px] font-medium text-white">
+                      “{made.prompt}”
                     </p>
 
-                    <p className="mt-3 text-[16px] font-medium text-white">
-                      “{activePrompt}”
+                    <p className="mt-1 text-[12px] text-zinc-500">
+                      Pick one to open it in the editor. Everything in it can be changed.
                     </p>
 
                   </div>
 
-                  {/* Open Studio */}
-
                   <button
                     type="button"
-                    onClick={createDesign}
-                    disabled={creating}
-                    className="ml-auto hidden shrink-0 items-center gap-2 text-[11px] text-zinc-400 transition-colors hover:text-white disabled:opacity-50 sm:flex"
+                    onClick={() => void runGenerate(made)}
+                    className="flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-2.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
                   >
-                    {creating
-                      ? "Creating..."
-                      : "Open Studio"}
-
-                    <ArrowUpRight size={14} />
+                    <RefreshCw size={12} />
+                    More options
                   </button>
 
                 </div>
 
-                {/* Mobile */}
+                {notice && (
+                  <p className="mt-4 text-[12px] text-amber-200/70">{notice}</p>
+                )}
 
-                <button
-                  type="button"
-                  onClick={createDesign}
-                  disabled={creating}
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] py-3.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 sm:hidden"
-                >
-                  {creating
-                    ? "Creating your design..."
-                    : "Open Studio"}
+                <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
 
-                  <ArrowUpRight size={13} />
-                </button>
+                  {designs.map((design, index) => (
+                    <button
+                      key={`${design.name}-${index}`}
+                      type="button"
+                      onClick={() => void openDesign(index)}
+                      disabled={opening !== null}
+                      className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-white/[0.012] text-left transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/30 disabled:cursor-wait disabled:hover:translate-y-0"
+                    >
+
+                      {/* The preview is drawn by Falcon's own server from the design's elements */}
+                      <div
+                        data-theme-keep=""
+                        className="falcon-ai-preview flex w-full items-center justify-center bg-black/40 p-3"
+                        dangerouslySetInnerHTML={{ __html: design.preview }}
+                      />
+
+                      <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] px-4 py-3">
+
+                        <span className="truncate text-[12px] font-medium text-zinc-200">
+                          {design.name}
+                        </span>
+
+                        <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-zinc-500 transition-colors group-hover:text-cyan-200">
+                          {opening === index ? "Opening…" : "Edit"}
+                          {opening === index ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : (
+                            <ArrowUpRight size={12} />
+                          )}
+                        </span>
+
+                      </div>
+
+                    </button>
+                  ))}
+
+                </div>
 
               </div>
+            )}
 
-            </div>
-          )}
+          </div>
 
           {/* =======================================================
               THREE INTELLIGENCE CARDS
@@ -540,7 +626,7 @@ export default function AIStudioPage() {
               icon={<Wand2 size={19} />}
               number="03"
               title="Create"
-              description="Turn the direction into an editable Falcon design."
+              description="Each direction opens in the editor as a real, editable design."
             />
 
           </div>
@@ -619,395 +705,19 @@ export default function AIStudioPage() {
               transform: translateY(0);
             }
           }
+
+          :global(.falcon-ai-preview svg) {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: 420px;
+            border-radius: 6px;
+          }
         `}</style>
 
       </main>
     </>
   );
-}
-
-/* =========================================================
-   CREATE ELEMENTS
-========================================================= */
-
-function createElementsFromPrompt(
-  prompt: string,
-  preset: (typeof PAGE_PRESETS)[number]
-): CanvasElement[] {
-  const lower = prompt.toLowerCase();
-
-  const width = preset.width;
-  const height = preset.height;
-
-  const elements: CanvasElement[] = [];
-
-  let accent = "#22D3EE";
-  let background = "#071116";
-
-  if (
-    lower.includes("fashion") ||
-    lower.includes("luxury")
-  ) {
-    accent = "#D6C6A8";
-    background = "#11100E";
-  }
-
-  if (
-    lower.includes("cafe") ||
-    lower.includes("coffee")
-  ) {
-    accent = "#C59A6C";
-    background = "#17110D";
-  }
-
-  if (
-    lower.includes("festival") ||
-    lower.includes("culture")
-  ) {
-    accent = "#A78BFA";
-    background = "#100D18";
-  }
-
-  /* Background */
-
-  elements.push({
-    id: generateId("el"),
-    type: "rectangle",
-    zIndex: 0,
-    x: 0,
-    y: 0,
-    width,
-    height,
-    rotation: 0,
-    opacity: 1,
-    locked: false,
-    hidden: false,
-    fill: background,
-    stroke: "transparent",
-    strokeWidth: 0,
-    cornerRadius: 0,
-  });
-
-  /* Accent line */
-
-  elements.push({
-    id: generateId("el"),
-    type: "rectangle",
-    zIndex: 1,
-    x: width * 0.08,
-    y: height * 0.08,
-    width: width * 0.84,
-    height: 4,
-    rotation: 0,
-    opacity: 0.9,
-    locked: false,
-    hidden: false,
-    fill: accent,
-    stroke: "transparent",
-    strokeWidth: 0,
-    cornerRadius: 2,
-  });
-
-  /* Falcon label */
-
-  elements.push(
-    createTextElement(
-      "FALCON / INTELLIGENT DESIGN",
-      width * 0.08,
-      height * 0.12,
-      width * 0.84,
-      32,
-      15,
-      accent,
-      600,
-      "left",
-      2
-    )
-  );
-
-  /* Main title */
-
-  elements.push(
-    createTextElement(
-      getGeneratedTitle(prompt),
-      width * 0.08,
-      height * 0.27,
-      width * 0.84,
-      height * 0.25,
-      Math.min(width * 0.095, 92),
-      "#F4F1EB",
-      700,
-      "left",
-      3
-    )
-  );
-
-  /* Description */
-
-  elements.push(
-    createTextElement(
-      getGeneratedDescription(prompt),
-      width * 0.08,
-      height * 0.54,
-      width * 0.68,
-      height * 0.13,
-      Math.min(width * 0.028, 28),
-      "#9CA3AF",
-      400,
-      "left",
-      4
-    )
-  );
-
-  /* Visual block */
-
-  elements.push({
-    id: generateId("el"),
-    type: "rectangle",
-    zIndex: 1,
-    x: width * 0.08,
-    y: height * 0.70,
-    width: width * 0.84,
-    height: height * 0.15,
-    rotation: 0,
-    opacity: 0.16,
-    locked: false,
-    hidden: false,
-    fill: accent,
-    stroke: accent,
-    strokeWidth: 1,
-    cornerRadius: 18,
-  });
-
-  /* Footer */
-
-  elements.push(
-    createTextElement(
-      getFooterText(prompt),
-      width * 0.08,
-      height * 0.90,
-      width * 0.84,
-      35,
-      Math.min(width * 0.018, 18),
-      "#CBD5E1",
-      500,
-      "left",
-      5
-    )
-  );
-
-  /* Accent dot */
-
-  elements.push({
-    id: generateId("el"),
-    type: "ellipse",
-    zIndex: 5,
-    x: width * 0.86,
-    y: height * 0.12,
-    width: 20,
-    height: 20,
-    rotation: 0,
-    opacity: 1,
-    locked: false,
-    hidden: false,
-    fill: accent,
-    stroke: "transparent",
-    strokeWidth: 0,
-  });
-
-  return elements;
-}
-
-/* =========================================================
-   TEXT FACTORY
-========================================================= */
-
-function createTextElement(
-  text: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  fontSize: number,
-  color: string,
-  fontWeight: number,
-  align: "left" | "center" | "right",
-  zIndex: number
-): TextElement {
-  return {
-    id: generateId("el"),
-    type: "text",
-    zIndex,
-    x,
-    y,
-    width,
-    height,
-    rotation: 0,
-    opacity: 1,
-    locked: false,
-    hidden: false,
-    text,
-    fontFamily: "Inter",
-    fontSize,
-    fontWeight,
-    color,
-    align,
-    lineHeight: 1.08,
-  };
-}
-
-/* =========================================================
-   GENERATED TITLE
-========================================================= */
-
-function getGeneratedTitle(prompt: string): string {
-  const lower = prompt.toLowerCase();
-
-  if (
-    lower.includes("hackathon") &&
-    lower.includes("fintech")
-  ) {
-    return "FINTECH\nINNOVATE";
-  }
-
-  if (lower.includes("hackathon")) {
-    return "BUILD\nTHE FUTURE.";
-  }
-
-  if (
-    lower.includes("fashion") ||
-    lower.includes("luxury")
-  ) {
-    return "FORM\nMEETS\nDESIRE.";
-  }
-
-  if (
-    lower.includes("cafe") ||
-    lower.includes("coffee")
-  ) {
-    return "SLOW\nMORNINGS.";
-  }
-
-  if (lower.includes("startup")) {
-    return "BUILD\nWHAT'S NEXT.";
-  }
-
-  if (lower.includes("festival")) {
-    return "NIGHT\nIN MOTION.";
-  }
-
-  const words = prompt
-    .replace(/[^\w\s-]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 4);
-
-  if (!words.length) {
-    return "IDEAS\nIN MOTION.";
-  }
-
-  return words
-    .map((word) => word.toUpperCase())
-    .join("\n");
-}
-
-/* =========================================================
-   DESCRIPTION
-========================================================= */
-
-function getGeneratedDescription(
-  prompt: string
-): string {
-  const lower = prompt.toLowerCase();
-
-  if (lower.includes("hackathon")) {
-    return "A bold visual direction built for innovation, technology and creative problem solving.";
-  }
-
-  if (
-    lower.includes("fashion") ||
-    lower.includes("luxury")
-  ) {
-    return "A refined visual system balancing elegance, contrast and modern editorial energy.";
-  }
-
-  if (
-    lower.includes("cafe") ||
-    lower.includes("coffee")
-  ) {
-    return "A warm and contemporary visual identity designed to create an inviting atmosphere.";
-  }
-
-  if (lower.includes("startup")) {
-    return "A sharp technology-led composition designed to communicate momentum, ambition and clarity.";
-  }
-
-  return "A visual direction generated by Falcon from your creative intent, audience and context.";
-}
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-function getFooterText(prompt: string): string {
-  const lower = prompt.toLowerCase();
-
-  if (lower.includes("hackathon")) {
-    return "INNOVATE  •  BUILD  •  CREATE     |     FALCON AI";
-  }
-
-  if (lower.includes("fashion")) {
-    return "COLLECTION / 2026     |     FALCON CREATIVE";
-  }
-
-  if (lower.includes("cafe")) {
-    return "COFFEE / COMMUNITY / CULTURE     |     2026";
-  }
-
-  if (lower.includes("startup")) {
-    return "LAUNCH / INNOVATE / SCALE     |     2026";
-  }
-
-  return "PURPOSE  →  DESIGN  →  INTELLIGENCE";
-}
-
-/* =========================================================
-   PROJECT TITLE
-========================================================= */
-
-function getDesignTitle(prompt: string): string {
-  const lower = prompt.toLowerCase();
-
-  if (
-    lower.includes("fintech") &&
-    lower.includes("hackathon")
-  ) {
-    return "FinTech Innovate";
-  }
-
-  if (lower.includes("hackathon")) {
-    return "AI Generated Hackathon Poster";
-  }
-
-  if (
-    lower.includes("fashion") ||
-    lower.includes("luxury")
-  ) {
-    return "Luxury Fashion Campaign";
-  }
-
-  if (
-    lower.includes("cafe") ||
-    lower.includes("coffee")
-  ) {
-    return "Modern Cafe Campaign";
-  }
-
-  if (lower.includes("startup")) {
-    return "Tech Startup Launch";
-  }
-
-  return "AI Generated Design";
 }
 
 /* =========================================================

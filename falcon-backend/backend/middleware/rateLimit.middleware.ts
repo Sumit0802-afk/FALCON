@@ -86,6 +86,13 @@ export const accountChangeRateLimit = createRateLimiter({
   message: "Too many attempts. Please wait 15 minutes before trying again.",
 });
 
+/** Per-IP limit on AI requests, each of which costs money (30 per 10 minutes) */
+export const aiRateLimit = createRateLimiter({
+  max: 30,
+  windowMs: 10 * 60 * 1000,
+  message: "You've asked for a lot of designs in a short time. Please wait a few minutes and try again.",
+});
+
 /** Per-IP limit on messages to support (5 per hour) */
 export const supportRateLimit = createRateLimiter({
   max: 5,
