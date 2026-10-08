@@ -13,9 +13,11 @@
  * Needs Chrome, Edge or Chromium on the server (CHROME_PATH can point to it).
  * When none is found the caller falls back to HTML without the pictures.
  *
- * Pictures travel inside the message unless EMAIL_ASSET_BASE_URL gives this
- * server's public address for them; mail apps list embedded pictures as
- * attachments, and fetched ones not.
+ * The pictures are saved on this server and the email links to them, which
+ * needs the server to have a public address (EMAIL_ASSET_BASE_URL). They are
+ * never sent inside the message: a picture carried in an email is listed by
+ * mail apps as an attached file, even when it is marked as part of the body.
+ * Without a public address the effects are simply left in their plain form.
  */
 
 import crypto from "crypto";
@@ -31,17 +33,16 @@ declare const document: any;
 declare const window: any;
 declare function getComputedStyle(element: any): any;
 
-export interface EmailAttachment {
-  filename: string;
-  content: Buffer;
-  cid: string;
-  contentType: string;
-}
-
 export interface EmailSnapshot {
   html: string;
   text: string;
-  attachments: EmailAttachment[];
+}
+
+/** Why the effects of a design could not be drawn as pictures */
+export class EffectsUnavailable extends Error {
+  constructor(public reason: "no_host" | "no_browser") {
+    super(reason);
+  }
 }
 
 /** Width the design is drawn at, in CSS pixels */
@@ -98,7 +99,7 @@ async function getBrowser(): Promise<Browser> {
 }
 
 /** The design may load pictures and fonts from the web, but nothing on this machine or its network */
-function isPublicUrl(raw: string): boolean {
+export function isPublicUrl(raw: string): boolean {
   if (raw.startsWith("data:") || raw === "about:blank") return true;
   let url: URL;
   try { url = new URL(raw); } catch { return false; }
@@ -263,17 +264,24 @@ function placePictures(): string {
   return "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
 }
 
-/**
- * Where a picture can be fetched from by mail apps, when this server has a
- * public address (EMAIL_ASSET_BASE_URL). Without one the picture travels
- * inside the message instead.
- */
-function hostPicture(content: Buffer): string | null {
+/** The public https address of this server's picture folder, or "" when it has none */
+function assetBase(): string {
   const base = (process.env.EMAIL_ASSET_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (!/^https?:\/\//i.test(base) || !isPublicUrl(base)) return null;
+  return /^https:\/\//i.test(base) && isPublicUrl(base) ? base : "";
+}
+
+/** Whether pictures saved here can be fetched by a recipient's mail app */
+export function canHostEmailPictures(): boolean {
+  return assetBase() !== "";
+}
+
+/** Saves a picture on this server and returns the address mail apps fetch it from, or null */
+export function hostEmailPicture(content: Buffer, ext: string): string | null {
+  const base = assetBase();
+  if (!base || !/^(png|jpg|gif|webp)$/.test(ext)) return null;
   try {
     fs.mkdirSync(EMAIL_ASSET_DIR, { recursive: true });
-    const name = `${crypto.randomBytes(16).toString("hex")}.png`;
+    const name = `${crypto.randomBytes(16).toString("hex")}.${ext}`;
     fs.writeFileSync(path.join(EMAIL_ASSET_DIR, name), content);
     return `${base}/${name}`;
   } catch {
@@ -284,9 +292,12 @@ function hostPicture(content: Buffer): string | null {
 /**
  * Turns a design into an email that keeps its look in real inboxes: live HTML
  * with styles on the elements, plus pictures for the few parts that could not
- * be shown otherwise. Throws when no browser is available.
+ * be shown otherwise. Throws EffectsUnavailable when the pictures could not be
+ * made or would have nowhere public to live.
  */
 export async function snapshotEmail(sourceHtml: string, title: string): Promise<EmailSnapshot> {
+  if (!canHostEmailPictures()) throw new EffectsUnavailable("no_host");
+  if (!findBrowser()) throw new EffectsUnavailable("no_browser");
   const instance = await getBrowser();
   const page: Page = await instance.newPage();
   try {
@@ -323,29 +334,23 @@ export async function snapshotEmail(sourceHtml: string, title: string): Promise<
     const text = String(await page.evaluate(() => (document.body ? document.body.innerText : ""))).replace(/\n{3,}/g, "\n\n").trim().slice(0, 20000);
     const effects = (await page.evaluate(markEffects, WIDTH, MAX_PICTURES)) as Effect[];
 
-    const attachments: EmailAttachment[] = [];
     const sources = new Map<number, string>();
-    const stamp = crypto.randomBytes(6).toString("hex");
     for (const effect of effects) {
       await page.evaluate(isolate, effect.id);
       const shot = Buffer.from(await page.screenshot({
         type: "png", omitBackground: true, captureBeyondViewport: true,
         clip: { x: effect.x, y: effect.y, width: effect.w, height: effect.h },
       }));
-      const hosted = hostPicture(shot);
-      if (hosted) {
-        sources.set(effect.id, hosted);
-      } else {
-        const cid = `art-${stamp}-${effect.id}@falcon`;
-        attachments.push({ filename: `artwork-${attachments.length + 1}.png`, content: shot, cid, contentType: "image/png" });
-        sources.set(effect.id, `cid:${cid}`);
-      }
+      const hosted = hostEmailPicture(shot, "png");
+      // A picture that could not be saved has no address to link to, so the design goes without any
+      if (!hosted) throw new EffectsUnavailable("no_host");
+      sources.set(effect.id, hosted);
     }
     await page.evaluate(isolate, null);
 
     const rebuilt = String(await page.evaluate(placePictures));
     const html = inlineEmailStyles(rebuilt).replace(/falcon-fx:(\d+)/g, (_match, id: string) => escapeAttr(sources.get(Number(id)) || ""));
-    return { html, text: text || title, attachments };
+    return { html, text: text || title };
   } finally {
     await page.close().catch(() => undefined);
   }

@@ -400,7 +400,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                     <span>
                       <span className="block text-[12px] font-semibold text-zinc-300">Keep the design's special effects</span>
                       <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500">
-                        The email stays real HTML, with real text and buttons. Only the parts mail apps cannot draw, such as 3D objects and glowing or outlined headlines, are sent as small pictures so they look as designed. Animations are shown still. Turn this off to send no pictures at all; those parts will then look plainer.
+                        The email is always real HTML with real text and buttons, and no picture is ever attached to it. With this on, parts mail apps cannot draw, such as 3D objects and glowing or outlined headlines, are sent as small linked pictures so they look as designed. That needs Falcon's server to have a public web address; until it does, those parts go in their plain form.
                       </span>
                     </span>
                   </label>

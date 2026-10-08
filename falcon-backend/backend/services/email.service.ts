@@ -12,7 +12,8 @@
 
 import nodemailer, { Transporter } from "nodemailer";
 import { inlineEmailStyles } from "./emailInliner";
-import { EmailAttachment, snapshotEmail } from "./emailSnapshot";
+import { EffectsUnavailable, snapshotEmail } from "./emailSnapshot";
+import { checkEmailImages } from "./emailImages";
 
 export interface SendOtpOptions {
   to: string;
@@ -38,8 +39,15 @@ interface OutgoingEmail {
   html: string;
   text: string;
   fromName?: string;
-  /** Pictures the HTML refers to by content id */
-  attachments?: EmailAttachment[];
+}
+
+/** What became of a design's special effects: drawn as pictures, not asked for, or why not */
+export type EffectsOutcome = "drawn" | "off" | "no_host" | "no_browser" | "failed";
+
+export interface DesignSendResult {
+  effects: EffectsOutcome;
+  /** Pictures in the design whose address does not work outside this computer */
+  unreachableImages: number;
 }
 
 /**
@@ -48,16 +56,22 @@ interface OutgoingEmail {
  * or it was not asked for, the design goes as HTML with its styles inlined.
  */
 async function designBody(html: string, subject: string, asPicture: boolean | undefined, fallbackText: string) {
+  let effects: EffectsOutcome = "off";
+  let body = { html: "", text: fallbackText };
   if (asPicture && process.env.NODE_ENV !== "test") {
     try {
-      const shot = await snapshotEmail(html, subject);
-      return { html: shot.html, text: shot.text, attachments: shot.attachments, picture: true };
+      body = await snapshotEmail(html, subject);
+      effects = "drawn";
     } catch (err: any) {
-      console.error(`[email.service] Could not draw the design effects (${err?.name || "Error"}); sending it without them`);
+      effects = err instanceof EffectsUnavailable ? err.reason : "failed";
+      if (effects === "failed") console.error(`[email.service] Could not draw the design effects (${err?.name || "Error"}); sending it without them`);
     }
   }
   // Mail clients drop stylesheets, so the styles travel on the elements themselves
-  return { html: inlineEmailStyles(html), text: fallbackText, attachments: undefined, picture: false };
+  if (effects !== "drawn") body = { html: inlineEmailStyles(html), text: fallbackText };
+  // Every picture must be at a public address; nothing is ever attached to the message
+  const checked = process.env.NODE_ENV === "test" ? { html: body.html, unreachable: 0 } : checkEmailImages(body.html);
+  return { html: checked.html, text: body.text, effects, unreachableImages: checked.unreachable };
 }
 
 function maskEmail(email: string): string {
@@ -192,7 +206,6 @@ async function dispatchEmail(email: OutgoingEmail): Promise<void> {
     subject: email.subject,
     text: email.text,
     html: email.html,
-    attachments: email.attachments?.map((a) => ({ ...a, contentDisposition: "inline" as const })),
   };
 
   try {
@@ -334,7 +347,7 @@ export const emailService = {
   },
 
   /** Send a rendered email design to its author as a test */
-  async sendDesignTest(opts: { to: string; subject: string; html: string; asPicture?: boolean }): Promise<{ picture: boolean }> {
+  async sendDesignTest(opts: { to: string; subject: string; html: string; asPicture?: boolean }): Promise<DesignSendResult> {
     const body = await designBody(opts.html, opts.subject, opts.asPicture, "This is a test of your Falcon email design. Open it in an HTML-capable mail client to see the layout.");
     opts = { ...opts, html: body.html };
     if (process.env.NODE_ENV === "test") {
@@ -347,9 +360,8 @@ export const emailService = {
       subject: opts.subject,
       text: body.text,
       html: opts.html,
-      attachments: body.attachments,
     });
-    return { picture: body.picture };
+    return { effects: body.effects, unreachableImages: body.unreachableImages };
   },
 
   /** Send a finished email design to the recipients its author chose */
@@ -362,7 +374,7 @@ export const emailService = {
     fromName?: string;
     replyTo?: string;
     asPicture?: boolean;
-  }): Promise<{ picture: boolean }> {
+  }): Promise<DesignSendResult> {
     const body = await designBody(opts.html, opts.subject, opts.asPicture, "This email was designed in Falcon. Open it in an HTML-capable mail client to see it.");
     opts = { ...opts, html: body.html };
     if (process.env.NODE_ENV === "test") {
@@ -380,9 +392,8 @@ export const emailService = {
       subject: opts.subject,
       text: body.text,
       html: opts.html,
-      attachments: body.attachments,
     });
-    return { picture: body.picture };
+    return { effects: body.effects, unreachableImages: body.unreachableImages };
   },
 
   /**

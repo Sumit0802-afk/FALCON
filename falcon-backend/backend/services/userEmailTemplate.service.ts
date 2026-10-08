@@ -7,7 +7,7 @@ import {
 import { renderEmailHtml } from "../templates/email/core/renderHtml";
 import { exactHtmlOf } from "../templates/email/core/schema";
 import { estimateEmailHeight, renderThumbnailSvg } from "../templates/email/core/renderThumbnail";
-import { emailService, EmailDeliveryError, EmailFailureReason } from "./email.service";
+import { emailService, DesignSendResult, EmailDeliveryError, EmailFailureReason } from "./email.service";
 
 const MAX_PER_USER = 500;
 const MAX_DOCUMENT_BYTES = 1_500_000;
@@ -63,6 +63,16 @@ function deliveryError(err: unknown, what: string): AppError {
   const reason: EmailFailureReason = err instanceof EmailDeliveryError ? err.reason : "unknown";
   const message = reason === "unknown" ? `We couldn't send the ${what}. Please try again in a moment.` : DELIVERY_MESSAGES[reason];
   return new AppError(message, 502, "EMAIL_DELIVERY_FAILED");
+}
+
+/** What the sender should know about how the design went out, beyond that it was sent */
+function sendNotes(result: DesignSendResult, effectsAsked: boolean): string {
+  const notes: string[] = [];
+  if (effectsAsked && result.effects === "no_host") notes.push("Glow, outline and 3D effects went in their plain form. Pictures of them can be included once this server has a public address (EMAIL_ASSET_BASE_URL); sending them inside the email would make them show up as attachments.");
+  if (effectsAsked && result.effects === "no_browser") notes.push("Glow, outline and 3D effects went in their plain form, because this server has no browser to draw them with.");
+  if (effectsAsked && result.effects === "failed") notes.push("Glow, outline and 3D effects went in their plain form, because they could not be drawn this time.");
+  if (result.unreachableImages > 0) notes.push(`${result.unreachableImages} picture${result.unreachableImages === 1 ? "" : "s"} in this design use${result.unreachableImages === 1 ? "s" : ""} an address that only works on this computer, so recipients will not see ${result.unreachableImages === 1 ? "it" : "them"}. Use pictures from a public web address.`);
+  return notes.length ? ` ${notes.join(" ")}` : "";
 }
 
 function cleanName(name: unknown, fallback: string): string {
@@ -162,9 +172,9 @@ export const userEmailTemplateService = {
     if (recipients > MAX_RECIPIENTS) {
       throw AppError.badRequest(`You can send to at most ${MAX_RECIPIENTS} recipients at a time.`);
     }
-    let picture = false;
+    let result: DesignSendResult;
     try {
-      ({ picture } = await emailService.sendDesignEmail({
+      result = await emailService.sendDesignEmail({
         to: input.to,
         cc: input.cc,
         bcc: input.bcc,
@@ -173,13 +183,11 @@ export const userEmailTemplateService = {
         fromName: cleanName(input.fromName, user.name),
         replyTo: input.replyTo || user.email,
         asPicture: input.exact,
-      }));
+      });
     } catch (err) {
       throw deliveryError(err, "email");
     }
-    // Said plainly when an exact copy was asked for but could not be made
-    const note = input.exact && !picture ? " Glow, outline and 3D effects were left out, because this server has no browser to draw them with." : "";
-    return { success: true, recipients, exact: picture, message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.${note}` };
+    return { success: true, recipients, exact: result.effects === "drawn", message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.${sendNotes(result, !!input.exact)}` };
   },
 
   /**
