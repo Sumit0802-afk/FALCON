@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 /** Remembered for the browser session, so the intro plays once per visit and not on every return to the homepage */
 const SEEN_KEY = "falcon_intro_seen";
 
-/** The word and its smiley are written in about 3.2s; it is then held for a moment before the page appears */
-const HOLD_MS = 4400;
+/** The word is written in about 1.9s; it is then held for a moment before the page appears */
+const HOLD_MS = 3000;
 
 /*
  * Every rule is scoped to #falcon-intro and every animation name starts with
@@ -12,41 +12,46 @@ const HOLD_MS = 4400;
  */
 const INTRO_CSS = `
 html[data-falcon-intro-seen] #falcon-intro{display:none}
-#falcon-intro{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#0a0a0c;cursor:pointer;transition:opacity .6s;box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#falcon-intro{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#000;cursor:pointer;transition:opacity .6s;box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 #falcon-intro.done{opacity:0;pointer-events:none}
-#falcon-intro svg{width:min(90vw,560px);height:auto;overflow:visible;filter:drop-shadow(0 8px 14px rgba(90,80,160,.22))}
-#falcon-intro .fin-s{stroke-dasharray:1 1;stroke-dashoffset:1;opacity:0;animation:fin-w ease-in-out forwards}
-#falcon-intro .fin-word{animation:fin-up .4s 3.25s ease-out forwards}
-@keyframes fin-w{from{opacity:1}to{stroke-dashoffset:0;opacity:1}}
-@keyframes fin-up{to{transform:translateY(-3px)}}
-@media (prefers-reduced-motion:reduce){#falcon-intro .fin-s,#falcon-intro .fin-word{animation:none;stroke-dashoffset:0;opacity:1}}
+#falcon-intro svg{width:min(92vw,600px);height:auto;overflow:visible;filter:drop-shadow(0 0 6px rgba(170,120,255,.4))}
+#falcon-intro .fin-s{fill:none;stroke:url(#fin-g);stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 1;stroke-dashoffset:1;animation:fin-w var(--d) var(--t) cubic-bezier(.45,.05,.3,1) forwards}
+#falcon-intro .fin-s.fin-t{stroke-width:5.5}
+@keyframes fin-w{to{stroke-dashoffset:0}}
+#falcon-intro .fin-eye{fill:url(#fin-g);transform-box:fill-box;transform-origin:center;transform:scale(0);animation:fin-pop .2s 1.45s cubic-bezier(.3,1.7,.5,1) forwards}
+#falcon-intro .fin-eye.fin-b{animation-delay:1.52s}
+@keyframes fin-pop{to{transform:scale(1)}}
+#falcon-intro .fin-sp{fill:#fff;opacity:0;transform-box:fill-box;transform-origin:center;animation:fin-tw .4s 1}
+@keyframes fin-tw{0%,100%{opacity:0;transform:scale(0) rotate(0)}50%{opacity:1;transform:scale(1) rotate(90deg)}}
+@media (prefers-reduced-motion:reduce){#falcon-intro .fin-s{animation:none;stroke-dashoffset:0}#falcon-intro .fin-eye{animation:none;transform:none}#falcon-intro .fin-sp{animation:none;opacity:0}}
 `;
 
 /** Hides the intro before the first paint when it has already played this session */
 const SEEN_SCRIPT = `try{if(sessionStorage.getItem(${JSON.stringify(SEEN_KEY)}))document.documentElement.setAttribute("data-falcon-intro-seen","")}catch(e){}`;
 
-/**
- * The word in separate pen strokes, in the order a hand writes them:
- * the path, when it starts and how long it takes, in seconds.
- */
-const STROKES: [string, number, number][] = [
-  ["M83 55 C90 40 94 22 88 16 C82 10 74 18 70 30 C62 56 54 86 49 101 C44 122 40 150 33 170 C29 180 18 178 17 164 C16 152 20 142 24 135", 0.1, 0.5],
-  ["M34 102 C50 99 70 95 88 92", 0.62, 0.16],
-  ["M112 108 C104 92 86 98 82 124 C79 146 86 160 96 154 C106 148 114 124 119 96 C116 118 112 140 111 158", 0.82, 0.36],
-  ["M157 44 C152 80 144 125 138 157", 1.22, 0.16],
-  ["M196 104 C192 94 180 98 174 116 C167 136 170 157 182 157 C190 157 196 153 200 149", 1.42, 0.22],
-  ["M232 108 C220 100 210 116 210 134 C210 150 220 159 230 155 C242 150 248 127 240 112 C234 102 224 108 226 118", 1.68, 0.26],
-  ["M277 102 C275 120 272 140 270 157 C272 134 282 104 299 101 C313 99 317 112 315 128 C313 140 311 150 312 157", 1.98, 0.3],
-  // A smiling face after the word: outline, two eyes, then the smile
-  ["M352 107 C338 106 329 118 329 131 C329 145 339 154 352 154 C365 154 375 143 375 130 C375 117 366 107 352 107", 2.4, 0.32],
-  ["M345 123 L344 129", 2.78, 0.07],
-  ["M359 123 L358 129", 2.9, 0.07],
-  ["M341 137 C345 146 358 146 363 137", 3.02, 0.18],
+/** The pen strokes in the order they are written: the path, when it starts and how long it takes */
+const STROKES: { d: string; start: string; time: string; thin?: boolean }[] = [
+  { d: "M66 28 C66 14 56 8 46 12 C36 16 36 30 35 48 C33 82 32 122 28 144 C25 160 18 166 12 164 C7 162 8 154 10 150", start: ".05s", time: ".35s" },
+  { d: "M15 104 C24 100 34 98 42 96 C50 94 56 92 60 90", start: ".4s", time: ".15s" },
+  { d: "M96 108 C84 102 66 106 56 124 C48 140 50 160 64 162 C78 164 90 140 96 108 C98 130 98 150 104 160 C110 164 116 150 122 132 C134 100 152 50 164 28 C170 16 160 10 154 26 C146 48 142 100 138 130 C134 150 132 164 142 164 C150 164 160 150 166 138 C174 124 194 104 212 110 C200 106 182 116 182 136 C182 156 198 164 212 160 C220 156 230 148 234 136 C236 118 246 106 262 106 C278 106 290 120 290 134 C290 152 278 162 262 162 C246 162 234 152 234 138", start: ".5s", time: ".7s" },
+  { d: "M293 112 C302 108 306 130 306 162 C308 140 316 108 332 108 C348 108 350 138 346 160 C344 168 350 170 358 162", start: "1.2s", time: ".25s" },
+  // The smile inside the o, drawn after its eyes have appeared
+  { d: "M250 140 C254 150 270 150 274 140", start: "1.6s", time: ".25s", thin: true },
+];
+
+const SPARKLE = "M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8Z";
+
+/** Little stars that twinkle once as the word is finished: where, how large and when */
+const SPARKLES: { x: number; y: number; scale: number; delay: string }[] = [
+  { x: 356, y: 100, scale: 1, delay: "1.4s" },
+  { x: 226, y: 92, scale: 0.8, delay: "1.5s" },
+  { x: 10, y: 22, scale: 0.9, delay: "1.55s" },
+  { x: 300, y: 70, scale: 0.7, delay: "1.6s" },
 ];
 
 /**
- * The opening animation of the site: the word "falcon" written by hand, letter
- * by letter, which then fades to the page. It plays once per browser
+ * The opening animation of the site: the word "falcon" written by hand in a
+ * moving rainbow stroke, with a smiling face in its o. It then fades to the page. It plays once per browser
  * session and a click or key press skips it.
  */
 export default function SiteIntro() {
@@ -111,23 +116,37 @@ export default function SiteIntro() {
       <script dangerouslySetInnerHTML={{ __html: SEEN_SCRIPT }} />
       {/* The intro keeps its own colours, so the site's theme leaves it alone */}
       <div id="falcon-intro" ref={root} role="dialog" aria-label="Welcome" data-theme-keep="" onClick={() => finish.current()}>
-        <svg viewBox="0 0 392 190" role="img" aria-label="falcon, with a smiling face">
+        <svg viewBox="0 0 380 190" role="img" aria-label="falcon">
           <defs>
-            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="14" x2="376" y1="0" y2="0">
-              <stop offset="0" stopColor="#1b9aa6" />
-              <stop offset=".17" stopColor="#6fd68c" />
-              <stop offset=".32" stopColor="#ffd23f" />
-              <stop offset=".5" stopColor="#ff8a3d" />
-              <stop offset=".63" stopColor="#e8403a" />
-              <stop offset=".8" stopColor="#9b59d0" />
-              <stop offset="1" stopColor="#4a7bf0" />
+            <linearGradient id="fin-g" gradientUnits="userSpaceOnUse" x1="10" x2="358" y1="0" y2="0" spreadMethod="repeat">
+              <stop offset="0" stopColor="#19c3d1" />
+              <stop offset=".15" stopColor="#6fe39a" />
+              <stop offset=".3" stopColor="#ffd84a" />
+              <stop offset=".45" stopColor="#ff9a3d" />
+              <stop offset=".6" stopColor="#ff4d6d" />
+              <stop offset=".75" stopColor="#c35cff" />
+              <stop offset=".88" stopColor="#5b8cff" />
+              <stop offset="1" stopColor="#19c3d1" />
+              {/* The colours slide along the word once while it is being written */}
+              <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="348 0" dur="2s" repeatCount="1" />
             </linearGradient>
           </defs>
-          <g className="fin-word" fill="none" stroke="url(#fin-g)" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round">
-            {STROKES.map(([d, delay, duration]) => (
-              <path key={d} className="fin-s" pathLength={1} d={d} style={{ animationDelay: `${delay}s`, animationDuration: `${duration}s` }} />
-            ))}
-          </g>
+          {STROKES.map((stroke) => (
+            <path
+              key={stroke.d}
+              className={stroke.thin ? "fin-s fin-t" : "fin-s"}
+              pathLength={1}
+              d={stroke.d}
+              style={{ "--t": stroke.start, "--d": stroke.time } as React.CSSProperties}
+            />
+          ))}
+          <circle className="fin-eye" cx={253} cy={125} r={3.6} />
+          <circle className="fin-eye fin-b" cx={271} cy={125} r={3.6} />
+          {SPARKLES.map((sparkle) => (
+            <g key={sparkle.delay} transform={`translate(${sparkle.x} ${sparkle.y}) scale(${sparkle.scale})`}>
+              <path className="fin-sp" d={SPARKLE} style={{ animationDelay: sparkle.delay }} />
+            </g>
+          ))}
         </svg>
       </div>
     </>
