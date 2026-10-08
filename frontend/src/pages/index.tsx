@@ -615,7 +615,7 @@ const openTemplateByName = (name: string) => {
           PAGE
           ========================================================= */}
 
-      <main className="min-h-screen bg-transparent text-[#f4f1eb] selection:bg-white selection:text-black">
+      <main className="min-h-screen bg-transparent text-[#f4f1eb] selection:bg-[#2F81FF]/40 selection:text-white">
 
         {/* =====================================================
             NAVBAR
