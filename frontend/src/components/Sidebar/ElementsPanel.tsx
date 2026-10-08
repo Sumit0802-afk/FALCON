@@ -19,6 +19,8 @@ import { getCategoryCount, getAllCategoryCounts } from "@/lib/assetEngine/regist
 import { getStickerInsertSrc } from "@/lib/assetEngine/stickersEngine";
 import { RealElement, buildRealAsset } from "@/lib/assetEngine/realEngine";
 import { iconInColor } from "@/lib/assetEngine/artEngine";
+import { searchAssets } from "@/lib/assetEngine/registry";
+import { IconHits, PhotoHit, searchIcons, searchPhotos } from "@/lib/assetEngine/liveSearch";
 import { FrameDefinition, FRAME_DEFINITIONS } from "@/data/frameDefinitions";
 import { CategoryBadgeIcon } from "./CategoryBadgeIcon";
 
@@ -153,6 +155,156 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
   );
 });
 
+// ── Search across everything ──────────────────────────────────────────────────
+
+interface EverythingProps {
+  query: string;
+  iconColor: string;
+  onIconColor: (color: string) => void;
+  onInsert: (def: AssetDef) => void;
+  onAddImage?: (src: string, name?: string) => void;
+}
+
+/** How many of each kind are shown before "Show more" */
+const FIRST = 9;
+
+/**
+ * Results for one search from every kind of element at once: icons and colour
+ * art from all the open sets, Falcon's own stickers and blocks, and photographs.
+ */
+function SearchEverything({ query, iconColor, onIconColor, onInsert, onAddImage }: EverythingProps) {
+  const [icons, setIcons] = useState<IconHits>({ icons: [], art: [] });
+  const [stickers, setStickers] = useState<AssetDef[]>([]);
+  const [blocks, setBlocks] = useState<AssetDef[]>([]);
+  /** Photographs from Falcon's own library, and ones found on the web */
+  const [ownPhotos, setOwnPhotos] = useState<AssetDef[]>([]);
+  const [photos, setPhotos] = useState<PhotoHit[]>([]);
+  const [pending, setPending] = useState(0);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
+    setOpen({});
+    setIcons({ icons: [], art: [] });
+    setStickers([]);
+    setBlocks([]);
+    setOwnPhotos([]);
+    setPhotos([]);
+    setPending(4);
+    const done = () => live && setPending((n) => Math.max(0, n - 1));
+    // Each source fills its own section as it answers, so a slow one holds nothing else up
+    searchIcons(query).then((hits) => live && setIcons(hits)).finally(done);
+    searchAssets({ query, category: "stickers", pageSize: 60 }).then((page) => live && setStickers(page.items)).catch(() => undefined).finally(done);
+    searchAssets({ query, pageSize: 80 }).then((page) => {
+      if (!live) return;
+      // This search covers Falcon's own library, photographs included; they are shown with the other photos
+      setBlocks(page.items.filter((item) => item.category !== "photos"));
+      setOwnPhotos(page.items.filter((item) => item.category === "photos"));
+    }).catch(() => undefined).finally(done);
+    searchPhotos(query, controller.signal).then((found) => live && setPhotos(found)).finally(done);
+    return () => { live = false; controller.abort(); };
+  }, [query]);
+
+  const sections: { id: string; title: string; note?: string; items: AssetDef[] }[] = [
+    { id: "icons", title: "Graphics", items: icons.icons },
+    { id: "art", title: "Colour art", items: icons.art },
+    { id: "stickers", title: "Stickers", items: stickers },
+    { id: "blocks", title: "Shapes, frames & blocks", items: blocks },
+  ];
+  const allPhotos: { key: string; src: string; thumb: string; name: string }[] = [
+    ...ownPhotos.map((photo) => ({ key: photo.id, src: photo.fileUrl || photo.thumbnailUrl || "", thumb: photo.thumbnailUrl || photo.fileUrl || "", name: photo.name })),
+    ...photos.map((photo) => ({ key: photo.url, src: photo.url, thumb: photo.url, name: query })),
+  ].filter((photo) => photo.src);
+  const nothing = pending === 0 && !allPhotos.length && sections.every((section) => !section.items.length);
+
+  return (
+    <div className="falcon-everything">
+      {nothing && (
+        <div className="falcon-empty-state">
+          <Search size={28} className="text-zinc-600 mb-2" />
+          <p className="text-zinc-400 font-medium text-xs">Nothing found for “{query}”</p>
+          <p className="text-zinc-600 text-[11px] mt-1">Try a simpler word, in English</p>
+        </div>
+      )}
+
+      {sections.map((section) => {
+        if (!section.items.length) return null;
+        const shown = open[section.id] ? section.items : section.items.slice(0, FIRST);
+        return (
+          <section key={section.id} className="falcon-everything-section">
+            <div className="falcon-shapes-header">
+              <h3 className="falcon-shapes-title">{section.title}</h3>
+              {section.items.length > FIRST && (
+                <button type="button" className="falcon-see-all-btn" onClick={() => setOpen((state) => ({ ...state, [section.id]: !state[section.id] }))}>
+                  {open[section.id] ? "Show less" : "Show more >"}
+                </button>
+              )}
+            </div>
+
+            {/* One-colour icons are placed in the colour picked here */}
+            {section.id === "icons" && (
+              <div className="falcon-icon-colors">
+                {ICON_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`Place icons in ${color}`}
+                    aria-pressed={iconColor === color}
+                    onClick={() => onIconColor(color)}
+                    className={`falcon-icon-color${iconColor === color ? " falcon-icon-color--active" : ""}`}
+                    style={{ background: color }}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="falcon-asset-grid">
+              {shown.map((asset) => (
+                <AssetCard key={asset.id} def={asset} onInsert={onInsert} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {allPhotos.length > 0 && (
+        <section className="falcon-everything-section">
+          <div className="falcon-shapes-header">
+            <h3 className="falcon-shapes-title">Photos</h3>
+            {allPhotos.length > 6 && (
+              <button type="button" className="falcon-see-all-btn" onClick={() => setOpen((state) => ({ ...state, photos: !state.photos }))}>
+                {open.photos ? "Show less" : "Show more >"}
+              </button>
+            )}
+          </div>
+          <div className="falcon-everything-photos">
+            {(open.photos ? allPhotos : allPhotos.slice(0, 6)).map((photo) => (
+              <button key={photo.key} type="button" className="falcon-everything-photo" title="Add this photo" onClick={() => onAddImage?.(photo.src, photo.name)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.thumb} alt="" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pending > 0 && (
+        <div className="falcon-loading-more">
+          <Loader2 size={13} className="falcon-spinner text-[#00dfb6]" />
+          <span>Searching…</span>
+        </div>
+      )}
+
+      {!nothing && pending === 0 && (
+        <p className="falcon-sticker-credit">
+          Icons and art from open sets through Iconify, each under its own licence; hover an item to see its set.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Elements Panel ────────────────────────────────────────────────────────────
 export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElements }: ElementsPanelProps) {
   const [iconColor, setIconColor] = useState(ICON_COLORS[0]);
@@ -160,6 +312,9 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
   const [showFilters, setShowFilters] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  /** The search on the opening view, which looks through every kind of element at once */
+  const [everything, setEverything] = useState("");
+  const [everythingQuery, setEverythingQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -170,6 +325,13 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
     loadMore, search, setSubcategory, setStyle, reset,
     activeSubcategory, activeStyle,
   } = useAssetLibrary(activeCategory ?? undefined, "");
+
+  // The search runs a moment after typing stops, not on every key
+  useEffect(() => {
+    const value = everything.trim();
+    const timer = setTimeout(() => setEverythingQuery(value.length >= 2 ? value : ""), 350);
+    return () => clearTimeout(timer);
+  }, [everything]);
 
   // Sync search input → debounced search
   useEffect(() => {
@@ -265,6 +427,31 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {!activeCategory ? (
         <div className="falcon-browse-container">
+          {/* One search for every kind of element */}
+          <div className="falcon-search-wrap falcon-search-wrap--home">
+            <div className="falcon-search-inner">
+              <Search size={14} className="falcon-search-icon" />
+              <input
+                type="text"
+                placeholder="Search all elements…"
+                value={everything}
+                onChange={(e) => setEverything(e.target.value)}
+                className="falcon-search-input"
+                aria-label="Search all elements"
+              />
+              {everything && (
+                <button type="button" onClick={() => setEverything("")} className="falcon-search-clear" aria-label="Clear search">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {everythingQuery && (
+            <SearchEverything query={everythingQuery} iconColor={iconColor} onIconColor={setIconColor} onInsert={handleInsert} onAddImage={onAddImage} />
+          )}
+
+          <div style={{ display: everythingQuery ? "none" : undefined }}>
           {/* Header */}
           <h2 className="falcon-browse-title">Browse categories</h2>
 
@@ -397,6 +584,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
                 <span className="falcon-quick-shape-name">8-Point Star B...</span>
               </button>
             </div>
+          </div>
           </div>
         </div>
       ) : (
@@ -829,6 +1017,43 @@ const PANEL_STYLES = `
   background: rgba(0, 223, 182, 0.15);
   border-color: #00dfb6;
   color: #00dfb6;
+}
+
+/* Search across everything */
+.falcon-search-wrap--home {
+  padding: 0;
+  margin: 0 0 16px;
+}
+.falcon-everything-section {
+  margin-bottom: 20px;
+}
+.falcon-everything-section .falcon-icon-colors {
+  padding: 0 0 10px;
+}
+.falcon-everything-photos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.falcon-everything-photo {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #14151a;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.falcon-everything-photo:hover {
+  border-color: rgba(0, 223, 182, 0.55);
+  transform: translateY(-1px);
+}
+.falcon-everything-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Search Bar */

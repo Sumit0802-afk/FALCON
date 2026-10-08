@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateDesignBlueprint } from "../services/ai.service";
 import { AI_DESIGN_SIZES, aiDesignService, designSpecSchema } from "../services/aiDesign.service";
 import { readImage, transformService } from "../services/transform.service";
+import { findPhotos } from "../services/aiImages";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
 import { aiRateLimit } from "../middleware/rateLimit.middleware";
@@ -130,6 +131,18 @@ router.post("/designs/use", validateBody(useSchema), async (req, res, next) => {
   try {
     const result = await aiDesignService.use(userId(req), { spec: req.body.spec, sizeId: req.body.size, baseUrl: baseUrl(req) });
     res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Photographs for the editor's element search ─────────────────────────────
+
+router.get("/photos", async (req, res, next) => {
+  try {
+    const q = String(req.query.q || "").trim().slice(0, 80);
+    if (q.length < 2) return res.status(200).json({ photos: [] });
+    res.status(200).json({ photos: (await findPhotos([q])).slice(0, 12) });
   } catch (error) {
     next(error);
   }
