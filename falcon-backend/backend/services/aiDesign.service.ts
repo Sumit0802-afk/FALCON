@@ -144,7 +144,8 @@ function instructions(count: number, sizeName: string, photoOnly: boolean): stri
   return [
     "You are the senior designer inside Falcon, a design tool. A person describes what they need and you produce finished design options for them.",
     `Produce exactly ${count} options for a ${sizeName} design. Make them clearly different from each other: a different style, layout and colour scheme each, as a studio would present alternatives.`,
-    "For every option write the real copy for this request. Use any names, dates, places, prices or wording the person gave, exactly. Where a fact was not given, do not invent one: write a short placeholder the person will replace, such as \"Add date\" or \"Your venue\".",
+    "For every option write the real copy for this request. Use any names, dates, places, prices or wording the person gave, exactly.",
+    "Never invent facts. If the person did not give a date, time, place, price, prize, deadline, number, organiser or brand name, do not make one up: write a short placeholder they will replace, such as \"Add date\", \"Add venue\", \"Add prize\" or \"Your brand\". Headlines, labels and taglines are yours to write freely, as long as they state no made-up facts.",
     "Write in the language of the request. Keep the headline to five words or fewer so it can be set large.",
     "details are up to three label and value pairs such as Date, Time, Venue, Price or Contact, chosen to suit the request.",
     "Choose colours as a designer would for this subject and mood. text must be clearly readable on background, and accent must stand out from background. surface is a panel colour close to background. muted is a quieter text colour.",
@@ -166,7 +167,7 @@ function ai(): OpenAI {
   if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add an AI key (AI_API_KEY or OPENAI_API_KEY) to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
   const wanted = `${baseURL}|${apiKey.length}|${apiKey.slice(-4)}`;
   if (!client || clientFor !== wanted) {
-    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 1 });
+    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 3 });
     clientFor = wanted;
   }
   return client;
@@ -184,6 +185,7 @@ function aiError(err: any, what: string): AppError {
   console.error(`[ai] ${what} failed (status: ${status || "n/a"}, code: ${err?.code || err?.name || "unknown"})`);
   if (!status && /timed out|connection|ECONN|ENOTFOUND|fetch failed/i.test(`${err?.name} ${err?.message} ${err?.code}`)) return new AppError("Falcon could not reach the AI service. Check the internet connection and try again.", 502, "AI_UNREACHABLE");
   if (status === 401 || status === 403) return new AppError("The AI service refused Falcon's key. Check the AI key in the backend's .env file.", 502, "AI_KEY_REJECTED");
+  if (status === 503 || status === 529) return new AppError("The AI service is very busy right now. Please try again in a moment.", 502, "AI_BUSY");
   if (status === 404) return new AppError("The AI service does not know the model Falcon asked for. Check AI_TEXT_MODEL and AI_BASE_URL in the backend's .env file.", 502, "AI_MODEL_UNKNOWN");
   // Out of credit is not something waiting will fix, so it is told apart from a busy moment
   if (/credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) return new AppError("The AI account has run out of credit, so AI Studio cannot make designs. Add credit to the account whose key is in the backend's .env file, then try again.", 502, "AI_NO_CREDIT");
