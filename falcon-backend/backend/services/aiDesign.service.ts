@@ -32,8 +32,23 @@ import { CATEGORY_PHOTOS, photoUrl } from "../templates/email/photos";
 /** Where generated pictures are kept; served from /ai-assets */
 export const AI_ASSET_DIR = path.join(__dirname, "..", "storage", "ai-images");
 
-const TEXT_MODEL = process.env.AI_TEXT_MODEL?.trim() || "gpt-5.4-mini";
-const IMAGE_MODEL = process.env.AI_IMAGE_MODEL?.trim() || "gpt-image-1-mini";
+/**
+ * Which AI service is used. By default it is OpenAI with OPENAI_API_KEY. Any
+ * service that speaks the same protocol (Gemini, Groq, OpenRouter and others)
+ * can be used instead by giving its address in AI_BASE_URL, its key in
+ * AI_API_KEY and one of its models in AI_TEXT_MODEL. Read on each request, so
+ * a changed .env takes effect on the next restart without code changes.
+ */
+function provider() {
+  const baseURL = process.env.AI_BASE_URL?.trim() || "";
+  return {
+    baseURL,
+    apiKey: (process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "").trim(),
+    textModel: process.env.AI_TEXT_MODEL?.trim() || "gpt-5.4-mini",
+    // Another service only makes pictures if it is told which of its models to use
+    imageModel: process.env.AI_IMAGE_MODEL?.trim() || (baseURL ? "" : "gpt-image-1-mini"),
+  };
+}
 
 const STYLE_IDS = STYLES.map((s) => s.id);
 const LAYOUT_IDS = POSTER_LAYOUTS.map((l) => l.id);
@@ -144,12 +159,22 @@ function instructions(count: number, sizeName: string, photoOnly: boolean): stri
 // ─── Talking to the model ─────────────────────────────────────────────────────
 
 let client: OpenAI | null = null;
+let clientFor = "";
 
 function ai(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add OPENAI_API_KEY to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
-  if (!client) client = new OpenAI({ apiKey, timeout: 120_000, maxRetries: 1 });
+  const { apiKey, baseURL } = provider();
+  if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add an AI key (AI_API_KEY or OPENAI_API_KEY) to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
+  const wanted = `${baseURL}|${apiKey.length}|${apiKey.slice(-4)}`;
+  if (!client || clientFor !== wanted) {
+    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 1 });
+    clientFor = wanted;
+  }
   return client;
+}
+
+/** Whether a picture can be made with the service in use */
+export function canMakeAiImages(): boolean {
+  return provider().imageModel !== "";
 }
 
 /** Says what went wrong in terms the person can act on, without passing on the provider's own text */
@@ -157,26 +182,55 @@ function aiError(err: any, what: string): AppError {
   if (err instanceof AppError) return err;
   const status = Number(err?.status) || 0;
   console.error(`[ai] ${what} failed (status: ${status || "n/a"}, code: ${err?.code || err?.name || "unknown"})`);
-  if (status === 401 || status === 403) return new AppError("The AI service refused Falcon's key. Check OPENAI_API_KEY in the backend's .env file.", 502, "AI_KEY_REJECTED");
+  if (!status && /timed out|connection|ECONN|ENOTFOUND|fetch failed/i.test(`${err?.name} ${err?.message} ${err?.code}`)) return new AppError("Falcon could not reach the AI service. Check the internet connection and try again.", 502, "AI_UNREACHABLE");
+  if (status === 401 || status === 403) return new AppError("The AI service refused Falcon's key. Check the AI key in the backend's .env file.", 502, "AI_KEY_REJECTED");
+  if (status === 404) return new AppError("The AI service does not know the model Falcon asked for. Check AI_TEXT_MODEL and AI_BASE_URL in the backend's .env file.", 502, "AI_MODEL_UNKNOWN");
   // Out of credit is not something waiting will fix, so it is told apart from a busy moment
-  if (/credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) return new AppError("The AI account has run out of credit, so AI Studio cannot make designs. Add credit to the OpenAI account whose key is in the backend's .env file, then try again.", 502, "AI_NO_CREDIT");
+  if (/credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) return new AppError("The AI account has run out of credit, so AI Studio cannot make designs. Add credit to the account whose key is in the backend's .env file, then try again.", 502, "AI_NO_CREDIT");
   if (status === 429) return new AppError("The AI service is at its usage limit right now. Check the account's credit, or try again in a little while.", 502, "AI_LIMIT");
   if (status === 400 && /moderation|safety|content_policy/i.test(String(err?.code || err?.type || ""))) return new AppError("The AI service would not make that. Try describing it differently.", 400, "AI_REFUSED");
   return new AppError(`Falcon could not ${what} just now. Please try again.`, 502, "AI_FAILED");
 }
 
+/** The model's reply as data, whether or not it wrapped the JSON in a code block or added words around it */
+function readJson(content: string): any {
+  const text = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) return JSON.parse(text.slice(start, end + 1));
+    throw new Error("The model did not answer with JSON");
+  }
+}
+
 async function askForSpecs(prompt: string, count: number, sizeName: string, photoOnly: boolean): Promise<unknown[]> {
-  const response = await ai().chat.completions.create({
-    model: TEXT_MODEL,
-    messages: [
-      { role: "system", content: instructions(count, sizeName, photoOnly) },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema: specJsonSchema(count) } },
-  });
+  const { textModel } = provider();
+  const schema = specJsonSchema(count);
+  const system = instructions(count, sizeName, photoOnly);
+  const ask = (format: any, extra = "") =>
+    ai().chat.completions.create({
+      model: textModel,
+      messages: [
+        { role: "system", content: system + extra },
+        { role: "user", content: prompt },
+      ],
+      response_format: format,
+    });
+
+  let response;
+  try {
+    response = await ask({ type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema } });
+  } catch (err: any) {
+    // Some services do not take a schema. They are given it in words and asked for plain JSON instead;
+    // every design is checked against the same rules afterwards either way
+    if (Number(err?.status) !== 400) throw err;
+    response = await ask({ type: "json_object" }, `\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema exactly:\n${JSON.stringify(schema)}`);
+  }
   const choice = response.choices[0]?.message;
   if (choice?.refusal) throw new AppError("The AI service would not make that. Try describing it differently.", 400, "AI_REFUSED");
-  const parsed = JSON.parse(choice?.content || "{}");
+  const parsed = readJson(choice?.content || "{}");
   return Array.isArray(parsed.designs) ? parsed.designs : [];
 }
 
@@ -184,7 +238,7 @@ async function askForSpecs(prompt: string, count: number, sizeName: string, phot
 async function makeImage(prompt: string, width: number, height: number): Promise<string> {
   const size = width > height * 1.2 ? "1536x1024" : height > width * 1.2 ? "1024x1536" : "1024x1024";
   const result = await ai().images.generate({
-    model: IMAGE_MODEL,
+    model: provider().imageModel,
     prompt: `${prompt}\n\nNo text, letters, numbers, logos or watermarks anywhere in the picture.`,
     size,
     quality: "medium",
@@ -296,7 +350,7 @@ export const aiDesignService = {
 
     // One picture is made and shared by the options, which keeps a request quick and its cost low
     let imageMade = false;
-    if (input.withImage) {
+    if (input.withImage && canMakeAiImages()) {
       try {
         const image = await makeImage(specs[0].imagePrompt || input.prompt, size.width, size.height);
         for (const spec of specs) spec.image = image;
