@@ -22,6 +22,7 @@ import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
 import { PageSize } from "@/types";
 import { UserMenu, useCurrentUser } from "@/components/UserMenu";
 import { LibraryBrowser } from "@/components/LibraryBrowser";
+import DemoVideo, { openDemoVideo } from "@/components/DemoVideo";
 import { TemplateCollection, TemplateCollections } from "@/components/TemplateCollections";
 
 /* ================================================================
@@ -361,6 +362,8 @@ export default function TemplatesPage() {
         <meta name="theme-color" content="#060a0e" />
       </Head>
 
+      <DemoVideo />
+
       {/* =============================================
           GLOBAL STYLES: Deep Water Background + Animations
           ============================================= */}
@@ -551,6 +554,7 @@ export default function TemplatesPage() {
 
               <button
                 type="button"
+                onClick={openDemoVideo}
                 className="hidden h-10 items-center gap-2 rounded-full border border-white/[0.15] bg-white/[0.04] px-5 text-[13px] text-white backdrop-blur-md transition hover:border-white/30 hover:bg-white/[0.08] lg:flex"
               >
                 <Play size={12} fill="currentColor" />

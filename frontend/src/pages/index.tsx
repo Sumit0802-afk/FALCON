@@ -35,6 +35,7 @@ import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
 import FinalCtaSection from "@/components/FinalCtaSection";
 import QuickStart from "@/components/QuickStart";
 import SiteIntro from "@/components/SiteIntro";
+import DemoVideo, { openDemoVideo } from "@/components/DemoVideo";
 import { PageSize } from "@/types";
 import { UserMenu, useCurrentUser } from "@/components/UserMenu";
 
@@ -177,6 +178,7 @@ const openTemplateByName = (name: string) => {
     <>
       {/* Opening animation; plays once per browser session */}
       <SiteIntro />
+      <DemoVideo />
 
       <Head>
         <title>
@@ -785,6 +787,7 @@ const openTemplateByName = (name: string) => {
 
               <button
                 type="button"
+                onClick={openDemoVideo}
                 className="
                   flex
                   h-[34px]
@@ -991,6 +994,7 @@ const openTemplateByName = (name: string) => {
 
                 <button
                   type="button"
+                  onClick={openDemoVideo}
                   className="
                     flex
                     h-12
@@ -1163,6 +1167,7 @@ const openTemplateByName = (name: string) => {
 
               <button
                 type="button"
+                onClick={openDemoVideo}
                 className="flex h-14 items-center gap-3 rounded-full border border-white/[0.08] bg-white/[0.02] px-8 text-[13px] text-zinc-400 backdrop-blur-md transition-all hover:border-white/[0.14] hover:bg-white/[0.04] hover:text-white"
               >
                 <Play size={12} className="text-[#22D3EE]" />
