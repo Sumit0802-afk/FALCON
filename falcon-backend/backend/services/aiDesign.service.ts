@@ -44,7 +44,8 @@ function provider() {
   return {
     baseURL,
     apiKey: (process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "").trim(),
-    textModel: process.env.AI_TEXT_MODEL?.trim() || "gpt-5.4-mini",
+    // Several models may be listed, separated by commas; the next is tried when one is busy or gone
+    textModels: (process.env.AI_TEXT_MODEL || "").split(",").map((m) => m.trim()).filter(Boolean),
     // Another service only makes pictures if it is told which of its models to use
     imageModel: process.env.AI_IMAGE_MODEL?.trim() || (baseURL ? "" : "gpt-image-1-mini"),
   };
@@ -167,7 +168,7 @@ function ai(): OpenAI {
   if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add an AI key (AI_API_KEY or OPENAI_API_KEY) to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
   const wanted = `${baseURL}|${apiKey.length}|${apiKey.slice(-4)}`;
   if (!client || clientFor !== wanted) {
-    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 3 });
+    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 120_000, maxRetries: 1 });
     clientFor = wanted;
   }
   return client;
@@ -208,12 +209,13 @@ function readJson(content: string): any {
 }
 
 async function askForSpecs(prompt: string, count: number, sizeName: string, photoOnly: boolean): Promise<unknown[]> {
-  const { textModel } = provider();
+  const models = provider().textModels;
+  if (!models.length) models.push("gpt-5.4-mini");
   const schema = specJsonSchema(count);
   const system = instructions(count, sizeName, photoOnly);
-  const ask = (format: any, extra = "") =>
+  const ask = (model: string, format: any, extra = "") =>
     ai().chat.completions.create({
-      model: textModel,
+      model,
       messages: [
         { role: "system", content: system + extra },
         { role: "user", content: prompt },
@@ -221,15 +223,35 @@ async function askForSpecs(prompt: string, count: number, sizeName: string, phot
       response_format: format,
     });
 
-  let response;
-  try {
-    response = await ask({ type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema } });
-  } catch (err: any) {
-    // Some services do not take a schema. They are given it in words and asked for plain JSON instead;
-    // every design is checked against the same rules afterwards either way
-    if (Number(err?.status) !== 400) throw err;
-    response = await ask({ type: "json_object" }, `\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema exactly:\n${JSON.stringify(schema)}`);
+  const askModel = async (model: string) => {
+    try {
+      return await ask(model, { type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema } });
+    } catch (err: any) {
+      // Some services do not take a schema. They are given it in words and asked for plain JSON instead;
+      // every design is checked against the same rules afterwards either way
+      if (Number(err?.status) !== 400) throw err;
+      return ask(model, { type: "json_object" }, `\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema exactly:\n${JSON.stringify(schema)}`);
+    }
+  };
+
+  let response: Awaited<ReturnType<typeof askModel>> | undefined;
+  let failure: any;
+  for (const model of models) {
+    try {
+      response = await askModel(model);
+      break;
+    } catch (err: any) {
+      failure = err;
+      // A model that is overloaded, rate limited, withdrawn or slow is passed over for the next one.
+      // A bad key or an empty account would fail the same way on every model, so those stop here
+      const status = Number(err?.status) || 0;
+      const outOfCredit = /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`);
+      const worthAnother = !outOfCredit && (!status || [404, 408, 429, 500, 502, 503, 504, 529].includes(status));
+      console.error(`[ai] model ${model} did not answer (status: ${status || "n/a"})${worthAnother && model !== models[models.length - 1] ? "; trying the next" : ""}`);
+      if (!worthAnother) break;
+    }
   }
+  if (!response) throw failure;
   const choice = response.choices[0]?.message;
   if (choice?.refusal) throw new AppError("The AI service would not make that. Try describing it differently.", 400, "AI_REFUSED");
   const parsed = readJson(choice?.content || "{}");
