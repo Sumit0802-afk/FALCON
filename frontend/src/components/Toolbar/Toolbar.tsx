@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Bookmark,
   Layers,
+  Wand2,
 } from "lucide-react";
 
 export type SidebarTab =
@@ -23,6 +24,7 @@ export type SidebarTab =
   | "text"
   | "uploads"
   | "photos"
+  | "transform"
   | "backgrounds"
   | "brand-kit"
   | "graphics"
@@ -83,6 +85,11 @@ export function Toolbar({
       id: "photos",
       label: "Photos",
       icon: <ImageIcon size={22} />,
+    },
+    {
+      id: "transform",
+      label: "Transform",
+      icon: <Wand2 size={22} />,
     },
     {
       id: "backgrounds",

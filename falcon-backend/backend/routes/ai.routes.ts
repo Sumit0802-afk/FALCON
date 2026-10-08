@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { generateDesignBlueprint } from "../services/ai.service";
 import { AI_DESIGN_SIZES, aiDesignService, designSpecSchema } from "../services/aiDesign.service";
+import { readImage, transformService } from "../services/transform.service";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
 import { aiRateLimit } from "../middleware/rateLimit.middleware";
@@ -40,6 +41,24 @@ const variationsSchema = z.object({
 const resizeSchema = z.object({
   specs: z.array(designSpecSchema).min(1).max(8),
   size: z.enum(SIZE_IDS),
+});
+
+// A picture arrives as a data address: the browser reads it, so this server never fetches an address it is handed
+const picture = z.string().min(100).max(16_000_000);
+
+const transformSchema = z.object({
+  image: picture,
+  style: z.string().max(40).optional(),
+  description: z.string().trim().max(300).optional(),
+  count: z.number().int().min(1).max(4).default(4),
+}).refine((v) => !!v.style || !!v.description, { message: "Choose a style or describe the transformation" });
+
+const previewsSchema = z.object({ image: picture });
+
+const blendSchema = z.object({
+  original: z.string().max(400),
+  result: z.string().max(400),
+  strength: z.number().min(0).max(100),
 });
 
 /** The public address of this server, used for pictures saved here */
@@ -111,6 +130,37 @@ router.post("/designs/use", validateBody(useSchema), async (req, res, next) => {
   try {
     const result = await aiDesignService.use(userId(req), { spec: req.body.spec, sizeId: req.body.size, baseUrl: baseUrl(req) });
     res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Transform: restyling a picture in the editor ────────────────────────────
+
+router.get("/transform/styles", (_req, res) => {
+  res.status(200).json(transformService.catalogue());
+});
+
+router.post("/transform/previews", validateBody(previewsSchema), async (req, res, next) => {
+  try {
+    res.status(200).json({ previews: await transformService.previews(readImage(req.body.image)) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/transform", aiRateLimit, validateBody(transformSchema), async (req, res, next) => {
+  try {
+    const { image, style, description, count } = req.body;
+    res.status(200).json(await transformService.run(readImage(image), { style, description, count, baseUrl: baseUrl(req) }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/transform/blend", validateBody(blendSchema), async (req, res, next) => {
+  try {
+    res.status(200).json(await transformService.blend({ ...req.body, baseUrl: baseUrl(req) }));
   } catch (error) {
     next(error);
   }

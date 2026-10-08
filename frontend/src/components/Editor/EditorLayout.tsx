@@ -2,6 +2,7 @@ import React, {
   ChangeEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -43,6 +44,7 @@ import { UploadsPanel } from "@/components/Sidebar/UploadsPanel";
 import { BackgroundsPanel } from "@/components/Sidebar/BackgroundsPanel";
 import { StickersPanel } from "@/components/Sidebar/StickersPanel";
 import { PhotosPanel } from "@/components/Sidebar/PhotosPanel";
+import { TransformPanel } from "@/components/Sidebar/TransformPanel";
 import { BrandKitPanel } from "@/components/Sidebar/BrandKitPanel";
 import { AssetAdminModal } from "@/components/Sidebar/AssetAdminModal";
 import { ApplyToPagePrompt, PromptItemType } from "@/components/Editor/ApplyToPagePrompt";
@@ -1730,6 +1732,37 @@ export function EditorLayout({
     reader.readAsDataURL(file);
   }
 
+  /* The picture the Transform panel works on: a selected image, or the photo inside a selected frame */
+  const transformTarget = useMemo(() => {
+    const el = editor.selectedElements[0];
+    if (!el || editor.selectedElements.length !== 1) return null;
+    if (isImage(el) && el.src) return { id: el.id, src: el.src };
+    if (isFrame(el) && el.imageSrc) return { id: el.id, src: el.imageSrc };
+    return null;
+  }, [editor.selectedElements]);
+
+  /* Swaps the selected picture for its transformed version. Size and place on the page stay as they were */
+  function handleApplyTransform(id: string, src: string, width: number, height: number) {
+    const el = editor.page.elements.find((item) => item.id === id);
+    if (!el) return;
+    if (isFrame(el)) {
+      editor.updateElement(id, { imageSrc: src, imageNaturalWidth: width, imageNaturalHeight: height });
+      return;
+    }
+    if (!isImage(el)) return;
+    // A crop is kept in step with the picture's new pixel size
+    const ratio = el.naturalWidth > 0 ? width / el.naturalWidth : 1;
+    const crop = el as typeof el & { cropX?: number; cropY?: number; cropWidth?: number; cropHeight?: number };
+    editor.updateElement(id, {
+      src,
+      naturalWidth: width,
+      naturalHeight: height,
+      ...(crop.cropWidth
+        ? { cropX: Math.round((crop.cropX || 0) * ratio), cropY: Math.round((crop.cropY || 0) * ratio), cropWidth: Math.round(crop.cropWidth * ratio), cropHeight: Math.round((crop.cropHeight || 0) * ratio) }
+        : {}),
+    } as Partial<typeof el>);
+  }
+
   function handleAddImageToCanvas(src: string) {
     const img = document.createElement("img");
     img.onload = () => {
@@ -2444,6 +2477,16 @@ export function EditorLayout({
         {activeSidebarTab === "photos" && (
           <PhotosPanel
             onAddImageToCanvas={handleAddImageToCanvas}
+          />
+        )}
+
+        {/* TRANSFORM PANEL */}
+        {activeSidebarTab === "transform" && (
+          <TransformPanel
+            target={transformTarget}
+            onApply={handleApplyTransform}
+            onAddNew={handleAddImageToCanvas}
+            onUpload={() => setActiveSidebarTab("uploads")}
           />
         )}
 
