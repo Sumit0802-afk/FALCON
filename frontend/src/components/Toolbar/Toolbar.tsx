@@ -1,23 +1,6 @@
 import React from "react";
 import { ToolId } from "@/types";
-import {
-  LayoutTemplate,
-  Shapes,
-  Type,
-  UploadCloud,
-  Palette,
-  Square,
-  BarChart2,
-  LayoutGrid,
-  Folder,
-  Sparkles,
-  Wallpaper,
-  Image as ImageIcon,
-  Bookmark,
-  Layers,
-  CircleUserRound,
-  QrCode,
-} from "lucide-react";
+import { RailBadgeIcon } from "./RailBadgeIcon";
 
 export type SidebarTab =
   | "templates"
@@ -66,52 +49,52 @@ export function Toolbar({
     {
       id: "templates",
       label: "Templates",
-      icon: <LayoutTemplate size={22} />,
+      icon: <RailBadgeIcon id="templates" />,
     },
     {
       id: "elements",
       label: "Elements",
-      icon: <Shapes size={22} />,
+      icon: <RailBadgeIcon id="elements" />,
     },
     {
       id: "text",
       label: "Text",
-      icon: <Type size={22} />,
+      icon: <RailBadgeIcon id="text" />,
     },
     {
       id: "uploads",
       label: "Uploads",
-      icon: <UploadCloud size={22} />,
+      icon: <RailBadgeIcon id="uploads" />,
     },
     {
       id: "photos",
       label: "Photos",
-      icon: <ImageIcon size={22} />,
+      icon: <RailBadgeIcon id="photos" />,
     },
     {
       id: "portrait",
       label: "Portrait",
-      icon: <CircleUserRound size={22} />,
+      icon: <RailBadgeIcon id="portrait" />,
     },
     {
       id: "qr",
       label: "QR Code",
-      icon: <QrCode size={22} />,
+      icon: <RailBadgeIcon id="qr" />,
     },
     {
       id: "backgrounds",
       label: "Background",
-      icon: <Wallpaper size={22} />,
+      icon: <RailBadgeIcon id="backgrounds" />,
     },
     {
       id: "brand-kit",
       label: "Brand Kit",
-      icon: <Bookmark size={22} />,
+      icon: <RailBadgeIcon id="brand-kit" />,
     },
     {
       id: "layers",
       label: "Layers",
-      icon: <Layers size={22} />,
+      icon: <RailBadgeIcon id="layers" />,
     },
   ];
 
@@ -141,7 +124,7 @@ export function Toolbar({
               type="button"
               onClick={() => handleTabClick(item.id)}
               title={item.label}
-              className={`group relative flex h-[62px] w-full flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
+              className={`group relative flex h-[66px] w-full shrink-0 flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
                 active
                   ? "bg-[#00c4cc]/10 text-[#00c4cc] border-[1.5px] border-[#00c4cc] shadow-[0_0_16px_rgba(0,196,204,0.22)]"
                   : isDark
@@ -149,7 +132,7 @@ export function Toolbar({
                   : "text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-sm"
               }`}
             >
-              <div className="mb-1 transition-transform group-hover:scale-105">
+              <div className="mb-0.5 flex transition-transform duration-300 group-hover:scale-110">
                 {item.icon}
               </div>
               <span className={`text-[10px] font-medium tracking-tight leading-tight text-center px-0.5 ${active ? "text-[#00c4cc] font-semibold" : ""}`}>
@@ -166,7 +149,7 @@ export function Toolbar({
           type="button"
           onClick={() => handleTabClick("ai")}
           title="AI Tools"
-          className={`group flex h-[60px] w-full flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
+          className={`group flex h-[66px] w-full flex-col items-center justify-center rounded-2xl transition-all duration-200 ${
             activeTab === "ai"
               ? "bg-[#00c4cc]/15 text-[#00c4cc] border-[1.5px] border-[#00c4cc] shadow-[0_0_16px_rgba(0,196,204,0.25)]"
               : isDark
@@ -174,7 +157,7 @@ export function Toolbar({
               : "text-slate-600 hover:bg-white hover:text-cyan-600"
           }`}
         >
-          <Sparkles size={22} className="text-[#00c4cc] mb-1 group-hover:scale-110 transition-transform" />
+          <RailBadgeIcon id="ai" className="mb-0.5 transition-transform duration-300 group-hover:scale-110" />
           <span className="text-[10px] font-medium text-[#00c4cc]">
             AI Tools
           </span>
