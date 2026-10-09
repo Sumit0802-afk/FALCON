@@ -562,29 +562,196 @@ html[data-theme="light"] img[src*="falcon-logo"] {
   filter: none;
 }
 
-/* Light theme tuning. Colours here are written as they are BEFORE the filter:
-   a lighter grey here ends up as a darker, more readable grey on the page.
-   :where() keeps these as weak as a normal utility so hover states still win. */
-:where(html[data-theme="light"]) .text-zinc-400 { color: #d4d4d8; }
-:where(html[data-theme="light"]) .text-zinc-500 { color: #b4b4bd; }
-:where(html[data-theme="light"]) .text-zinc-600 { color: #a1a1aa; }
-:where(html[data-theme="light"]) .text-zinc-700 { color: #8b8b94; }
-:where(html[data-theme="light"]) .text-zinc-800 { color: #71717a; }
+/* ─── Light theme: the colour system ───────────────────────────────────────────
+   Everything below applies only under html[data-theme="light"], so the dark
+   theme is untouched.
+
+   Colours are written as they are BEFORE the filter above, which then turns
+   them into what is seen. The filter undoes itself, so the value to write for
+   a wanted colour is that colour put through the filter:
+
+     seen #F8F8F6  page             write #070705
+     seen #FFFFFF  card, input      write #000000
+     seen #F3F3F0  inset surface    write #0c0c09
+     seen #171717  text             write #e8e8e8
+     seen #666666  secondary text   write #999999
+     seen #737373  captions         write #8c8c8c
+     seen black at 8%  hairline     write white at 8%
+
+   A soft dark shadow is therefore written as a soft white one.
+   :where() keeps a rule as weak as a normal utility, so hover and selected
+   states written on the element still win. */
+
+/* Page ▸ section ▸ card ▸ inset: the page is a warm off-white, not pure white */
+html[data-theme="light"] body,
+:where(html[data-theme="light"]) .min-h-screen {
+  background-color: #070705;
+}
+
+/* Cards and other raised surfaces are white, so they stand a step above the page */
+:where(html[data-theme="light"]) :is(
+  .bg-white\/\[0\.012\], .bg-white\/\[0\.015\], .bg-white\/\[0\.02\], .bg-white\/\[0\.025\],
+  .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\],
+  .bg-\[\#0b0f14\], .bg-\[\#0b0f14\]\/80, .bg-\[\#0B0D12\], .bg-\[\#0A0D12\]
+) {
+  background-color: #000000;
+}
+
+/* A surface inside a card steps back down, so the two can be told apart */
+:where(html[data-theme="light"]) :is(
+  .bg-white\/\[0\.012\], .bg-white\/\[0\.015\], .bg-white\/\[0\.02\], .bg-white\/\[0\.025\],
+  .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\],
+  .bg-\[\#0b0f14\], .bg-\[\#0b0f14\]\/80, .bg-\[\#0B0D12\], .bg-\[\#0A0D12\]
+) :is(
+  .bg-white\/\[0\.012\], .bg-white\/\[0\.015\], .bg-white\/\[0\.02\], .bg-white\/\[0\.025\],
+  .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\],
+  .bg-\[\#0b0f14\], .bg-\[\#0b0f14\]\/80, .bg-\[\#0B0D12\], .bg-\[\#0A0D12\]
+) {
+  background-color: #0c0c09;
+}
+
+/* The mat behind a preview picture */
+:where(html[data-theme="light"]) .bg-\[\#0e1319\] { background-color: #0c0c09; }
+
+/* Depth: a card with an edge and a real corner gets a soft shadow, small pills do not */
+:where(html[data-theme="light"]) :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[20px\], .rounded-\[24px\], .rounded-\[28px\]).border:is(
+  .bg-white\/\[0\.012\], .bg-white\/\[0\.015\], .bg-white\/\[0\.02\], .bg-white\/\[0\.025\],
+  .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\], .bg-\[\#000000\], .bg-black,
+  .bg-\[\#0b0f14\], .bg-\[\#0b0f14\]\/80, .bg-\[\#0B0D12\], .bg-\[\#0A0D12\]
+) {
+  box-shadow: 0 1px 2px rgb(255 255 255 / 0.04), 0 4px 20px rgb(255 255 255 / 0.06);
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+/* The same card inside another card stays flat: one level of shadow is enough */
+:where(html[data-theme="light"]) :is(.rounded-xl, .rounded-2xl, .rounded-3xl).border:is(
+  .bg-white\/\[0\.02\], .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\],
+  .bg-\[\#0b0f14\], .bg-\[\#0b0f14\]\/80, .bg-\[\#0B0D12\], .bg-\[\#0A0D12\]
+) :is(.rounded-xl, .rounded-2xl, .rounded-3xl).border {
+  box-shadow: none;
+}
+
+:where(html[data-theme="light"]) :is(a, button):is(.rounded-xl, .rounded-2xl, .rounded-3xl).border:is(
+  .bg-white\/\[0\.02\], .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\], .bg-\[\#000000\]
+):hover {
+  box-shadow: 0 2px 4px rgb(255 255 255 / 0.05), 0 10px 30px rgb(255 255 255 / 0.09);
+}
+
+/* Text: a deep neutral for reading, two quieter greys for supporting lines */
+:where(html[data-theme="light"]) .text-white,
+:where(html[data-theme="light"]) .text-\[\#f4f1eb\],
+:where(html[data-theme="light"]) .text-zinc-100,
+:where(html[data-theme="light"]) .text-zinc-200 { color: #e8e8e8; }
+:where(html[data-theme="light"]) .text-zinc-300 { color: #c4c4c4; }
+:where(html[data-theme="light"]) .text-zinc-400 { color: #999999; }
+:where(html[data-theme="light"]) .text-zinc-500 { color: #8c8c8c; }
+:where(html[data-theme="light"]) .text-zinc-600,
+:where(html[data-theme="light"]) .text-zinc-700,
+:where(html[data-theme="light"]) .text-zinc-800 { color: #858585; }
 :where(html[data-theme="light"]) .text-white\/25,
-:where(html[data-theme="light"]) .text-white\/35 { color: rgb(255 255 255 / 0.55); }
+:where(html[data-theme="light"]) .text-white\/35,
 :where(html[data-theme="light"]) .text-white\/40,
-:where(html[data-theme="light"]) .text-white\/50 { color: rgb(255 255 255 / 0.65); }
-:where(html[data-theme="light"]) .placeholder-zinc-600::placeholder { color: #a1a1aa; }
+:where(html[data-theme="light"]) .text-white\/50 { color: #8c8c8c; }
+:where(html[data-theme="light"]) .text-white\/60,
+:where(html[data-theme="light"]) .text-white\/70 { color: #999999; }
+:where(html[data-theme="light"]) :is(.placeholder-zinc-500, .placeholder-zinc-600, .placeholder-zinc-700)::placeholder,
+:where(html[data-theme="light"]) :is(input, textarea)::placeholder { color: #808080; }
+
+/* A dark button keeps white lettering */
+:where(html[data-theme="light"]) :is(.bg-\[\#f4f1eb\], .bg-white).text-black { color: #000000; }
 
 /* The pale-blue headline accent would turn navy; show it as a clear blue instead */
 :where(html[data-theme="light"]) .text-\[\#a8cdfc\] { color: #65a3ff; }
 
-/* Hairlines and card edges need a little more weight on a white page */
+/* Reading text gets a little more room between its lines */
+:where(html[data-theme="light"]) :is(h1, h2, h3) { text-rendering: optimizeLegibility; }
+
+/* Hairlines: black at 8% for edges, a little more for the edges of controls */
+:where(html[data-theme="light"]) .border-white\/\[0\.04\],
+:where(html[data-theme="light"]) .border-white\/\[0\.05\],
 :where(html[data-theme="light"]) .border-white\/\[0\.06\],
 :where(html[data-theme="light"]) .border-white\/\[0\.07\],
-:where(html[data-theme="light"]) .border-white\/\[0\.08\] { border-color: rgb(255 255 255 / 0.14); }
+:where(html[data-theme="light"]) .border-white\/\[0\.08\] { border-color: rgb(255 255 255 / 0.09); }
 :where(html[data-theme="light"]) .border-white\/\[0\.10\],
-:where(html[data-theme="light"]) .border-white\/\[0\.12\] { border-color: rgb(255 255 255 / 0.2); }
+:where(html[data-theme="light"]) .border-white\/\[0\.1\],
+:where(html[data-theme="light"]) .border-white\/\[0\.12\],
+:where(html[data-theme="light"]) .border-white\/\[0\.14\] { border-color: rgb(255 255 255 / 0.14); }
+
+/* Navigation bar: a light sheet with a hairline and the faintest lift */
+:where(html[data-theme="light"]) :is(header, nav).fixed {
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.03), 0 8px 28px rgb(255 255 255 / 0.05);
+}
+
+/* Buttons */
+:where(html[data-theme="light"]) :is(button, a, [role="button"], input, select, textarea) {
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms ease;
+}
+/* Primary: the strong dark button, with a soft shadow that deepens on hover */
+:where(html[data-theme="light"]) :is(button, a):is(.bg-\[\#f4f1eb\], .bg-white):not(.fixed) {
+  box-shadow: 0 1px 2px rgb(255 255 255 / 0.12), 0 4px 14px rgb(255 255 255 / 0.1);
+}
+:where(html[data-theme="light"]) :is(button, a):is(.bg-\[\#f4f1eb\], .bg-white):not(.fixed):hover {
+  box-shadow: 0 2px 4px rgb(255 255 255 / 0.14), 0 8px 22px rgb(255 255 255 / 0.14);
+}
+:where(html[data-theme="light"]) :is(button, a):is(.bg-\[\#f4f1eb\], .bg-white):active {
+  transform: translateY(1px);
+}
+/* Secondary: a white button with an edge that firms up on hover */
+:where(html[data-theme="light"]) :is(button, a).border:is(.bg-white\/\[0\.02\], .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\]):hover {
+  border-color: rgb(255 255 255 / 0.22);
+  background-color: #070705;
+}
+
+/* Fields */
+html[data-theme="light"] :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]), textarea, select).border {
+  background-color: #000000;
+  border-color: rgb(255 255 255 / 0.13);
+  color: #e8e8e8;
+}
+html[data-theme="light"] :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]), textarea, select).border:hover {
+  border-color: rgb(255 255 255 / 0.2);
+}
+html[data-theme="light"] :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]), textarea, select).border:focus {
+  border-color: rgb(255 255 255 / 0.3);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.06);
+  outline: none;
+}
+/* The list a select opens is drawn by the browser outside the filter, so it is given light colours directly */
+html[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #171717;
+}
+
+/* Dialogs: a lighter veil than the dark theme's, and a clear lift for the sheet on it */
+:where(html[data-theme="light"]) .fixed.inset-0[class*="bg-black/"]:not([class*="bg-black/9"]):not([class*="bg-black/100"]) {
+  background-color: rgb(255 255 255 / 0.25);
+}
+:where(html[data-theme="light"]) .fixed.inset-0[class*="bg-black/"] > :is(.rounded-xl, .rounded-2xl, .rounded-3xl),
+:where(html[data-theme="light"]) [role="dialog"]:is(.rounded-xl, .rounded-2xl, .rounded-3xl),
+:where(html[data-theme="light"]) [role="menu"] {
+  box-shadow: 0 2px 6px rgb(255 255 255 / 0.06), 0 24px 60px rgb(255 255 255 / 0.16);
+}
+
+/* Scrollbars: thin and quiet. A mid grey reads the same on either side of the filter */
+html[data-theme="light"] {
+  scrollbar-color: #a3a3a3 transparent;
+}
+html[data-theme="light"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+html[data-theme="light"] ::-webkit-scrollbar-track { background: transparent; }
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #8f8f8f;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #757575; background-clip: content-box; }
+
+/* What is selected with the mouse */
+html[data-theme="light"] ::selection { background: rgb(255 255 255 / 0.16); }
+
+@media (prefers-reduced-motion: reduce) {
+  :where(html[data-theme="light"]) :is(button, a, [role="button"], input, select, textarea) { transition: none; }
+}
 
 /* ─── Poster editor on phones and tablets ──────────────────────────────────────
    There is no room for a side panel beside the canvas, so panels open on top
