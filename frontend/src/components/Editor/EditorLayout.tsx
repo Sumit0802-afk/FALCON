@@ -47,7 +47,7 @@ import { UploadsPanel } from "@/components/Sidebar/UploadsPanel";
 import { BackgroundsPanel } from "@/components/Sidebar/BackgroundsPanel";
 import { StickersPanel } from "@/components/Sidebar/StickersPanel";
 import { PhotosPanel } from "@/components/Sidebar/PhotosPanel";
-import { TransformPanel } from "@/components/Sidebar/TransformPanel";
+import { PortraitPanel } from "@/components/Sidebar/PortraitPanel";
 import { QrPanel } from "@/components/Sidebar/QrPanel";
 import { qrAspect, qrDataUrl } from "@/utils/qrCode";
 import { QrConfig, configOf, storedConfig } from "@/utils/qrDesign";
@@ -1771,8 +1771,8 @@ export function EditorLayout({
     reader.readAsDataURL(file);
   }
 
-  /* The picture the Transform panel works on: a selected image, or the photo inside a selected frame */
-  const transformTarget = useMemo(() => {
+  /* The photo the Portrait panel works on: a selected image, or the photo inside a selected frame */
+  const portraitTarget = useMemo(() => {
     const el = editor.selectedElements[0];
     if (!el || editor.selectedElements.length !== 1) return null;
     if (isImage(el) && el.src) return { id: el.id, src: el.src };
@@ -1780,8 +1780,8 @@ export function EditorLayout({
     return null;
   }, [editor.selectedElements]);
 
-  /* Swaps the selected picture for its transformed version. Size and place on the page stay as they were */
-  function handleApplyTransform(id: string, src: string, width: number, height: number) {
+  /* Swaps the selected picture for the portrait made from it. Size and place on the page stay as they were */
+  function handleApplyPortrait(id: string, src: string, width: number, height: number) {
     const el = editor.page.elements.find((item) => item.id === id);
     if (!el) return;
     if (isFrame(el)) {
@@ -2577,11 +2577,11 @@ export function EditorLayout({
           <QrPanel selected={qrSelected} onAdd={handleAddQr} onUpdate={handleUpdateQr} />
         )}
 
-        {/* TRANSFORM PANEL */}
-        {activeSidebarTab === "transform" && (
-          <TransformPanel
-            target={transformTarget}
-            onApply={handleApplyTransform}
+        {/* PORTRAIT PANEL */}
+        {activeSidebarTab === "portrait" && (
+          <PortraitPanel
+            target={portraitTarget}
+            onApply={handleApplyPortrait}
             onAddNew={handleAddImageToCanvas}
             onUpload={() => setActiveSidebarTab("uploads")}
           />

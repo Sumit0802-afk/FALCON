@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { generateDesignBlueprint } from "../services/ai.service";
 import { AI_DESIGN_SIZES, aiDesignService, designSpecSchema } from "../services/aiDesign.service";
-import { readImage, transformService } from "../services/transform.service";
+import { readImage, portraitService } from "../services/portrait.service";
 import { findPhotos } from "../services/aiImages";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
@@ -47,12 +47,12 @@ const resizeSchema = z.object({
 // A picture arrives as a data address: the browser reads it, so this server never fetches an address it is handed
 const picture = z.string().min(100).max(16_000_000);
 
-const transformSchema = z.object({
+const portraitSchema = z.object({
   image: picture,
-  style: z.string().max(40).optional(),
+  style: z.string().max(80).optional(),
   description: z.string().trim().max(300).optional(),
   count: z.number().int().min(1).max(4).default(4),
-}).refine((v) => !!v.style || !!v.description, { message: "Choose a style or describe the transformation" });
+}).refine((v) => !!v.style || !!v.description, { message: "Choose a style or describe the portrait" });
 
 const previewsSchema = z.object({ image: picture });
 
@@ -148,32 +148,32 @@ router.get("/photos", async (req, res, next) => {
   }
 });
 
-// ─── Transform: restyling a picture in the editor ────────────────────────────
+// ─── Portrait: remaking a photo in the editor ────────────────────────────────
 
-router.get("/transform/styles", (_req, res) => {
-  res.status(200).json(transformService.catalogue());
+router.get("/portrait/styles", (_req, res) => {
+  res.status(200).json(portraitService.catalogue());
 });
 
-router.post("/transform/previews", validateBody(previewsSchema), async (req, res, next) => {
+router.post("/portrait/previews", validateBody(previewsSchema), async (req, res, next) => {
   try {
-    res.status(200).json({ previews: await transformService.previews(readImage(req.body.image)) });
+    res.status(200).json({ previews: await portraitService.previews(readImage(req.body.image)) });
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/transform", aiRateLimit, validateBody(transformSchema), async (req, res, next) => {
+router.post("/portrait", aiRateLimit, validateBody(portraitSchema), async (req, res, next) => {
   try {
     const { image, style, description, count } = req.body;
-    res.status(200).json(await transformService.run(readImage(image), { style, description, count, baseUrl: baseUrl(req) }));
+    res.status(200).json(await portraitService.run(readImage(image), { style, description, count, baseUrl: baseUrl(req) }));
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/transform/blend", validateBody(blendSchema), async (req, res, next) => {
+router.post("/portrait/blend", validateBody(blendSchema), async (req, res, next) => {
   try {
-    res.status(200).json(await transformService.blend({ ...req.body, baseUrl: baseUrl(req) }));
+    res.status(200).json(await portraitService.blend({ ...req.body, baseUrl: baseUrl(req) }));
   } catch (error) {
     next(error);
   }

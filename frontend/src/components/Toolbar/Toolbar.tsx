@@ -15,7 +15,7 @@ import {
   Image as ImageIcon,
   Bookmark,
   Layers,
-  Wand2,
+  CircleUserRound,
   QrCode,
 } from "lucide-react";
 
@@ -25,7 +25,7 @@ export type SidebarTab =
   | "text"
   | "uploads"
   | "photos"
-  | "transform"
+  | "portrait"
   | "qr"
   | "backgrounds"
   | "brand-kit"
@@ -89,9 +89,9 @@ export function Toolbar({
       icon: <ImageIcon size={22} />,
     },
     {
-      id: "transform",
-      label: "Transform",
-      icon: <Wand2 size={22} />,
+      id: "portrait",
+      label: "Portrait",
+      icon: <CircleUserRound size={22} />,
     },
     {
       id: "qr",

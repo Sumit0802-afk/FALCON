@@ -873,9 +873,9 @@ html[data-theme="light"] img[src*="falcon-logo"] {
   }
 }
 
-/* ── Transform panel: a bottom sheet on phones ─────────────────────────────── */
+/* ── Portrait panel: a bottom sheet on phones ──────────────────────────────── */
 @media (max-width: 639px) {
-  .falcon-editor-area > aside.falcon-transform-panel:not(.falcon-tool-rail):not(.border-l) {
+  .falcon-editor-area > aside.falcon-portrait-panel:not(.falcon-tool-rail):not(.border-l) {
     top: auto;
     /* Beside the tool rail, not over it, so the other tools stay within reach */
     left: 60px;
@@ -894,7 +894,7 @@ html[data-theme="light"] img[src*="falcon-logo"] {
 
 /* A narrower panel on tablets leaves more of the page showing */
 @media (min-width: 640px) and (max-width: 1023px) {
-  .falcon-editor-area > aside.falcon-transform-panel:not(.falcon-tool-rail) {
+  .falcon-editor-area > aside.falcon-portrait-panel:not(.falcon-tool-rail) {
     width: min(300px, calc(100vw - 76px));
   }
 }

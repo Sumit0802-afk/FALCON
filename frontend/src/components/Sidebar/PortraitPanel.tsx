@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Eraser, ImageIcon, Loader2, Lock, Palette, RefreshCw, Search, Sparkle, Sun, Upload, Wand2, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Check, CircleUserRound, Eraser, ImageIcon, Loader2, Lock, Palette, RefreshCw, Search, Sparkle, Sun, Upload, Wand2, Wallpaper, X } from "lucide-react";
 import { ApiError } from "@/services/api";
 import { removeImageBackgroundAI } from "@/services/backgroundRemovalService";
 import {
-  TransformCatalogue, TransformStyle, blendTransform, getTransformCatalogue, getTransformPreviews, onBackground, readPicture, runTransform,
-} from "@/services/transformService";
+  PortraitCatalogue, PortraitStyle, blendPortrait, getPortraitCatalogue, getPortraitPreviews, onBackground, readPicture, runPortrait,
+} from "@/services/portraitService";
 
 /** The picture on the canvas that is being worked on */
-export interface TransformTarget {
+export interface PortraitTarget {
   id: string;
   src: string;
 }
 
-interface TransformPanelProps {
-  target: TransformTarget | null;
+interface PortraitPanelProps {
+  target: PortraitTarget | null;
   /** Replaces the selected picture with the result */
   onApply: (id: string, src: string, width: number, height: number) => void;
   /** Places the result on the page as a new picture */
@@ -42,16 +42,18 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
 
 function failure(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 401) return "Please sign in to transform pictures.";
-    if (err.status === 429) return "That's a lot of transformations in a short time. Please wait a few minutes and try again.";
+    if (err.status === 401) return "Please sign in to make portraits.";
+    if (err.status === 429) return "That's a lot of portraits in a short time. Please wait a few minutes and try again.";
     if (err.message) return err.message.replace(/^[a-z.0-9]+: /i, "");
   }
   if (err instanceof Error && err.message === "unreadable") return "This picture can't be read from where it is hosted. Upload it to Falcon and try again.";
   return "That didn't work. Check your connection and try again.";
 }
 
-export function TransformPanel({ target, onApply, onAddNew, onUpload }: TransformPanelProps) {
-  const [catalogue, setCatalogue] = useState<TransformCatalogue | null>(null);
+export function PortraitPanel({ target, onApply, onAddNew, onUpload }: PortraitPanelProps) {
+  const [catalogue, setCatalogue] = useState<PortraitCatalogue | null>(null);
+  // The group of styles on show; a search looks through all of them
+  const [groupName, setGroupName] = useState("");
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [picture, setPicture] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -71,11 +73,11 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
 
   useEffect(() => {
     let live = true;
-    getTransformCatalogue().then((c) => live && setCatalogue(c)).catch((err) => live && setError(failure(err)));
+    getPortraitCatalogue().then((c) => live && setCatalogue(c)).catch((err) => live && setError(failure(err)));
     return () => { live = false; };
   }, []);
 
-  // A newly selected picture is read once, and a small preview of every style is made from it
+  // A newly selected picture is read once, and a small preview of every look that can be shown is made from it
   useEffect(() => {
     setOutcome(null);
     setPreviews({});
@@ -91,7 +93,7 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
         if (!live) return;
         setPicture(data);
         const small = await readPicture(data, 320);
-        const made = await getTransformPreviews(small, controller.signal);
+        const made = await getPortraitPreviews(small, controller.signal);
         if (live) setPreviews(made);
       } catch (err) {
         if (live && !controller.signal.aborted) setError(failure(err));
@@ -107,13 +109,13 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
     setCompare(50);
   }, []);
 
-  const run = useCallback(async (request: { style?: TransformStyle; description?: string }) => {
+  const run = useCallback(async (request: { style?: PortraitStyle; description?: string }) => {
     if (!picture || busy) return;
     const label = request.style?.id || "described";
     try {
       setBusy(label);
       setError("");
-      const result = await runTransform({ image: picture, style: request.style?.id, description: request.description });
+      const result = await runPortrait({ image: picture, style: request.style?.id, description: request.description });
       show({
         title: result.style.name,
         original: result.original,
@@ -123,6 +125,8 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
       });
     } catch (err) {
       setError(failure(err));
+      // A style that could not be made may have just become unavailable, so the list is read again
+      getPortraitCatalogue().then(setCatalogue).catch(() => undefined);
     } finally {
       setBusy(null);
     }
@@ -163,7 +167,7 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
       let final = option;
       // Anything short of full strength is mixed with the original on the server and saved as one picture
       if (outcome.blendable && strength < 100) {
-        const mixed = strength <= 0 ? { url: outcome.original, width: option.width, height: option.height } : await blendTransform(outcome.original, option.src, strength);
+        const mixed = strength <= 0 ? { url: outcome.original, width: option.width, height: option.height } : await blendPortrait(outcome.original, option.src, strength);
         final = { src: mixed.url, width: mixed.width, height: mixed.height };
       }
       if (how === "apply") onApply(target.id, final.src, final.width, final.height);
@@ -179,10 +183,11 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
   const groups = useMemo(() => {
     if (!catalogue) return [];
     const q = query.trim().toLowerCase();
+    if (!q) return catalogue.groups.filter((group) => group.name === (groupName || catalogue.groups[0]?.name));
     return catalogue.groups
-      .map((group) => ({ ...group, styles: group.styles.filter((s) => !q || s.name.toLowerCase().includes(q) || group.name.toLowerCase().includes(q)) }))
+      .map((group) => ({ ...group, styles: group.styles.filter((s) => s.name.toLowerCase().includes(q) || group.name.toLowerCase().includes(q)) }))
       .filter((group) => group.styles.length);
-  }, [catalogue, query]);
+  }, [catalogue, query, groupName]);
 
   const describe = () => {
     const text = description.trim();
@@ -192,17 +197,17 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
   const option = outcome?.options[chosen];
 
   return (
-    <aside className="falcon-transform-panel flex h-full w-[340px] shrink-0 flex-col border-r border-white/[0.08] bg-[#0c0c0e] text-white select-none relative">
+    <aside className="falcon-portrait-panel flex h-full w-[340px] shrink-0 flex-col border-r border-white/[0.08] bg-[#0c0c0e] text-white select-none relative">
 
       {/* HEADER */}
       <div className="border-b border-white/[0.08] bg-[#111114] p-3.5 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Wand2 size={18} />
+            <CircleUserRound size={18} />
           </div>
           <div>
-            <h2 className="text-xs font-semibold tracking-wide text-white">Transform</h2>
-            <p className="text-[10px] text-zinc-500">Restyle a picture without leaving the editor</p>
+            <h2 className="text-xs font-semibold tracking-wide text-white">Portrait</h2>
+            <p className="text-[10px] text-zinc-500">Turn a photo into a portrait, in any style</p>
           </div>
         </div>
 
@@ -213,7 +218,7 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search styles..."
+              placeholder="Search portrait styles..."
               className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 pl-8 pr-8 text-[12px] text-white placeholder-zinc-600 outline-none focus:border-cyan-500/40"
             />
             {query && (
@@ -237,9 +242,9 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-zinc-500">
             <ImageIcon size={24} />
           </div>
-          <h3 className="mt-4 text-[13px] font-semibold text-white">Select an image to transform</h3>
+          <h3 className="mt-4 text-[13px] font-semibold text-white">Select a photo for the portrait</h3>
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-            Click a picture on the page, then choose a style here.
+            Click a photo on the page, then choose a portrait style here.
           </p>
           <button
             type="button"
@@ -380,6 +385,23 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
       {/* THE STYLES */}
       {target && !outcome && (
         <>
+          {/* THE GROUPS OF STYLES */}
+          {catalogue && !query.trim() && (
+            <div className="border-b border-white/[0.08] bg-[#0f0f12] px-3.5 py-2.5">
+              <label htmlFor="portrait-group" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Portrait type</label>
+              <select
+                id="portrait-group"
+                value={groupName || catalogue.groups[0]?.name || ""}
+                onChange={(e) => setGroupName(e.target.value)}
+                className="w-full rounded-lg border border-white/[0.08] bg-[#14151a] px-2.5 py-2 text-[12px] text-white outline-none focus:border-cyan-500/40"
+              >
+                {catalogue.groups.map((group) => (
+                  <option key={group.name} value={group.name}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-3.5 space-y-5">
 
             {!catalogue && !error && (
@@ -394,7 +416,7 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
                 <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{group.name}</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {group.styles.map((style) => {
-                    const preview = previews[style.id];
+                    const preview = style.preview ? previews[style.preview] : undefined;
                     const working = busy === style.id;
                     return (
                       <button
@@ -402,7 +424,7 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
                         type="button"
                         onClick={() => void run({ style })}
                         disabled={!style.available || busy !== null || !picture}
-                        title={style.available ? `Transform into ${style.name}` : `${style.name} isn't available on this server yet`}
+                        title={style.available ? `Make a ${style.name}` : `${style.name} isn't available on this server yet`}
                         className={`group flex flex-col overflow-hidden rounded-lg border text-left transition ${style.available ? "border-white/[0.08] bg-[#14151a] hover:border-cyan-500/50" : "border-white/[0.05] bg-[#101116] opacity-60"} disabled:cursor-not-allowed`}
                       >
                         <span data-theme-keep="" className="relative block aspect-square w-full overflow-hidden bg-black/40">
@@ -426,7 +448,9 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
                             </span>
                           )}
                         </span>
-                        <span className="truncate px-2 py-1.5 text-[10px] font-medium text-zinc-300">{style.name}</span>
+                        <span className="block min-h-[37px] px-2 py-1.5 text-[10px] font-medium leading-tight text-zinc-300">
+                          <span className="line-clamp-2">{style.name}</span>
+                        </span>
                       </button>
                     );
                   })}
@@ -495,21 +519,21 @@ export function TransformPanel({ target, onApply, onAddNew, onUpload }: Transfor
                 }}
                 rows={2}
                 maxLength={300}
-                placeholder="Describe the transformation..."
+                placeholder="Describe the portrait..."
                 className="min-h-[44px] flex-1 resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12px] leading-snug text-white placeholder-zinc-600 outline-none focus:border-cyan-500/40"
               />
               <button
                 type="button"
                 onClick={describe}
                 disabled={description.trim().length < 3 || busy !== null || !picture}
-                aria-label="Transform from this description"
+                aria-label="Make a portrait from this description"
                 className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-lg bg-[#00c4cc] text-black transition hover:bg-[#00dbe4] disabled:opacity-30"
               >
                 {busy === "described" ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
               </button>
             </div>
             <p className="mt-1.5 text-[9px] leading-relaxed text-zinc-600">
-              For example: “Create a comic-book version” or “Make this look like a pencil sketch”.
+              For example: “A black-and-white portrait” or “Make this a pencil sketch portrait”.
             </p>
           </div>
         </>

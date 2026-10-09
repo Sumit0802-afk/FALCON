@@ -1,49 +1,51 @@
 import { apiFetch } from "./api";
 
-export interface TransformStyle {
+export interface PortraitStyle {
   id: string;
   name: string;
   /** Whether this server can make it right now */
   available: boolean;
+  /** Which of the small previews shows this style, for styles that have one */
+  preview?: string;
 }
 
-export interface TransformCatalogue {
-  groups: { name: string; styles: TransformStyle[] }[];
-  tools: TransformStyle[];
+export interface PortraitCatalogue {
+  groups: { name: string; styles: PortraitStyle[] }[];
+  tools: PortraitStyle[];
   /** "any" when a written description can ask for anything, "styles" when it is matched to the styles on offer */
   describe: "any" | "styles";
 }
 
-export interface TransformResult {
+export interface PortraitResult {
   url: string;
   width: number;
   height: number;
   variation: number;
 }
 
-export interface TransformRun {
+export interface PortraitRun {
   style: { id: string; name: string };
   /** The untouched picture at the same size as the results, for comparing and blending */
   original: string;
-  results: TransformResult[];
+  results: PortraitResult[];
 }
 
-export function getTransformCatalogue(): Promise<TransformCatalogue> {
-  return apiFetch("/ai/transform/styles");
+export function getPortraitCatalogue(): Promise<PortraitCatalogue> {
+  return apiFetch("/ai/portrait/styles");
 }
 
-/** A small picture of each style, made from the user's own image */
-export async function getTransformPreviews(image: string, signal?: AbortSignal): Promise<Record<string, string>> {
-  return (await apiFetch<{ previews: Record<string, string> }>("/ai/transform/previews", { method: "POST", body: JSON.stringify({ image }), signal })).previews;
+/** A small picture of each look that can be previewed, made from the user's own image */
+export async function getPortraitPreviews(image: string, signal?: AbortSignal): Promise<Record<string, string>> {
+  return (await apiFetch<{ previews: Record<string, string> }>("/ai/portrait/previews", { method: "POST", body: JSON.stringify({ image }), signal })).previews;
 }
 
-export function runTransform(input: { image: string; style?: string; description?: string; count?: number }): Promise<TransformRun> {
-  return apiFetch("/ai/transform", { method: "POST", body: JSON.stringify({ count: 4, ...input }) });
+export function runPortrait(input: { image: string; style?: string; description?: string; count?: number }): Promise<PortraitRun> {
+  return apiFetch("/ai/portrait", { method: "POST", body: JSON.stringify({ count: 4, ...input }) });
 }
 
 /** The original and a result mixed together: 0 is the original, 100 the full result */
-export function blendTransform(original: string, result: string, strength: number): Promise<TransformResult> {
-  return apiFetch("/ai/transform/blend", { method: "POST", body: JSON.stringify({ original, result, strength }) });
+export function blendPortrait(original: string, result: string, strength: number): Promise<PortraitResult> {
+  return apiFetch("/ai/portrait/blend", { method: "POST", body: JSON.stringify({ original, result, strength }) });
 }
 
 /**
