@@ -660,5 +660,9 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
   .fa-form{left:0 !important;top:150px;width:100%;height:calc(100% - 150px);translate:none !important;padding:16px 18px;gap:10px;transition:opacity .4s ease, visibility .4s}
   .fa-form h1{font-size:21px}
 }
+/* ---------- Larger screens: the whole card grows, keeping its proportions ---------- */
+@media (min-width:1000px) and (min-height:720px){ .fa-card{zoom:1.25} }
+@media (min-width:1500px) and (min-height:860px){ .fa-card{zoom:1.4} }
+
 @media (prefers-reduced-motion:reduce){.fa-card-bg,.fa-hero,.fa-form{transition:none}}
 `;
