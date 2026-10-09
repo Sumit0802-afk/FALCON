@@ -3,7 +3,7 @@ import { z } from "zod";
 import { emailTemplateController, userEmailTemplateController } from "../controllers/emailTemplate.controller";
 import { optionalAuth, requireAuth } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate.middleware";
-import { emailSendRateLimit, emailTestRateLimit } from "../middleware/rateLimit.middleware";
+import { emailCompatRateLimit, emailSendRateLimit, emailTestRateLimit } from "../middleware/rateLimit.middleware";
 
 // ─── Library: /api/email-templates ────────────────────────────────────────────
 
@@ -58,6 +58,10 @@ const sendSchema = z.object({
   exact: z.boolean().optional(),
 });
 
+const compatSchema = z.object({
+  html: z.string().min(1).max(600_000, "This email is too large to send"),
+});
+
 export const userEmailTemplateRoutes = Router();
 userEmailTemplateRoutes.use(requireAuth);
 
@@ -65,6 +69,7 @@ userEmailTemplateRoutes.get("/", userEmailTemplateController.list);
 userEmailTemplateRoutes.post("/", validateBody(createSchema), userEmailTemplateController.create);
 userEmailTemplateRoutes.post("/send", emailSendRateLimit, validateBody(sendSchema), userEmailTemplateController.send);
 userEmailTemplateRoutes.post("/send-test", emailTestRateLimit, validateBody(sendTestSchema), userEmailTemplateController.sendTest);
+userEmailTemplateRoutes.post("/compat", emailCompatRateLimit, validateBody(compatSchema), userEmailTemplateController.compat);
 userEmailTemplateRoutes.get("/:id", userEmailTemplateController.get);
 userEmailTemplateRoutes.put("/:id", validateBody(updateSchema), userEmailTemplateController.update);
 userEmailTemplateRoutes.delete("/:id", userEmailTemplateController.remove);

@@ -5,6 +5,7 @@ import {
   EmailTemplateListQuery, EmailTemplateSort, emailTemplateService,
 } from "../services/emailTemplate.service";
 import { userEmailTemplateService } from "../services/userEmailTemplate.service";
+import { emailService } from "../services/email.service";
 import { parseArtParams, renderArtCached } from "../templates/email/art";
 
 const SORTS: EmailTemplateSort[] = ["recommended", "popular", "newest", "trending", "featured"];
@@ -135,6 +136,12 @@ export const userEmailTemplateController = {
 
   send: asyncHandler(async (req: Request, res: Response) => {
     res.status(200).json(await userEmailTemplateService.sendEmail(requireUser(req), req.body));
+  }),
+
+  /** How a design's HTML will be sent. Nothing is stored and nothing is sent */
+  compat: asyncHandler(async (req: Request, res: Response) => {
+    requireUser(req);
+    res.status(200).json(emailService.compatibilityVersion(req.body.html));
   }),
 
   sendTest: asyncHandler(async (req: Request, res: Response) => {

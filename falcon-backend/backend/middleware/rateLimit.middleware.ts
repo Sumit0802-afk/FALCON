@@ -72,6 +72,13 @@ export const emailTestRateLimit = createRateLimiter({
   message: "Too many test emails. Please wait a few minutes before sending another.",
 });
 
+/** Per-IP limit on asking how a design will be sent; the preview asks again after each edit (240 per 10m) */
+export const emailCompatRateLimit = createRateLimiter({
+  max: 240,
+  windowMs: 10 * 60 * 1000,
+  message: "Too many preview requests. Please wait a moment.",
+});
+
 /** Per-IP limit on sending a finished design to recipients (10 per 10m) */
 export const emailSendRateLimit = createRateLimiter({
   max: 10,

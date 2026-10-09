@@ -29,7 +29,7 @@ import BlockSidebar from "@/components/EmailDesigner/BlockSidebar";
 import TemplateSidebar from "@/components/EmailDesigner/TemplateSidebar";
 import EmailCanvas from "@/components/EmailDesigner/EmailCanvas";
 import PropertiesPanel from "@/components/EmailDesigner/PropertiesPanel";
-import PreviewModal from "@/components/EmailDesigner/PreviewModal";
+import PreviewLab from "@/components/EmailDesigner/PreviewLab";
 import ExportModal from "@/components/EmailDesigner/ExportModal";
 import DesignByHtmlModal from "@/components/EmailDesigner/DesignByHtmlModal";
 import HtmlCodePanel from "@/components/EmailDesigner/HtmlCodePanel";
@@ -436,6 +436,17 @@ function EmailDesignerPage() {
     push(updateBlock(sections, updated));
   }, [sections, push]);
 
+  // An email imported as written is one HTML block holding the author's whole document
+  const exactBlock = useMemo(() => {
+    const block = sections.length === 1 && sections[0].columns.length === 1 && sections[0].columns[0].blocks.length === 1 ? sections[0].columns[0].blocks[0] : null;
+    return block && block.type === "html" && isFullHtmlDocument(block.html) ? block : null;
+  }, [sections]);
+
+  /** Code typed in the preview window replaces the document, and nothing else about it */
+  const handleExactCodeChange = useCallback((html: string) => {
+    if (exactBlock) push(updateBlock(sections, { ...exactBlock, html }));
+  }, [exactBlock, sections, push]);
+
   const handleMoveBlock = useCallback((blockId: string, target: BlockTarget) => {
     const from = findBlock(sections, blockId);
     if (!from) return;
@@ -749,9 +760,10 @@ function EmailDesignerPage() {
 
       {/* ─── MODALS ──────────────────────────────────────────────────────── */}
       {showPreview && (
-        <PreviewModal
-          design={currentDesign}
-          initialMode={previewMode}
+        <PreviewLab
+          html={exactBlock ? exactBlock.html : currentHtml}
+          onHtmlChange={exactBlock ? handleExactCodeChange : undefined}
+          initialWidth={previewMode === "mobile" ? 390 : previewMode === "tablet" ? 768 : 1440}
           onClose={() => setShowPreview(false)}
         />
       )}

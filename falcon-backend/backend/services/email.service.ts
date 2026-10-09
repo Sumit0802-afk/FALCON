@@ -55,6 +55,19 @@ export interface DesignSendResult {
  * is drawn by a browser so it arrives exactly as made; if that cannot be done,
  * or it was not asked for, the design goes as HTML with its styles inlined.
  */
+/**
+ * A design's HTML made ready for mail apps: its stylesheet copied onto the
+ * elements, and every picture checked to be at an address a mail app can reach.
+ * The designer's preview asks for exactly this, so what is previewed as the
+ * "compatibility version" is what gets sent.
+ */
+function compatibleHtml(html: string): { html: string; unreachable: number } {
+  // Mail clients drop stylesheets, so the styles travel on the elements themselves
+  const inlined = inlineEmailStyles(html);
+  // Every picture must be at a public address; nothing is ever attached to the message
+  return process.env.NODE_ENV === "test" ? { html: inlined, unreachable: 0 } : checkEmailImages(inlined);
+}
+
 async function designBody(html: string, subject: string, asPicture: boolean | undefined, fallbackText: string) {
   let effects: EffectsOutcome = "off";
   let body = { html: "", text: fallbackText };
@@ -67,10 +80,11 @@ async function designBody(html: string, subject: string, asPicture: boolean | un
       if (effects === "failed") console.error(`[email.service] Could not draw the design effects (${err?.name || "Error"}); sending it without them`);
     }
   }
-  // Mail clients drop stylesheets, so the styles travel on the elements themselves
-  if (effects !== "drawn") body = { html: inlineEmailStyles(html), text: fallbackText };
-  // Every picture must be at a public address; nothing is ever attached to the message
-  const checked = process.env.NODE_ENV === "test" ? { html: body.html, unreachable: 0 } : checkEmailImages(body.html);
+  if (effects !== "drawn") {
+    const ready = compatibleHtml(html);
+    return { html: ready.html, text: fallbackText, effects, unreachableImages: ready.unreachable };
+  }
+  const checked = checkEmailImages(body.html);
   return { html: checked.html, text: body.text, effects, unreachableImages: checked.unreachable };
 }
 
@@ -334,6 +348,12 @@ function passwordResetHtml(name: string, resetUrl: string, expiresInMinutes: num
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const emailService = {
+  /** The HTML a design would be sent as, for the designer to show beside the original. Sends nothing */
+  compatibilityVersion(html: string): { html: string; unreachableImages: number; bytes: number } {
+    const ready = compatibleHtml(html);
+    return { html: ready.html, unreachableImages: ready.unreachable, bytes: Buffer.byteLength(ready.html) };
+  },
+
   /** Send a 6-digit OTP email to the user's registered address */
   async sendOtpEmail(opts: SendOtpOptions): Promise<void> {
     const { to, name = "there", otp, expiresInMinutes = 5 } = opts;

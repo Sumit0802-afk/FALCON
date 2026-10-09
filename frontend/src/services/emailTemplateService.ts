@@ -178,6 +178,21 @@ export function sendDesignEmail(input: SendEmailInput): Promise<{ success: boole
   return apiFetch("/user/email-templates/send", { method: "POST", body: JSON.stringify(input) });
 }
 
+export interface CompatibilityVersion {
+  html: string;
+  /** Pictures at an address a mail app cannot reach */
+  unreachableImages: number;
+  bytes: number;
+}
+
+/**
+ * The HTML that Falcon's mail server would send for this code: the same steps a
+ * real send runs, with nothing sent. Shown in the designer beside the original.
+ */
+export function getCompatibilityVersion(html: string): Promise<CompatibilityVersion> {
+  return apiFetch("/user/email-templates/compat", { method: "POST", body: JSON.stringify({ html }) });
+}
+
 /** Splits "a@x.com, b@y.com; c@z.com" into clean addresses. */
 export function parseRecipients(value: string): string[] {
   return [...new Set(value.split(/[,;\s]+/).map((v) => v.trim().toLowerCase()).filter(Boolean))];
