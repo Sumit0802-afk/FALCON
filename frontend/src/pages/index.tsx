@@ -605,7 +605,7 @@ const openTemplateByName = (name: string) => {
             }
 
             .falcon-navbar-nav {
-              gap: 24px;
+              gap: 28px;
             }
 
             .falcon-navbar-actions {
@@ -653,7 +653,7 @@ const openTemplateByName = (name: string) => {
               h-[53px]
               w-full
               items-center
-              justify-between
+              justify-between gap-5
               lg:grid
               lg:grid-cols-[1fr_auto_1fr]
               px-4
@@ -690,7 +690,7 @@ const openTemplateByName = (name: string) => {
                 hidden
                 items-center
                 justify-self-center
-                gap-6
+                gap-5 xl:gap-9
                 lg:flex
               "
             >
@@ -700,7 +700,7 @@ const openTemplateByName = (name: string) => {
                 onClick={openAIStudio}
                 className="
                   whitespace-nowrap
-                  text-[11px]
+                  text-[13px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -714,7 +714,7 @@ const openTemplateByName = (name: string) => {
                 onClick={openTemplatesPage}
                 className="
                   whitespace-nowrap
-                  text-[11px]
+                  text-[13px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -728,7 +728,7 @@ const openTemplateByName = (name: string) => {
                 onClick={() => router.push("/email-designer")}
                 className="
                   whitespace-nowrap
-                  text-[11px]
+                  text-[13px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
@@ -741,7 +741,7 @@ const openTemplateByName = (name: string) => {
                 href="#how"
                 className="
                   whitespace-nowrap
-                  text-[11px]
+                  text-[13px]
                   text-zinc-500
                   transition-colors
                   hover:text-white
