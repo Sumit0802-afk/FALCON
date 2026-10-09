@@ -103,7 +103,7 @@ async function readReference(file: Blob): Promise<string> {
 
 /* ─── Small controls ──────────────────────────────────────────────────────── */
 
-const LABEL = "mb-2 block font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500";
+const LABEL = "mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500";
 const FIELD = "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[12.5px] text-white outline-none transition focus:border-cyan-400/40";
 
 function Segmented<T extends string>({ value, options, onChange, disabled, label }: { value: T; options: { id: T; label: string; hint?: string }[]; onChange: (v: T) => void; disabled?: boolean; label: string }) {
@@ -118,7 +118,7 @@ function Segmented<T extends string>({ value, options, onChange, disabled, label
           title={option.hint}
           disabled={disabled}
           onClick={() => onChange(option.id)}
-          className={`rounded-md px-1 py-1.5 text-[11px] transition ${value === option.id ? "bg-cyan-400/15 font-semibold text-cyan-200" : "text-zinc-400 hover:bg-white/[0.05] hover:text-white"} disabled:cursor-not-allowed`}
+          className={`rounded-md px-1 py-1.5 text-[12.5px] transition ${value === option.id ? "bg-cyan-400/15 font-semibold text-cyan-200" : "text-zinc-400 hover:bg-white/[0.05] hover:text-white"} disabled:cursor-not-allowed`}
         >
           {option.label}
         </button>
@@ -130,7 +130,7 @@ function Segmented<T extends string>({ value, options, onChange, disabled, label
 function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10.5px] text-zinc-500">{label}</span>
+      <span className="mb-1.5 block text-[12px] text-zinc-500">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value as T)} className={`${FIELD} py-1.5 [&>option]:bg-[#0b0f14]`}>
         {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
       </select>
@@ -141,7 +141,7 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
 function Fold({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015]">
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-[11.5px] font-medium text-zinc-300 transition hover:text-white">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-[13px] font-medium text-zinc-300 transition hover:text-white">
         {title}
         <ChevronDown size={14} className={`text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -490,7 +490,7 @@ export default function StudioWorkspace() {
                     </button>
                   </div>
                   {references.length > 1 && (
-                    <select value={reference.role} onChange={(e) => setReferences((current) => current.map((item, i) => (i === index ? { ...item, role: e.target.value as StudioRole } : item)))} aria-label={`What reference ${index + 1} controls`} className="w-full border-t border-white/[0.08] bg-transparent px-2 py-1.5 text-[10.5px] text-zinc-300 outline-none [&>option]:bg-[#0b0f14]">
+                    <select value={reference.role} onChange={(e) => setReferences((current) => current.map((item, i) => (i === index ? { ...item, role: e.target.value as StudioRole } : item)))} aria-label={`What reference ${index + 1} controls`} className="w-full border-t border-white/[0.08] bg-transparent px-2 py-1.5 text-[12px] text-zinc-300 outline-none [&>option]:bg-[#0b0f14]">
                       {ROLES.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                     </select>
                   )}
@@ -509,13 +509,13 @@ export default function StudioWorkspace() {
             >
               <ImagePlus size={hasReference ? 15 : 20} className="text-cyan-300" />
               <span className="text-[12px] font-medium text-zinc-200">{hasReference ? "Add another reference" : "Upload a reference"}</span>
-              {!hasReference && <span className="text-[10.5px] leading-relaxed text-zinc-500">Drop a picture here, click to choose, or paste one.<br />It becomes the visual blueprint for your design.</span>}
+              {!hasReference && <span className="text-[12px] leading-relaxed text-zinc-500">Drop a picture here, click to choose, or paste one.<br />It becomes the visual blueprint for your design.</span>}
             </button>
           )}
           <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(e) => { void addFiles([...(e.target.files || [])]); e.target.value = ""; }} />
 
           {hasReference && (
-            <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-2 text-[10.5px] leading-relaxed text-zinc-300">
+            <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-2 text-[12px] leading-relaxed text-zinc-300">
               {analysing ? (
                 <span className="flex items-center gap-2 text-cyan-200"><Loader2 size={12} className="animate-spin" /> Analyzing the reference…</span>
               ) : analysis ? (
@@ -524,8 +524,8 @@ export default function StudioWorkspace() {
                   <span className="mt-1 block text-zinc-400">{analysis.summary}</span>
                   <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {palette.slice(0, 6).map((colour) => <span key={colour} data-theme-keep="" title={colour} className="h-3.5 w-3.5 rounded-full border border-white/25" style={{ backgroundColor: colour }} />)}
-                    {analysis.typography.category && <span className="rounded-full border border-white/[0.1] px-1.5 py-0.5 text-[9.5px] text-zinc-300">{analysis.typography.category}</span>}
-                    <span className="rounded-full border border-white/[0.1] px-1.5 py-0.5 text-[9.5px] text-zinc-300">{analysis.density.level} density</span>
+                    {analysis.typography.category && <span className="rounded-full border border-white/[0.1] px-1.5 py-0.5 text-[11.5px] text-zinc-300">{analysis.typography.category}</span>}
+                    <span className="rounded-full border border-white/[0.1] px-1.5 py-0.5 text-[11.5px] text-zinc-300">{analysis.density.level} density</span>
                   </span>
                 </>
               ) : (
@@ -546,12 +546,12 @@ export default function StudioWorkspace() {
             className={`${FIELD} resize-y leading-relaxed placeholder-zinc-600`}
           />
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <button type="button" onClick={() => void enhance()} disabled={prompt.trim().length < 3 || enhancing || working} className="flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-cyan-200 transition hover:bg-cyan-400/[0.14] disabled:opacity-40">
+            <button type="button" onClick={() => void enhance()} disabled={prompt.trim().length < 3 || enhancing || working} className="flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-400/[0.07] px-3 py-1.5 text-[12.5px] font-medium text-cyan-200 transition hover:bg-cyan-400/[0.14] disabled:opacity-40">
               {enhancing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
               Enhance prompt
             </button>
             {!prompt && PROMPTS.slice(0, 2).map((example) => (
-              <button key={example} type="button" onClick={() => setPrompt(example)} className="rounded-full border border-white/[0.08] px-2.5 py-1.5 text-[10.5px] text-zinc-500 transition hover:border-white/20 hover:text-zinc-200">{example}</button>
+              <button key={example} type="button" onClick={() => setPrompt(example)} className="rounded-full border border-white/[0.08] px-2.5 py-1.5 text-[12px] text-zinc-500 transition hover:border-white/20 hover:text-zinc-200">{example}</button>
             ))}
           </div>
         </div>
@@ -568,7 +568,7 @@ export default function StudioWorkspace() {
         <div>
           <span className={LABEL}>Reference strength</span>
           <Segmented label="Reference strength" value={settings.strength} options={STRENGTHS} onChange={(v) => set("strength", v)} disabled={!hasReference} />
-          <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-600">{hasReference ? STRENGTHS.find((s) => s.id === settings.strength)?.hint : "Add a reference to use these controls."}</p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-600">{hasReference ? STRENGTHS.find((s) => s.id === settings.strength)?.hint : "Add a reference to use these controls."}</p>
         </div>
         <div className={hasReference ? "" : "opacity-45"}>
           <span className={LABEL}>Reference controls</span>
@@ -591,36 +591,36 @@ export default function StudioWorkspace() {
             <Choice label="Output quality" value={settings.quality} options={[{ id: "standard", label: "Standard" }, { id: "high", label: "High" }]} onChange={(v) => set("quality", v)} />
             <Choice label="Variations when asked" value={String(settings.variations)} options={[{ id: "1", label: "4 (default)" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }]} onChange={(v) => set("variations", Number(v))} />
           </div>
-          {analysis && <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">These were chosen from your reference. Anything you change stays as you set it.</p>}
+          {analysis && <p className="mt-3 text-[12px] leading-relaxed text-zinc-600">These were chosen from your reference. Anything you change stays as you set it.</p>}
         </Fold>
 
         <Fold title="Prompt preview" open={showPrompt} onToggle={() => setShowPrompt((v) => !v)}>
           {compiled ? (
             <div className="space-y-3">
               <div>
-                <span className="mb-1 block text-[10.5px] text-zinc-500">Original prompt</span>
-                <p className="rounded-lg border border-white/[0.06] bg-black/30 px-2.5 py-2 text-[11px] leading-relaxed text-zinc-300">{prompt.trim() || "—"}</p>
+                <span className="mb-1 block text-[12px] text-zinc-500">Original prompt</span>
+                <p className="rounded-lg border border-white/[0.06] bg-black/30 px-2.5 py-2 text-[12.5px] leading-relaxed text-zinc-300">{prompt.trim() || "—"}</p>
               </div>
               {analysis && (
                 <div>
-                  <span className="mb-1 block text-[10.5px] text-zinc-500">Reference analysis</span>
-                  <p className="rounded-lg border border-white/[0.06] bg-black/30 px-2.5 py-2 text-[11px] leading-relaxed text-zinc-300">
+                  <span className="mb-1 block text-[12px] text-zinc-500">Reference analysis</span>
+                  <p className="rounded-lg border border-white/[0.06] bg-black/30 px-2.5 py-2 text-[12.5px] leading-relaxed text-zinc-300">
                     {[analysis.artDirection, analysis.layout.title && `Title: ${analysis.layout.title}`, analysis.layout.hero && `Hero: ${analysis.layout.hero}`, analysis.typography.headline && `Type: ${analysis.typography.headline}`, analysis.effects.length > 0 && `Effects: ${analysis.effects.join(", ")}`, `Density: ${analysis.density.level}, ${analysis.density.emptySpace}% empty`].filter(Boolean).join(" · ")}
                   </p>
                 </div>
               )}
               <div>
-                <span className="mb-1 flex items-center gap-1.5 text-[10.5px] text-zinc-500"><PenLine size={11} /> Compiled prompt (you can edit it)</span>
-                <textarea value={compiled} onChange={(e) => setCompiled(e.target.value)} rows={12} spellCheck={false} className={`${FIELD} resize-y font-mono text-[10.5px] leading-relaxed`} />
+                <span className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500"><PenLine size={11} /> Compiled prompt (you can edit it)</span>
+                <textarea value={compiled} onChange={(e) => setCompiled(e.target.value)} rows={12} spellCheck={false} className={`${FIELD} resize-y font-mono text-[12px] leading-relaxed`} />
               </div>
             </div>
           ) : (
-            <p className="text-[11px] leading-relaxed text-zinc-500">Press “Enhance prompt” to see the full prompt AI Studio builds from your words and the reference. You can edit it before generating.</p>
+            <p className="text-[12.5px] leading-relaxed text-zinc-500">Press “Enhance prompt” to see the full prompt AI Studio builds from your words and the reference. You can edit it before generating.</p>
           )}
         </Fold>
 
         {notes.length > 0 && (
-          <ul className="space-y-1 rounded-lg border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2 text-[10.5px] leading-relaxed text-amber-100/90">
+          <ul className="space-y-1 rounded-lg border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2 text-[12px] leading-relaxed text-amber-100/90">
             {notes.map((note) => <li key={note}>{note}</li>)}
           </ul>
         )}
@@ -722,7 +722,7 @@ export default function StudioWorkspace() {
 
               {fixing && outcome.artwork && (
                 <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-                  <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-zinc-300">
+                  <div className="mb-2 flex items-center justify-between text-[12.5px] font-medium text-zinc-300">
                     What is wrong?
                     <button type="button" onClick={() => setFixing(false)} aria-label="Close" className="text-zinc-500 hover:text-white"><X size={13} /></button>
                   </div>
@@ -730,13 +730,13 @@ export default function StudioWorkspace() {
                     {PROBLEMS.map((problem) => {
                       const on = problems.includes(problem);
                       return (
-                        <button key={problem} type="button" aria-pressed={on} onClick={() => setProblems((current) => (on ? current.filter((p) => p !== problem) : [...current, problem]))} className={`rounded-full border px-2.5 py-1 text-[10.5px] transition ${on ? "border-cyan-300/60 bg-cyan-400/15 text-cyan-100" : "border-white/[0.1] text-zinc-400 hover:text-white"}`}>
+                        <button key={problem} type="button" aria-pressed={on} onClick={() => setProblems((current) => (on ? current.filter((p) => p !== problem) : [...current, problem]))} className={`rounded-full border px-2.5 py-1 text-[12px] transition ${on ? "border-cyan-300/60 bg-cyan-400/15 text-cyan-100" : "border-white/[0.1] text-zinc-400 hover:text-white"}`}>
                           {problem}
                         </button>
                       );
                     })}
                   </div>
-                  <button type="button" onClick={() => void regenerate(`Fix only these problems and leave everything else exactly as it is: ${problems.join("; ")}.`)} disabled={!problems.length || !!busy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400/90 py-2 text-[11.5px] font-semibold text-black transition hover:bg-cyan-300 disabled:opacity-40">
+                  <button type="button" onClick={() => void regenerate(`Fix only these problems and leave everything else exactly as it is: ${problems.join("; ")}.`)} disabled={!problems.length || !!busy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400/90 py-2 text-[13px] font-semibold text-black transition hover:bg-cyan-300 disabled:opacity-40">
                     {busy === "fix" ? <Loader2 size={12} className="animate-spin" /> : <Wrench size={12} />} Fix only this
                   </button>
                 </div>
@@ -745,12 +745,12 @@ export default function StudioWorkspace() {
               {outcome.fidelity && (
                 <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
                   <div className="flex items-baseline justify-between">
-                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500">Reference fidelity</span>
-                    <span className={`text-[20px] font-semibold ${outcome.fidelity.score >= 75 ? "text-emerald-300" : outcome.fidelity.score >= FIDELITY_FLOOR ? "text-amber-200" : "text-red-300"}`}>{outcome.fidelity.score}<span className="text-[11px] text-zinc-500"> / 100</span></span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500">Reference fidelity</span>
+                    <span className={`text-[20px] font-semibold ${outcome.fidelity.score >= 75 ? "text-emerald-300" : outcome.fidelity.score >= FIDELITY_FLOOR ? "text-amber-200" : "text-red-300"}`}>{outcome.fidelity.score}<span className="text-[12.5px] text-zinc-500"> / 100</span></span>
                   </div>
                   <ul className="mt-2 space-y-1">
                     {outcome.fidelity.checks.map((check) => (
-                      <li key={check.label} className="flex items-center gap-2 text-[11px] text-zinc-300">
+                      <li key={check.label} className="flex items-center gap-2 text-[12.5px] text-zinc-300">
                         {check.passed ? <Check size={12} className="shrink-0 text-emerald-400" /> : <X size={12} className="shrink-0 text-red-400" />}
                         <span>{check.label}<span className="sr-only">{check.passed ? ": passed" : ": not passed"}</span></span>
                       </li>
@@ -760,7 +760,7 @@ export default function StudioWorkspace() {
               )}
 
               {outcome.kind === "layout" && (
-                <p className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-[10.5px] leading-relaxed text-zinc-500">
+                <p className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-[12px] leading-relaxed text-zinc-500">
                   This is an editable design: every piece of text, colour and picture can be changed in the editor. Download, Fix design and the fidelity check need a finished artwork, which this server cannot make yet.
                 </p>
               )}

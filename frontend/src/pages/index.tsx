@@ -675,7 +675,7 @@ const openTemplateByName = (name: string) => {
                 alt="Falcon Logo"
                 className="h-[23px] w-[23px] object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]"
               />
-              <span className="text-[11px] font-semibold tracking-[0.2em]">
+              <span className="text-[12.5px] font-semibold tracking-[0.2em]">
                 FALCON
               </span>
             </button>
@@ -776,7 +776,7 @@ const openTemplateByName = (name: string) => {
                     whitespace-nowrap
                     px-3
                     py-1.5
-                    text-[11px]
+                    text-[12.5px]
                     text-zinc-500
                     transition-colors
                     hover:text-white
@@ -803,7 +803,7 @@ const openTemplateByName = (name: string) => {
                   border-white/[0.10]
                   bg-white/[0.03]
                   px-4
-                  text-[11px]
+                  text-[12.5px]
                   font-medium
                   text-zinc-400
                   transition-all
@@ -832,7 +832,7 @@ const openTemplateByName = (name: string) => {
                   border-[#2F81FF]/60
                   bg-[#2F81FF]/[0.08]
                   px-4
-                  text-[11px]
+                  text-[12.5px]
                   font-medium
                   text-[#4DA3FF]
                   transition-all
@@ -1093,51 +1093,49 @@ const openTemplateByName = (name: string) => {
             <div className="ml-auto h-12 w-px bg-gradient-to-t from-[#2F81FF]/40 to-transparent" />
           </div>
 
-          <div className="pointer-events-none absolute left-[5%] xl:left-[7%] top-[26%] z-[5] hidden lg:block text-left">
-            <div className="font-mono text-[11px] font-medium uppercase leading-[1.85] tracking-[0.3em] text-white/50">
+          {/* Left side label: one group, set level with the headline */}
+          <div className="pointer-events-none absolute left-[4%] 2xl:left-[6%] items-start text-left top-1/2 z-[5] hidden -translate-y-[62%] flex-col min-[1400px]:flex">
+            <div className="font-mono text-[13px] font-medium uppercase leading-[1.9] tracking-[0.3em] text-white/60">
               <div>INTELLIGENT</div>
               <div>DESIGN</div>
               <div>SYSTEM</div>
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <span className="h-px w-7 bg-white/20" />
-              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-600">
-                001
-              </span>
+              <span className="h-px w-9 bg-white/25" />
+              <span className="font-mono text-[12.5px] tracking-[0.2em] text-zinc-500">001</span>
+            </div>
+
+            <div className="mt-9 flex items-center gap-2.5 font-mono text-[12.5px] tracking-[0.22em] text-zinc-400">
+              <span className="text-[12px] text-zinc-500">◇</span>
+              <span>VISUAL INTELLIGENCE</span>
             </div>
           </div>
 
-          <div className="pointer-events-none absolute left-[5%] xl:left-[7%] top-[56%] z-[5] hidden items-center gap-2.5 font-mono text-[9px] tracking-[0.22em] text-zinc-500 lg:flex">
-            <span className="text-[10px] text-zinc-500">◇</span>
-            <span>VISUAL INTELLIGENCE</span>
-          </div>
-
-          <div className="pointer-events-none absolute right-[5%] xl:right-[7%] top-[26%] z-[5] hidden text-right lg:block">
-            <div className="font-mono text-[11px] font-medium uppercase leading-[1.85] tracking-[0.3em] text-white/50">
+          {/* Right side label: one group, set level with the headline */}
+          <div className="pointer-events-none absolute right-[4%] 2xl:right-[6%] items-end text-right top-1/2 z-[5] hidden -translate-y-[62%] flex-col min-[1400px]:flex">
+            <div className="font-mono text-[13px] font-medium uppercase leading-[1.9] tracking-[0.3em] text-white/60">
               <div>IDEAS</div>
               <div>DESIGN</div>
               <div>INTELLIGENCE</div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-3">
-              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-600">
-                FALCON
-              </span>
-              <span className="h-px w-7 bg-white/20" />
+            <div className="mt-4 flex items-center gap-3">
+              <span className="font-mono text-[12.5px] tracking-[0.2em] text-zinc-500">FALCON</span>
+              <span className="h-px w-9 bg-white/25" />
             </div>
-          </div>
 
-          <div className="pointer-events-none absolute right-[5%] xl:right-[7%] top-[56%] z-[5] hidden items-center justify-end gap-2.5 font-mono text-[9px] tracking-[0.22em] text-zinc-500 lg:flex">
-            <span>CREATIVE SYSTEM</span>
-            <span className="text-[10px] text-zinc-500">◇</span>
+            <div className="mt-9 flex items-center gap-2.5 font-mono text-[12.5px] tracking-[0.22em] text-zinc-400">
+              <span>CREATIVE SYSTEM</span>
+              <span className="text-[12px] text-zinc-500">◇</span>
+            </div>
           </div>
 
           <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col items-center justify-center px-6 pb-16 pt-[92px] text-center lg:px-12">
             {/* Glowing badge matching Image 1 */}
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/60 px-4 py-1.5 shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
-              <span className="font-mono text-[10px] font-medium tracking-[0.2em] text-cyan-200/90">
+              <span className="font-mono text-[12px] font-medium tracking-[0.2em] text-cyan-200/90">
                 INTELLIGENT DESIGN SYSTEM
               </span>
             </div>
@@ -1183,7 +1181,7 @@ const openTemplateByName = (name: string) => {
 
 
 
-            <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[8px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
+            <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[10.5px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
               <span>
                 FALCON / 001
               </span>
@@ -1203,28 +1201,6 @@ const openTemplateByName = (name: string) => {
               </span>
             </div>
           </div>
-
-          <div className="pointer-events-none absolute bottom-[13%] left-[7%] z-[5] hidden min-[1800px]:block">
-            <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-700">
-              VISUAL LANGUAGE
-            </div>
-
-            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.22em] text-white/35">
-              PURPOSE / FORM / IMPACT
-            </div>
-          </div>
-
-          <div className="pointer-events-none absolute bottom-[13%] right-[7%] z-[5] hidden text-right min-[1800px]:block">
-            <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-700">
-              SYSTEM STATUS
-            </div>
-
-            <div className="mt-2 flex items-center justify-end gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-white/35">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500/70 shadow-[0_0_8px_rgba(34,197,94,.5)]" />
-
-              ACTIVE / 2026
-            </div>
-          </div>
         </section>
 
         {/* =====================================================
@@ -1241,7 +1217,7 @@ const openTemplateByName = (name: string) => {
               <div>
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+                  <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.18em] text-accent">
                     Email Designer
                   </span>
                 </div>
@@ -1279,7 +1255,7 @@ const openTemplateByName = (name: string) => {
                   <div className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
                 </div>
                 <div className="flex-1 text-center text-[12px] text-zinc-500">Untitled Email — Falcon Email Designer</div>
-                <div className="hidden items-center gap-2 text-[10px] sm:flex">
+                <div className="hidden items-center gap-2 text-[12px] sm:flex">
                   <span className="rounded border border-white/[0.10] px-2 py-0.5 text-zinc-500">Desktop</span>
                   <span className="rounded border border-white/[0.10] px-2 py-0.5 text-zinc-500">Mobile</span>
                   <span className="rounded bg-accent/15 px-2 py-0.5 text-accent">Export HTML</span>
@@ -1292,35 +1268,35 @@ const openTemplateByName = (name: string) => {
                 {/* LEFT: BLOCKS PANEL */}
                 <div className="border-b border-white/[0.08] bg-[#0B0D12] lg:border-b-0 lg:border-r">
                   <div className="border-b border-white/[0.08] px-4 py-2.5">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Content Blocks</span>
+                    <span className="font-mono text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Content Blocks</span>
                   </div>
                   <div className="space-y-0.5 overflow-y-auto p-3">
                     <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                      <span className="text-[10px] text-zinc-700">Search blocks…</span>
+                      <span className="text-[12px] text-zinc-700">Search blocks…</span>
                     </div>
-                    <div className="mb-1 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Basic</div>
+                    <div className="mb-1 px-1 font-mono text-[10.5px] font-semibold uppercase tracking-widest text-zinc-700">Basic</div>
                     {["Text","Heading","Image","Button","Divider","Spacer","Social"].map((b, i) => (
                       <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-white/[0.04]" style={{ opacity: i === 3 ? 1 : 0.65 }}>
-                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-[9px] ${i === 3 ? "bg-accent/20 text-accent" : "bg-white/[0.05] text-zinc-500"}`}>
+                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-[11px] ${i === 3 ? "bg-accent/20 text-accent" : "bg-white/[0.05] text-zinc-500"}`}>
                           {["T","H","🖼","◉","—","↕","🔗"][i]}
                         </div>
-                        <span className={`text-[11px] ${i === 3 ? "font-medium text-white" : "text-zinc-500"}`}>{b}</span>
+                        <span className={`text-[12.5px] ${i === 3 ? "font-medium text-white" : "text-zinc-500"}`}>{b}</span>
                         {i === 3 && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent" />}
                       </div>
                     ))}
-                    <div className="mb-1 mt-3 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Layout</div>
+                    <div className="mb-1 mt-3 px-1 font-mono text-[10.5px] font-semibold uppercase tracking-widest text-zinc-700">Layout</div>
                     {["1 Column","2 Columns","3 Columns"].map((b) => (
                       <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50 transition-colors hover:bg-white/[0.04]">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[9px] text-zinc-500">⫿</div>
-                        <span className="text-[11px] text-zinc-500">{b}</span>
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[11px] text-zinc-500">⫿</div>
+                        <span className="text-[12.5px] text-zinc-500">{b}</span>
                       </div>
                     ))}
-                    <div className="mb-1 mt-3 px-1 font-mono text-[8px] font-semibold uppercase tracking-widest text-zinc-700">Marketing</div>
+                    <div className="mb-1 mt-3 px-1 font-mono text-[10.5px] font-semibold uppercase tracking-widest text-zinc-700">Marketing</div>
                     {["Hero","Feature","CTA","Footer"].map((b) => (
                       <div key={b} className="flex cursor-grab items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50 transition-colors hover:bg-white/[0.04]">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[9px] text-zinc-500">◈</div>
-                        <span className="text-[11px] text-zinc-500">{b}</span>
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/[0.05] text-[11px] text-zinc-500">◈</div>
+                        <span className="text-[12.5px] text-zinc-500">{b}</span>
                       </div>
                     ))}
                   </div>
@@ -1367,12 +1343,12 @@ const openTemplateByName = (name: string) => {
                   <div className="flex shrink-0 items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#FF4D4D]" />
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500">HTML Email Code</span>
-                      <span className="rounded bg-[#FF4D4D]/10 px-1.5 py-0.5 font-mono text-[8px] font-semibold text-[#FF4D4D]">HTML</span>
+                      <span className="font-mono text-[12px] font-semibold uppercase tracking-wider text-zinc-500">HTML Email Code</span>
+                      <span className="rounded bg-[#FF4D4D]/10 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-[#FF4D4D]">HTML</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button className="rounded border border-white/[0.08] px-2 py-1 font-mono text-[9px] text-zinc-500 hover:text-zinc-300">Copy</button>
-                      <button className="rounded bg-accent/10 px-2 py-1 font-mono text-[9px] text-accent hover:bg-accent hover:text-black">Export</button>
+                      <button className="rounded border border-white/[0.08] px-2 py-1 font-mono text-[11px] text-zinc-500 hover:text-zinc-300">Copy</button>
+                      <button className="rounded bg-accent/10 px-2 py-1 font-mono text-[11px] text-accent hover:bg-accent hover:text-black">Export</button>
                     </div>
                   </div>
                   <div className="flex-1 overflow-auto p-3" style={{ fontFamily: "'JetBrains Mono','Courier New',monospace", fontSize: 10, lineHeight: 1.75 }}>
@@ -1403,14 +1379,14 @@ const openTemplateByName = (name: string) => {
                       { n:24, i:0, t:[{s:"</html>",c:"#FF4D4D"}] },
                     ].map(({ n, i, t }) => (
                       <div key={n} className="flex">
-                        <span className="mr-3 w-5 shrink-0 select-none text-right text-[9px] text-zinc-700">{n}</span>
+                        <span className="mr-3 w-5 shrink-0 select-none text-right text-[11px] text-zinc-700">{n}</span>
                         <span>{"  ".repeat(i)}{t.map((tok, idx) => <span key={idx} style={{ color: tok.c }}>{tok.s}</span>)}</span>
                       </div>
                     ))}
                   </div>
                   <div className="flex shrink-0 items-center justify-between border-t border-white/[0.05] px-4 py-1.5">
-                    <span className="font-mono text-[9px] text-zinc-700">24 lines · email-safe HTML</span>
-                    <span className="font-mono text-[9px] text-[#FF4D4D]">⬤ Live</span>
+                    <span className="font-mono text-[11px] text-zinc-700">24 lines · email-safe HTML</span>
+                    <span className="font-mono text-[11px] text-[#FF4D4D]">⬤ Live</span>
                   </div>
                 </div>
 
@@ -1418,7 +1394,7 @@ const openTemplateByName = (name: string) => {
             </div>
 
             {/* ─── FLOW LABEL ─────────────────────────────────────── */}
-            <div className="mb-12 hidden items-center justify-center gap-3 text-[11px] text-zinc-700 lg:flex">
+            <div className="mb-12 hidden items-center justify-center gap-3 text-[12.5px] text-zinc-700 lg:flex">
               <span>Design visually</span>
               <span className="max-w-[60px] flex-1 border-t border-dashed border-zinc-800" />
               <span className="text-accent">→</span>
@@ -1449,15 +1425,15 @@ const openTemplateByName = (name: string) => {
             {/* ─── TEMPLATE STRIP ─────────────────────────────────── */}
             <div>
               <div className="mb-4 flex items-center gap-4">
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Email Templates</span>
+                <span className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600">Email Templates</span>
                 <div className="h-px flex-1 bg-white/[0.04]" />
-                <button type="button" onClick={() => router.push("/email-templates")} className="text-[11px] text-accent hover:text-white">Browse all →</button>
+                <button type="button" onClick={() => router.push("/email-templates")} className="text-[12.5px] text-accent hover:text-white">Browse all →</button>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {["Welcome","Newsletter","Product Launch","Event","Promotional","Announcement","SaaS Update"].map((t, i) => (
                   <button key={t} type="button" onClick={() => router.push("/email-templates")} className="group shrink-0 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 transition-all hover:border-accent/30 hover:bg-accent/[0.05]">
                     <div className="mb-1.5 h-1 w-full rounded-full opacity-60" style={{ backgroundColor: ["#2F81FF","#22D3EE","#FF6B6B","#FFD93D","#C77DFF","#FF8C42","#00D084"][i] }} />
-                    <div className="text-[11px] text-zinc-500 group-hover:text-white">{t}</div>
+                    <div className="text-[12.5px] text-zinc-500 group-hover:text-white">{t}</div>
                   </button>
                 ))}
               </div>
@@ -1479,7 +1455,7 @@ const openTemplateByName = (name: string) => {
           <div className="pointer-events-none absolute inset-0 falcon-noise" />
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:items-end lg:gap-10 lg:px-12 xl:grid-cols-[minmax(420px,0.85fr)_minmax(560px,1.15fr)] xl:gap-16">
             <div className="min-w-0">
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-[#2F81FF]">
+              <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.28em] text-[#2F81FF]">
                 WHY FALCON
               </span>
 
@@ -1524,13 +1500,13 @@ const openTemplateByName = (name: string) => {
                   <div className="flex h-5 w-5 items-center justify-center rounded bg-[#2F81FF]/[0.08] border border-[#2F81FF]/20 text-[#2F81FF]">
                     <Cpu size={12} />
                   </div>
-                  <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-300 font-medium uppercase">
+                  <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-300 font-medium uppercase">
                     COMPUTATIONAL DESIGN ARCHITECTURE
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 rounded-full bg-[#2F81FF]/[0.07] border border-[#2F81FF]/20 px-3 py-1 font-mono text-[8px] text-[#4DA3FF] font-medium">
+                  <div className="flex items-center gap-1.5 rounded-full bg-[#2F81FF]/[0.07] border border-[#2F81FF]/20 px-3 py-1 font-mono text-[10.5px] text-[#4DA3FF] font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
                     <span>ENGINE SYNCHRONIZED</span>
                   </div>
@@ -1556,7 +1532,7 @@ const openTemplateByName = (name: string) => {
                     Falcon
                   </span>
 
-                  <span className="font-mono text-[7px] tracking-[0.25em] text-[#4DA3FF] font-medium">
+                  <span className="font-mono text-[10px] tracking-[0.25em] text-[#4DA3FF] font-medium">
                     INTELLIGENCE
                   </span>
                 </div>
@@ -1565,10 +1541,10 @@ const openTemplateByName = (name: string) => {
                 <div className="absolute top-8 right-3 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:right-8">
                   <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                   <div>
-                    <div className="font-mono text-[8px] font-bold text-white tracking-wider">
+                    <div className="font-mono text-[10.5px] font-bold text-white tracking-wider">
                       ✦ CREATIVE INTENT
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-500">
+                    <div className="font-mono text-[10px] text-zinc-500">
                       Natural language prompt
                     </div>
                   </div>
@@ -1578,10 +1554,10 @@ const openTemplateByName = (name: string) => {
                 <div className="absolute bottom-6 right-4 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:right-10">
                   <span className="h-2 w-2 rounded-full bg-[#4DA3FF] shadow-[0_0_8px_rgba(77,163,255,0.7)]" />
                   <div>
-                    <div className="font-mono text-[8px] font-bold text-white tracking-wider">
+                    <div className="font-mono text-[10.5px] font-bold text-white tracking-wider">
                       ⚡ DESIGN DNA
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-500">
+                    <div className="font-mono text-[10px] text-zinc-500">
                       Brand kit & typography
                     </div>
                   </div>
@@ -1591,10 +1567,10 @@ const openTemplateByName = (name: string) => {
                 <div className="absolute bottom-6 left-4 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:left-10">
                   <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_rgba(34,211,238,0.7)]" />
                   <div>
-                    <div className="font-mono text-[8px] font-bold text-white tracking-wider">
+                    <div className="font-mono text-[10.5px] font-bold text-white tracking-wider">
                       ◈ COMPOSITION
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-500">
+                    <div className="font-mono text-[10px] text-zinc-500">
                       Golden ratio & balance
                     </div>
                   </div>
@@ -1604,10 +1580,10 @@ const openTemplateByName = (name: string) => {
                 <div className="absolute top-8 left-3 z-20 flex max-w-[46%] items-center gap-2 rounded-[6px] border border-white/[0.10] bg-[#050505]/95 px-3 py-2 shadow-lg backdrop-blur-md transition-all duration-500 hover:border-[#2F81FF]/50 sm:left-8">
                   <span className="h-2 w-2 rounded-full bg-[#2F81FF] shadow-[0_0_8px_rgba(47,129,255,0.7)]" />
                   <div>
-                    <div className="font-mono text-[8px] font-bold text-white tracking-wider">
+                    <div className="font-mono text-[10.5px] font-bold text-white tracking-wider">
                       ⬡ ADAPTIVE CANVAS
                     </div>
-                    <div className="font-mono text-[7px] text-zinc-500">
+                    <div className="font-mono text-[10px] text-zinc-500">
                       Vector layout engine
                     </div>
                   </div>
@@ -1618,10 +1594,10 @@ const openTemplateByName = (name: string) => {
               <div className="relative z-10 overflow-x-auto border-t border-white/[0.10] bg-[#050505]/95 px-4 py-4 backdrop-blur-md sm:px-6">
                 <div className="flex min-w-[520px] items-center justify-between text-zinc-400">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[11px] font-bold">
                       1
                     </span>
-                    <span className="font-mono text-[9px] text-zinc-300 font-medium">
+                    <span className="font-mono text-[11px] text-zinc-300 font-medium">
                       PURPOSE & PROMPT
                     </span>
                   </div>
@@ -1632,10 +1608,10 @@ const openTemplateByName = (name: string) => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#2F81FF]/15 text-[#2F81FF] font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#2F81FF]/15 text-[#2F81FF] font-mono text-[11px] font-bold">
                       2
                     </span>
-                    <span className="font-mono text-[9px] text-[#4DA3FF] font-medium">
+                    <span className="font-mono text-[11px] text-[#4DA3FF] font-medium">
                       NEURAL VISUAL SYSTEM
                     </span>
                   </div>
@@ -1646,10 +1622,10 @@ const openTemplateByName = (name: string) => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[9px] font-bold">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#22D3EE]/15 text-[#22D3EE] font-mono text-[11px] font-bold">
                       3
                     </span>
-                    <span className="font-mono text-[9px] text-[#22D3EE] font-medium">
+                    <span className="font-mono text-[11px] text-[#22D3EE] font-medium">
                       MULTI-FORMAT OUTPUT
                     </span>
                   </div>
@@ -1669,7 +1645,7 @@ const openTemplateByName = (name: string) => {
         >
           <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
             <div className="mb-14">
-              <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
+              <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 THE SYSTEM
               </span>
 
@@ -1717,7 +1693,7 @@ const openTemplateByName = (name: string) => {
         <section className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
           <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
             <div className="mb-14">
-              <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
+              <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 HOW IT WORKS
               </span>
 
@@ -1772,7 +1748,7 @@ const openTemplateByName = (name: string) => {
         >
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             <div>
-              <span className="font-mono text-[9px] tracking-[0.25em] text-[#00D084] font-medium uppercase">
+              <span className="font-mono text-[11px] tracking-[0.25em] text-[#00D084] font-medium uppercase">
                 DESIGN INTELLIGENCE
               </span>
 
@@ -1790,7 +1766,7 @@ const openTemplateByName = (name: string) => {
               <button
                 type="button"
                 onClick={createDesign}
-                className="mt-8 inline-flex items-center gap-2.5 rounded-full border border-[#00D084]/40 bg-[#00D084]/10 px-6 py-3 font-mono text-[11px] font-medium text-white transition-all hover:bg-[#00D084]/20 hover:border-[#00D084] hover:text-[#00D084] hover:gap-3.5 shadow-lg"
+                className="mt-8 inline-flex items-center gap-2.5 rounded-full border border-[#00D084]/40 bg-[#00D084]/10 px-6 py-3 font-mono text-[12.5px] font-medium text-white transition-all hover:bg-[#00D084]/20 hover:border-[#00D084] hover:text-[#00D084] hover:gap-3.5 shadow-lg"
               >
                 <span>Try the system</span>
                 <ArrowUpRight size={14} className="text-[#00D084]" />
@@ -1802,12 +1778,12 @@ const openTemplateByName = (name: string) => {
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#00D084] shadow-[0_0_8px_#00D084]" />
-                  <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-400 uppercase font-medium">
+                  <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-400 uppercase font-medium">
                     LIVE DESIGN ANALYSIS
                   </span>
                 </div>
 
-                <span className="rounded-full bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-0.5 font-mono text-[8px] font-bold text-[#00D084] tracking-wider">
+                <span className="rounded-full bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-0.5 font-mono text-[10.5px] font-bold text-[#00D084] tracking-wider">
                   ACTIVE
                 </span>
               </div>
@@ -1841,20 +1817,20 @@ const openTemplateByName = (name: string) => {
                     <span className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                       92
                     </span>
-                    <span className="font-mono text-[8px] tracking-widest text-zinc-500 font-medium">
+                    <span className="font-mono text-[10.5px] tracking-widest text-zinc-500 font-medium">
                       /100
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <span className="inline-block rounded bg-[#00D084]/10 border border-[#00D084]/30 px-2 py-0.5 font-mono text-[8px] tracking-[0.16em] text-[#00D084] font-semibold uppercase">
+                  <span className="inline-block rounded bg-[#00D084]/10 border border-[#00D084]/30 px-2 py-0.5 font-mono text-[10.5px] tracking-[0.16em] text-[#00D084] font-semibold uppercase">
                     DESIGN SCORE
                   </span>
                   <h3 className="mt-1.5 text-2xl sm:text-3xl text-white font-semibold tracking-[-0.02em]">
                     Strong visual hierarchy
                   </h3>
-                  <p className="mt-1 font-mono text-[10px] text-zinc-400">
+                  <p className="mt-1 font-mono text-[12px] text-zinc-400">
                     Optimal eye path & zero focal friction
                   </p>
                 </div>
@@ -1892,15 +1868,15 @@ const openTemplateByName = (name: string) => {
                 <div className="flex items-start gap-3">
                   <Sparkles size={16} className="mt-0.5 text-[#00D084] shrink-0" />
                   <div>
-                    <span className="font-mono text-[8px] tracking-[0.16em] uppercase font-bold text-[#00D084]">
+                    <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase font-bold text-[#00D084]">
                       COACH ADVISORY
                     </span>
-                    <p className="mt-0.5 text-[11px] leading-snug text-zinc-300 font-light">
+                    <p className="mt-0.5 text-[12.5px] leading-snug text-zinc-300 font-light">
                       Boost primary CTA contrast (+15%) for peak retention.
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-md bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-1 font-mono text-[8px] font-semibold text-[#00D084]">
+                <span className="shrink-0 rounded-md bg-[#00D084]/15 border border-[#00D084]/30 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-[#00D084]">
                   QUICK TUNE
                 </span>
               </div>
@@ -1920,61 +1896,61 @@ const openTemplateByName = (name: string) => {
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
                 <div className="flex items-center gap-2.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                  <span className="font-mono text-[10px] tracking-wider text-zinc-300 uppercase font-medium">
+                  <span className="font-mono text-[12px] tracking-wider text-zinc-300 uppercase font-medium">
                     falcon.config.ts · Active Tokens
                   </span>
                 </div>
-                <span className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 font-mono text-[9px] text-zinc-400">
+                <span className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 font-mono text-[11px] text-zinc-400">
                   v2.6 STRICT
                 </span>
               </div>
 
               {/* COLOR PRIMITIVES */}
               <div className="mt-7">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 font-semibold">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-500 font-semibold">
                   01 · COLOR PRIMITIVES (WCAG AAA)
                 </span>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="rounded-lg border border-white/[0.08] bg-black p-3.5">
                     <div className="h-6 w-full rounded bg-black border border-white/20 mb-2" />
                     <div className="text-[12px] font-semibold text-white">#000000</div>
-                    <div className="font-mono text-[9px] text-zinc-500">Pure Canvas</div>
+                    <div className="font-mono text-[11px] text-zinc-500">Pure Canvas</div>
                   </div>
                   <div className="rounded-lg border border-white/[0.08] bg-black p-3.5">
                     <div className="h-6 w-full rounded bg-white mb-2" />
                     <div className="text-[12px] font-semibold text-white">#EDEDED</div>
-                    <div className="font-mono text-[9px] text-zinc-500">High Contrast</div>
+                    <div className="font-mono text-[11px] text-zinc-500">High Contrast</div>
                   </div>
                   <div className="rounded-lg border border-white/[0.08] bg-black p-3.5">
                     <div className="h-6 w-full rounded bg-[#0070f3] mb-2 shadow-[0_0_12px_rgba(0,112,243,0.4)]" />
                     <div className="text-[12px] font-semibold text-white">#0070F3</div>
-                    <div className="font-mono text-[9px] text-zinc-500">Electric Blue</div>
+                    <div className="font-mono text-[11px] text-zinc-500">Electric Blue</div>
                   </div>
                   <div className="rounded-lg border border-white/[0.08] bg-black p-3.5">
                     <div className="h-6 w-full rounded bg-[#00dfd8] mb-2 shadow-[0_0_12px_rgba(0,223,216,0.4)]" />
                     <div className="text-[12px] font-semibold text-white">#00DFD8</div>
-                    <div className="font-mono text-[9px] text-zinc-500">Cyan Apex</div>
+                    <div className="font-mono text-[11px] text-zinc-500">Cyan Apex</div>
                   </div>
                 </div>
               </div>
 
               {/* TYPOGRAPHIC RHYTHM SCALE */}
               <div className="mt-7 border-t border-white/[0.06] pt-6">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 font-semibold">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-500 font-semibold">
                   02 · MODULAR TYPOGRAPHIC SCALE (RATIO 1.25)
                 </span>
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-xs">
                     <span className="text-white font-semibold">Display Title</span>
-                    <span className="font-mono text-[10px] text-zinc-400">clamp(3.5rem, 6vw, 6rem) · -0.035em</span>
+                    <span className="font-mono text-[12px] text-zinc-400">clamp(3.5rem, 6vw, 6rem) · -0.035em</span>
                   </div>
                   <div className="flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-xs">
                     <span className="text-zinc-200 font-medium">Section Heading</span>
-                    <span className="font-mono text-[10px] text-zinc-400">32px / 2rem · -0.02em</span>
+                    <span className="font-mono text-[12px] text-zinc-400">32px / 2rem · -0.02em</span>
                   </div>
                   <div className="flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-xs">
                     <span className="text-zinc-300 font-normal">Body Text</span>
-                    <span className="font-mono text-[10px] text-zinc-400">15px / 1.6 leading · Neutral 400</span>
+                    <span className="font-mono text-[12px] text-zinc-400">15px / 1.6 leading · Neutral 400</span>
                   </div>
                 </div>
               </div>
@@ -1987,10 +1963,10 @@ const openTemplateByName = (name: string) => {
                   </span>
                   <div>
                     <div className="text-xs font-semibold text-white">Strict Spatial Baseline</div>
-                    <div className="font-mono text-[10px] text-zinc-400">Zero subpixel drift across exports</div>
+                    <div className="font-mono text-[12px] text-zinc-400">Zero subpixel drift across exports</div>
                   </div>
                 </div>
-                <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[9px] font-semibold text-emerald-400">
+                <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-400">
                   99.8% SYNC
                 </span>
               </div>
@@ -1998,7 +1974,7 @@ const openTemplateByName = (name: string) => {
 
             {/* RIGHT: EDITORIAL HEADLINE & CAPABILITIES */}
             <div>
-              <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
+              <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 DESIGN DNA // TOKEN ENGINE
               </span>
 
@@ -2019,7 +1995,7 @@ const openTemplateByName = (name: string) => {
                     <span className="font-mono text-xs text-zinc-500">01</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Adaptive Color Primitives</span>
                   </div>
-                  <span className="font-mono text-[10px] text-zinc-500 uppercase">Auto-Derives Palettes</span>
+                  <span className="font-mono text-[12px] text-zinc-500 uppercase">Auto-Derives Palettes</span>
                 </div>
 
                 <div className="py-4 flex items-center justify-between group cursor-default">
@@ -2027,7 +2003,7 @@ const openTemplateByName = (name: string) => {
                     <span className="font-mono text-xs text-zinc-500">02</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Typographic Modular Scale</span>
                   </div>
-                  <span className="font-mono text-[10px] text-zinc-500 uppercase">Golden Ratio 1.25</span>
+                  <span className="font-mono text-[12px] text-zinc-500 uppercase">Golden Ratio 1.25</span>
                 </div>
 
                 <div className="py-4 flex items-center justify-between group cursor-default">
@@ -2035,7 +2011,7 @@ const openTemplateByName = (name: string) => {
                     <span className="font-mono text-xs text-zinc-500">03</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Strict 8pt Spatial Baseline</span>
                   </div>
-                  <span className="font-mono text-[10px] text-zinc-500 uppercase">Pixel-Perfect Layouts</span>
+                  <span className="font-mono text-[12px] text-zinc-500 uppercase">Pixel-Perfect Layouts</span>
                 </div>
 
                 <div className="py-4 flex items-center justify-between group cursor-default">
@@ -2043,7 +2019,7 @@ const openTemplateByName = (name: string) => {
                     <span className="font-mono text-xs text-zinc-500">04</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Component Hierarchy & Weight</span>
                   </div>
-                  <span className="font-mono text-[10px] text-zinc-500 uppercase">Focal Path Optimized</span>
+                  <span className="font-mono text-[12px] text-zinc-500 uppercase">Focal Path Optimized</span>
                 </div>
               </div>
             </div>
@@ -2060,7 +2036,7 @@ const openTemplateByName = (name: string) => {
         >
           <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
             <div className="mb-16">
-              <span className="font-mono text-[9px] tracking-[0.25em] text-zinc-600">
+              <span className="font-mono text-[11px] tracking-[0.25em] text-zinc-600">
                 CREATIVE STARTING POINTS
               </span>
 
@@ -2133,7 +2109,7 @@ const openTemplateByName = (name: string) => {
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             {/* LEFT CONTENT */}
             <div>
-              <span className="font-mono text-[10px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
+              <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 ONE → MANY // CAMPAIGN ENGINE
               </span>
 
@@ -2164,11 +2140,11 @@ const openTemplateByName = (name: string) => {
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
-                  <span className="font-mono text-[10px] tracking-wider text-zinc-300 uppercase font-medium">
+                  <span className="font-mono text-[12px] tracking-wider text-zinc-300 uppercase font-medium">
                     Auto-Reflow Engine · Active
                   </span>
                 </div>
-                <span className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 font-mono text-[9px] text-zinc-400">
+                <span className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 font-mono text-[11px] text-zinc-400">
                   PARALLEL SYNC
                 </span>
               </div>
@@ -2185,19 +2161,19 @@ const openTemplateByName = (name: string) => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 p-3.5 flex flex-col justify-between">
                       <div className="flex items-center justify-between">
-                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">1:1 POST</span>
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">1:1 POST</span>
                         <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
-                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Autonomous Reflow</div>
+                        <div className="text-[11px] font-mono text-cyan-300/90 tracking-widest uppercase">Autonomous Reflow</div>
                       </div>
-                      <span className="text-[8px] font-mono text-zinc-400">1080 × 1080</span>
+                      <span className="text-[10.5px] font-mono text-zinc-400">1080 × 1080</span>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Instagram</span>
-                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
+                    <span className="font-mono text-[11px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
 
@@ -2211,22 +2187,22 @@ const openTemplateByName = (name: string) => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/60 p-3.5 flex flex-col justify-between">
                       <div className="flex items-center justify-between">
-                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">9:16 STORY</span>
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">9:16 STORY</span>
                         <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
                       </div>
                       <div className="text-center my-auto py-4">
                         <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
-                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Vertical Story</div>
+                        <div className="text-[11px] font-mono text-cyan-300/90 tracking-widest uppercase">Vertical Story</div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-mono text-zinc-400">1080 × 1920</span>
-                        <span className="text-[8px] font-mono text-zinc-300 bg-white/10 rounded px-1.5 py-0.5">TAP TO VIEW</span>
+                        <span className="text-[10.5px] font-mono text-zinc-400">1080 × 1920</span>
+                        <span className="text-[10.5px] font-mono text-zinc-300 bg-white/10 rounded px-1.5 py-0.5">TAP TO VIEW</span>
                       </div>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Reels & Story</span>
-                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
+                    <span className="font-mono text-[11px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
 
@@ -2240,30 +2216,30 @@ const openTemplateByName = (name: string) => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 p-3.5 flex flex-col justify-between">
                       <div className="flex items-center justify-between">
-                        <span className="rounded bg-black/60 px-2 py-0.5 text-[9px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">16:9 BANNER</span>
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] font-mono text-zinc-300 backdrop-blur-md border border-white/10">16:9 BANNER</span>
                         <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_6px_#22D3EE]" />
                       </div>
                       <div>
                         <div className="font-bold text-sm tracking-tight text-white drop-shadow-md">FALCON // CORE</div>
-                        <div className="text-[9px] font-mono text-cyan-300/90 tracking-widest uppercase">Display Billboard</div>
+                        <div className="text-[11px] font-mono text-cyan-300/90 tracking-widest uppercase">Display Billboard</div>
                       </div>
-                      <span className="text-[8px] font-mono text-zinc-400">1920 × 1080</span>
+                      <span className="text-[10.5px] font-mono text-zinc-400">1920 × 1080</span>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-200">Landscape</span>
-                    <span className="font-mono text-[9px] font-medium text-emerald-400">Ready</span>
+                    <span className="font-mono text-[11px] font-medium text-emerald-400">Ready</span>
                   </div>
                 </div>
               </div>
 
               {/* COMMAND PILL */}
-              <div className="mt-6 flex items-center justify-between rounded-lg border border-white/[0.08] bg-black px-4 py-2.5 font-mono text-[11px] text-zinc-400">
+              <div className="mt-6 flex items-center justify-between rounded-lg border border-white/[0.08] bg-black px-4 py-2.5 font-mono text-[12.5px] text-zinc-400">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-400">$</span>
                   <span>falcon remix --master=brand.canvas --all-channels</span>
                 </div>
-                <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[9px] text-zinc-300">
+                <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] text-zinc-300">
                   OPTIMIZED
                 </span>
               </div>
@@ -2307,7 +2283,7 @@ const openTemplateByName = (name: string) => {
                   </p>
                 </div>
 
-                <div className="mt-12 flex flex-col gap-2 font-mono text-[10px] tracking-wider text-zinc-500 uppercase">
+                <div className="mt-12 flex flex-col gap-2 font-mono text-[12px] tracking-wider text-zinc-500 uppercase">
                   <span>SYSTEM // FALCON OS 2.6</span>
                   <span>BUILDING THE FUTURE OF CREATIVE SYSTEMS</span>
                 </div>
@@ -2391,7 +2367,7 @@ const openTemplateByName = (name: string) => {
                 <span className="hidden sm:inline">·</span>
                 <span className="hidden sm:inline">Terms of Service</span>
               </div>
-              <div className="mt-4 sm:mt-0 font-mono text-[10px] tracking-widest text-zinc-500">
+              <div className="mt-4 sm:mt-0 font-mono text-[12px] tracking-widest text-zinc-500">
                 PURPOSE → DESIGN → INTELLIGENCE
               </div>
             </div>
@@ -2475,7 +2451,7 @@ function SystemCard({
     <div className="group relative flex min-h-[500px] flex-col border-b border-white/[0.08] bg-[#000000] p-7 transition-all duration-300 hover:bg-[#0a0a0a] md:border-r md:last:border-r-0 xl:border-b-0">
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-500 uppercase font-medium">
+        <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-500 uppercase font-medium">
           {number} // ARCHITECTURE
         </span>
 
@@ -2499,11 +2475,11 @@ function SystemCard({
       <div className="my-7 flex-1">
         {number === "01" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[9px] text-zinc-500">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[11px] text-zinc-500">
               <span>MANIFEST // BRIEF</span>
               <span className="text-blue-400 font-semibold">PR-01</span>
             </div>
-            <div className="space-y-2 font-mono text-[11px]">
+            <div className="space-y-2 font-mono text-[12.5px]">
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500">OBJECTIVE</span>
                 <span className="text-zinc-200 font-medium">Exhibition Launch</span>
@@ -2517,7 +2493,7 @@ function SystemCard({
                 <span className="text-blue-300">Avant-Garde Luxury</span>
               </div>
             </div>
-            <div className="pt-2 border-t border-white/[0.05] flex items-center justify-between font-mono text-[9px]">
+            <div className="pt-2 border-t border-white/[0.05] flex items-center justify-between font-mono text-[11px]">
               <span className="text-zinc-500">TOKEN WEIGHT</span>
               <span className="text-emerald-400 font-medium">100% Calibrated</span>
             </div>
@@ -2526,14 +2502,14 @@ function SystemCard({
 
         {number === "02" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[9px] text-zinc-500">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[11px] text-zinc-500">
               <span>OPTICAL HIERARCHY SCAN</span>
               <span className="text-emerald-400 flex items-center gap-1 font-semibold">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 OPTIMAL
               </span>
             </div>
-            <div className="space-y-2 font-mono text-[10px]">
+            <div className="space-y-2 font-mono text-[12px]">
               <div>
                 <div className="flex justify-between text-zinc-400 mb-1">
                   <span>Primary Eyeline Balance</span>
@@ -2557,29 +2533,29 @@ function SystemCard({
 
         {number === "03" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[9px] text-zinc-500">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[11px] text-zinc-500">
               <span>BRAND DNA // HARMONY</span>
               <span className="text-blue-400 font-semibold">CURATED</span>
             </div>
             <div className="grid grid-cols-4 gap-1.5 py-1">
               <div className="text-center">
                 <div className="h-7 rounded border border-white/[0.1] bg-[#000000]" />
-                <span className="mt-1 block font-mono text-[7px] text-zinc-500">#000000</span>
+                <span className="mt-1 block font-mono text-[10px] text-zinc-500">#000000</span>
               </div>
               <div className="text-center">
                 <div className="h-7 rounded border border-white/[0.1] bg-[#111111]" />
-                <span className="mt-1 block font-mono text-[7px] text-zinc-500">#111111</span>
+                <span className="mt-1 block font-mono text-[10px] text-zinc-500">#111111</span>
               </div>
               <div className="text-center">
                 <div className="h-7 rounded border border-white/[0.1] bg-[#0070f3]" />
-                <span className="mt-1 block font-mono text-[7px] text-zinc-500">#0070F3</span>
+                <span className="mt-1 block font-mono text-[10px] text-zinc-500">#0070F3</span>
               </div>
               <div className="text-center">
                 <div className="h-7 rounded border border-white/[0.1] bg-[#ededed]" />
-                <span className="mt-1 block font-mono text-[7px] text-zinc-500">#EDEDED</span>
+                <span className="mt-1 block font-mono text-[10px] text-zinc-500">#EDEDED</span>
               </div>
             </div>
-            <div className="pt-1.5 border-t border-white/[0.04] flex items-center justify-between font-mono text-[9px]">
+            <div className="pt-1.5 border-t border-white/[0.04] flex items-center justify-between font-mono text-[11px]">
               <span className="text-zinc-500">TYPE PAIRING</span>
               <span className="text-zinc-200">Plus Jakarta + Mono</span>
             </div>
@@ -2588,31 +2564,31 @@ function SystemCard({
 
         {number === "04" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[9px] text-zinc-500">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 font-mono text-[11px] text-zinc-500">
               <span>ADAPTIVE SYSTEM // OUTPUTS</span>
               <span className="text-white font-semibold">VECTOR</span>
             </div>
             <div className="flex items-end justify-center gap-3 py-1 h-14">
               <div className="flex flex-col items-center gap-1">
-                <div className="w-5 h-10 rounded-sm border border-white/[0.15] bg-white/[0.04] flex items-center justify-center font-mono text-[7px] text-zinc-300 font-bold">
+                <div className="w-5 h-10 rounded-sm border border-white/[0.15] bg-white/[0.04] flex items-center justify-center font-mono text-[10px] text-zinc-300 font-bold">
                   9:16
                 </div>
-                <span className="font-mono text-[7px] text-zinc-500">Vertical</span>
+                <span className="font-mono text-[10px] text-zinc-500">Vertical</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-sm border border-white/[0.15] bg-white/[0.04] flex items-center justify-center font-mono text-[7px] text-zinc-300 font-bold">
+                <div className="w-8 h-8 rounded-sm border border-white/[0.15] bg-white/[0.04] flex items-center justify-center font-mono text-[10px] text-zinc-300 font-bold">
                   1:1
                 </div>
-                <span className="font-mono text-[7px] text-zinc-500">Feed</span>
+                <span className="font-mono text-[10px] text-zinc-500">Feed</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <div className="w-14 h-7 rounded-sm border border-blue-400/30 bg-blue-500/10 flex items-center justify-center font-mono text-[7px] text-blue-300 font-bold">
+                <div className="w-14 h-7 rounded-sm border border-blue-400/30 bg-blue-500/10 flex items-center justify-center font-mono text-[10px] text-blue-300 font-bold">
                   16:9
                 </div>
-                <span className="font-mono text-[7px] text-zinc-500">Display</span>
+                <span className="font-mono text-[10px] text-zinc-500">Display</span>
               </div>
             </div>
-            <div className="pt-1.5 border-t border-white/[0.04] flex items-center justify-between font-mono text-[9px] text-zinc-500">
+            <div className="pt-1.5 border-t border-white/[0.04] flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 font-mono text-[11px] text-zinc-500">
               <span>VECTOR SCALING</span>
               <span className="text-emerald-400 font-medium">Lossless · Infinite DPI</span>
             </div>
@@ -2624,7 +2600,7 @@ function SystemCard({
       <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
         <span className="h-px w-8 bg-white/20 transition-all duration-300 group-hover:w-14 group-hover:bg-white/50" />
 
-        <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-500 transition-colors group-hover:text-white">
+        <div className="flex items-center gap-1 text-[12.5px] font-mono text-zinc-500 transition-colors group-hover:text-white">
           <span>Explore architecture</span>
           <ArrowUpRight
             size={12}
@@ -2661,7 +2637,7 @@ function ProcessCard({
           {icon}
         </div>
 
-        <span className="rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[9px] font-semibold tracking-widest text-zinc-400 uppercase">
+        <span className="rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
           {number}
         </span>
       </div>
@@ -2680,19 +2656,19 @@ function ProcessCard({
       <div className="my-6 flex-1">
         {step === "define" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between font-mono text-[9px]">
+            <div className="flex items-center justify-between font-mono text-[11px]">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                 Creative Brief
               </span>
               <span className="text-zinc-500">Structured</span>
             </div>
-            <div className="rounded-lg border border-white/[0.07] bg-black/60 px-3 py-2 font-mono text-[10px] text-zinc-200">
+            <div className="rounded-lg border border-white/[0.07] bg-black/60 px-3 py-2 font-mono text-[12px] text-zinc-200">
               <span className="text-zinc-500">PROMPT: </span>&quot;Exhibition Poster · Avant-Garde&quot;
             </div>
             <div className="flex flex-wrap gap-1.5">
               {["12-Col Grid", "1080×1350", "Serif Luxury"].map(tag => (
-                <span key={tag} className="rounded border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-mono text-[8px] text-zinc-300">
+                <span key={tag} className="rounded border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-mono text-[10.5px] text-zinc-300">
                   {tag}
                 </span>
               ))}
@@ -2702,7 +2678,7 @@ function ProcessCard({
 
         {step === "generate" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between font-mono text-[9px]">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 font-mono text-[11px]">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <Sparkles size={10} className="text-white" />
                 Multi-Direction Concepts
@@ -2711,16 +2687,16 @@ function ProcessCard({
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               <div className="rounded border border-white/[0.2] bg-white/[0.06] p-1.5 text-center">
-                <div className="h-9 rounded bg-white/[0.08] mb-1 flex items-center justify-center font-mono text-[8px] text-white font-bold">A</div>
-                <span className="font-mono text-[8px] text-white font-semibold">Minimal</span>
+                <div className="h-9 rounded bg-white/[0.08] mb-1 flex items-center justify-center font-mono text-[10.5px] text-white font-bold">A</div>
+                <span className="font-mono text-[10.5px] text-white font-semibold">Minimal</span>
               </div>
               <div className="rounded border border-white/[0.07] bg-white/[0.02] p-1.5 text-center opacity-50">
-                <div className="h-9 rounded bg-white/[0.04] mb-1 flex items-center justify-center font-mono text-[8px] text-zinc-400">B</div>
-                <span className="font-mono text-[8px] text-zinc-400">Editorial</span>
+                <div className="h-9 rounded bg-white/[0.04] mb-1 flex items-center justify-center font-mono text-[10.5px] text-zinc-400">B</div>
+                <span className="font-mono text-[10.5px] text-zinc-400">Editorial</span>
               </div>
               <div className="rounded border border-white/[0.07] bg-white/[0.02] p-1.5 text-center opacity-50">
-                <div className="h-9 rounded bg-white/[0.04] mb-1 flex items-center justify-center font-mono text-[8px] text-zinc-400">C</div>
-                <span className="font-mono text-[8px] text-zinc-400">Brutalist</span>
+                <div className="h-9 rounded bg-white/[0.04] mb-1 flex items-center justify-center font-mono text-[10.5px] text-zinc-400">C</div>
+                <span className="font-mono text-[10.5px] text-zinc-400">Brutalist</span>
               </div>
             </div>
           </div>
@@ -2728,16 +2704,16 @@ function ProcessCard({
 
         {step === "improve" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-            <div className="flex items-center justify-between font-mono text-[9px]">
+            <div className="flex items-center justify-between font-mono text-[11px]">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <Zap size={10} />
                 Design Coach
               </span>
-              <span className="rounded border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 font-bold text-emerald-400 text-[9px]">98/100</span>
+              <span className="rounded border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 font-bold text-emerald-400 text-[11px]">98/100</span>
             </div>
             <div className="space-y-2">
               <div>
-                <div className="flex justify-between font-mono text-[9px] text-zinc-400 mb-1">
+                <div className="flex justify-between font-mono text-[11px] text-zinc-400 mb-1">
                   <span>Visual Hierarchy</span>
                   <span className="text-white font-semibold">Optimal</span>
                 </div>
@@ -2745,7 +2721,7 @@ function ProcessCard({
                   <div className="h-full bg-gradient-to-r from-white to-zinc-400 w-[96%]" />
                 </div>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t border-white/[0.04] font-mono text-[9px]">
+              <div className="flex items-center justify-between pt-1 border-t border-white/[0.04] font-mono text-[11px]">
                 <span className="flex items-center gap-1 text-zinc-400">
                   <ShieldCheck size={10} className="text-emerald-400" />
                   Contrast Ratio
@@ -2758,7 +2734,7 @@ function ProcessCard({
 
         {step === "remix" && (
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2.5">
-            <div className="flex items-center justify-between font-mono text-[9px]">
+            <div className="flex items-center justify-between font-mono text-[11px]">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <RefreshCw size={10} />
                 Responsive Adaptation
@@ -2767,16 +2743,16 @@ function ProcessCard({
             </div>
             <div className="flex items-end justify-center gap-3 py-2">
               <div className="flex flex-col items-center gap-1">
-                <div className="w-6 h-10 rounded border border-white/[0.12] bg-white/[0.04] flex items-center justify-center font-mono text-[7px] text-zinc-300">9:16</div>
-                <span className="font-mono text-[8px] text-zinc-500">Story</span>
+                <div className="w-6 h-10 rounded border border-white/[0.12] bg-white/[0.04] flex items-center justify-center font-mono text-[10px] text-zinc-300">9:16</div>
+                <span className="font-mono text-[10.5px] text-zinc-500">Story</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded border border-white/[0.18] bg-white/[0.06] flex items-center justify-center font-mono text-[7px] text-white font-bold">1:1</div>
-                <span className="font-mono text-[8px] text-zinc-400">Post</span>
+                <div className="w-8 h-8 rounded border border-white/[0.18] bg-white/[0.06] flex items-center justify-center font-mono text-[10px] text-white font-bold">1:1</div>
+                <span className="font-mono text-[10.5px] text-zinc-400">Post</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <div className="w-14 h-7 rounded border border-white/[0.12] bg-white/[0.04] flex items-center justify-center font-mono text-[7px] text-zinc-300">16:9</div>
-                <span className="font-mono text-[8px] text-zinc-500">Banner</span>
+                <div className="w-14 h-7 rounded border border-white/[0.12] bg-white/[0.04] flex items-center justify-center font-mono text-[10px] text-zinc-300">16:9</div>
+                <span className="font-mono text-[10.5px] text-zinc-500">Banner</span>
               </div>
             </div>
           </div>
@@ -2786,7 +2762,7 @@ function ProcessCard({
       {/* FOOTER */}
       <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
         <span className="h-px w-8 bg-white/20 transition-all duration-300 group-hover:w-14 group-hover:bg-white/60" />
-        <div className="flex items-center gap-1 font-mono text-[11px] text-zinc-500 transition-colors group-hover:text-white">
+        <div className="flex items-center gap-1 font-mono text-[12.5px] text-zinc-500 transition-colors group-hover:text-white">
           <span>Explore step</span>
           <ArrowUpRight size={12} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </div>
@@ -2811,19 +2787,19 @@ function ScoreRow({
 }) {
   return (
     <div className="mb-4 last:mb-0">
-      <div className="mb-1.5 flex items-center justify-between text-[11px]">
+      <div className="mb-1.5 flex items-center justify-between text-[12.5px]">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] font-medium text-zinc-200">
+          <span className="font-mono text-[12.5px] font-medium text-zinc-200">
             {label}
           </span>
           {detail && (
-            <span className="font-mono text-[8px] tracking-wider text-zinc-500 uppercase hidden sm:inline">
+            <span className="font-mono text-[10.5px] tracking-wider text-zinc-500 uppercase hidden sm:inline">
               · {detail}
             </span>
           )}
         </div>
 
-        <span className="font-mono text-[10px] font-bold text-[#2F81FF]">
+        <span className="font-mono text-[12px] font-bold text-[#2F81FF]">
           {score}%
         </span>
       </div>
@@ -2857,7 +2833,7 @@ function DnaRow({
         {title}
       </span>
 
-      <span className="font-mono text-[8px] tracking-[0.15em] text-zinc-700">
+      <span className="font-mono text-[10.5px] tracking-[0.15em] text-zinc-700">
         {number}
       </span>
     </div>
@@ -2922,7 +2898,7 @@ function TemplateCard({
 
       {/* TOP HEADER */}
       <div className="relative z-10 flex items-center justify-between p-6">
-        <span className="font-mono text-[8px] tracking-[0.2em] text-blue-300/80 font-medium uppercase drop-shadow-sm">
+        <span className="font-mono text-[10.5px] tracking-[0.2em] text-blue-300/80 font-medium uppercase drop-shadow-sm">
           {category}
         </span>
 
@@ -2944,11 +2920,11 @@ function TemplateCard({
       {/* FOOTER */}
       <div className="relative z-10 border-t border-blue-400/[0.12] bg-[#07080c]/60 backdrop-blur-md px-6 py-4.5">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[8px] tracking-[0.16em] text-zinc-400">
+          <span className="font-mono text-[10.5px] tracking-[0.16em] text-zinc-400">
             FALCON / CREATIVE
           </span>
 
-          <span className="flex items-center gap-1.5 text-[11px] font-medium text-blue-300 transition-colors group-hover:text-white">
+          <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-blue-300 transition-colors group-hover:text-white">
             Open
             <ArrowUpRight size={12} />
           </span>
@@ -2971,7 +2947,7 @@ function FormatTag({
 }) {
   return (
     <span
-      className={`absolute rounded-sm border border-blue-400/[0.13] bg-[#111] px-4 py-2 font-mono text-[7px] tracking-[0.16em] text-zinc-600 ${className}`}
+      className={`absolute rounded-sm border border-blue-400/[0.13] bg-[#111] px-4 py-2 font-mono text-[10px] tracking-[0.16em] text-zinc-600 ${className}`}
     >
       {text}
     </span>

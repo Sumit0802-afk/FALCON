@@ -59,8 +59,8 @@ function TemplateCard({ template, busy, onPreview, onUse, onFavorite }: {
           <span className="rounded-full bg-white/95 px-4 py-2 text-[12px] font-medium text-black">Preview</span>
         </div>
         <div className="absolute left-2.5 top-2.5 flex gap-1.5">
-          {template.isFeatured && <span className="rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-medium text-[#22D3EE]">Featured</span>}
-          {template.isPremium && <span className="rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-medium text-[#f5c451]">Premium</span>}
+          {template.isFeatured && <span className="rounded-full bg-black/75 px-2 py-0.5 text-[12px] font-medium text-[#22D3EE]">Featured</span>}
+          {template.isPremium && <span className="rounded-full bg-black/75 px-2 py-0.5 text-[12px] font-medium text-[#f5c451]">Premium</span>}
         </div>
       </button>
 
@@ -75,7 +75,7 @@ function TemplateCard({ template, busy, onPreview, onUse, onFavorite }: {
 
       <div className="flex flex-1 flex-col border-t border-white/[0.06] px-4 py-3">
         <div className="truncate text-[13px] font-medium text-[#f4f1eb]" title={template.title}>{template.title}</div>
-        <div className="mt-0.5 truncate text-[11px] text-zinc-500">
+        <div className="mt-0.5 truncate text-[12.5px] text-zinc-500">
           {template.category.name} · {template.subcategory.name} · {template.width}×{template.height}
         </div>
         <button
@@ -131,7 +131,7 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite }: {
         <div className="flex min-h-[320px] flex-1 flex-col bg-[#0b0f14]">
           <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-4 py-2.5">
             {[false, true].map((m) => (
-              <button key={String(m)} type="button" onClick={() => setMobile(m)} className={`rounded-full px-3 py-1 text-[11px] transition ${mobile === m ? "bg-white/[0.12] text-white" : "text-zinc-500 hover:text-zinc-300"}`}>
+              <button key={String(m)} type="button" onClick={() => setMobile(m)} className={`rounded-full px-3 py-1 text-[12.5px] transition ${mobile === m ? "bg-white/[0.12] text-white" : "text-zinc-500 hover:text-zinc-300"}`}>
                 {m ? "Mobile" : "Desktop"}
               </button>
             ))}
@@ -149,11 +149,11 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite }: {
         <div className="flex w-full shrink-0 flex-col gap-4 border-t border-white/[0.06] p-6 md:w-[320px] md:border-l md:border-t-0">
           <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-zinc-300 hover:text-white"><X size={16} /></button>
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[#22D3EE]">{card.category.name} · {card.subcategory.name}</div>
+            <div className="text-[12.5px] uppercase tracking-[0.18em] text-[#22D3EE]">{card.category.name} · {card.subcategory.name}</div>
             <h2 className="mt-2 text-[18px] font-semibold leading-snug text-[#f4f1eb]">{card.title}</h2>
             <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-400">{card.description}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-zinc-500">
+          <div className="grid grid-cols-2 gap-2 text-[12.5px] text-zinc-500">
             <div className="rounded-lg border border-white/[0.06] p-2.5"><div className="text-zinc-600">Size</div><div className="text-zinc-300">{card.width} × {card.height}px</div></div>
             <div className="rounded-lg border border-white/[0.06] p-2.5"><div className="text-zinc-600">Used</div><div className="text-zinc-300">{card.usageCount.toLocaleString()} times</div></div>
             <div className="rounded-lg border border-white/[0.06] p-2.5"><div className="text-zinc-600">By</div><div className="text-zinc-300">{card.author}</div></div>
@@ -161,7 +161,7 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite }: {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {card.tags.slice(0, 10).map((tag) => (
-              <span key={tag} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10.5px] text-zinc-400">{tag}</span>
+              <span key={tag} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[12px] text-zinc-400">{tag}</span>
             ))}
           </div>
           <div className="mt-auto flex flex-col gap-2">
@@ -172,7 +172,7 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite }: {
               <Heart size={13} fill={card.isFavorite ? "#ff5a79" : "none"} color={card.isFavorite ? "#ff5a79" : "currentColor"} />
               {card.isFavorite ? "Saved to favorites" : "Add to favorites"}
             </button>
-            <p className="text-center text-[10.5px] text-zinc-600">Opens an editable copy. The original stays unchanged.</p>
+            <p className="text-center text-[12px] text-zinc-600">Opens an editable copy. The original stays unchanged.</p>
           </div>
         </div>
       </div>
@@ -447,7 +447,7 @@ export default function EmailTemplatesPage() {
         <main className="relative mx-auto w-full max-w-[1400px] px-5 pb-24 pt-[124px] lg:px-8">
           {/* Hero + search */}
           <div className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] text-zinc-400">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[12.5px] text-zinc-400">
               <Sparkles size={12} className="text-[#22D3EE]" />
               Editable email templates
             </div>
@@ -489,7 +489,7 @@ export default function EmailTemplatesPage() {
             {!isMine && view !== "recent" && (
               <aside className="w-full shrink-0 lg:w-[230px]">
                 <div className="rounded-2xl border border-white/[0.08] bg-[#0b0f14]/80 p-3 lg:sticky lg:top-[108px] lg:max-h-[calc(100vh-130px)] lg:overflow-y-auto lg:[scrollbar-width:thin] lg:[scrollbar-color:rgba(255,255,255,0.15)_transparent]">
-                  <div className="px-2 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">Categories</div>
+                  <div className="px-2 pb-2 font-mono text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-600">Categories</div>
                   <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:block lg:space-y-0.5">
                     <button type="button" onClick={() => { setCategory(null); setSubcategory(null); }} className={`flex shrink-0 items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition lg:w-full ${!category ? "bg-white/[0.08] text-white" : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"}`}>
                       <span>All categories</span>
@@ -502,7 +502,7 @@ export default function EmailTemplatesPage() {
                         {category === c.slug && (
                           <div className="hidden lg:block lg:pb-1 lg:pl-2.5">
                             {c.children.map((child) => (
-                              <button key={child.slug} type="button" onClick={() => setSubcategory(child.slug === subcategory ? null : child.slug)} className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1 text-left text-[11.5px] transition ${subcategory === child.slug ? "text-[#22D3EE]" : "text-zinc-500 hover:text-white"}`}>
+                              <button key={child.slug} type="button" onClick={() => setSubcategory(child.slug === subcategory ? null : child.slug)} className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1 text-left text-[13px] transition ${subcategory === child.slug ? "text-[#22D3EE]" : "text-zinc-500 hover:text-white"}`}>
                                 <span>{child.name}</span>
                               </button>
                             ))}
@@ -514,10 +514,10 @@ export default function EmailTemplatesPage() {
 
                   {tags.length > 0 && (
                     <div className="mt-4 hidden border-t border-white/[0.06] pt-3 lg:block">
-                      <div className="px-2 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">Tags</div>
+                      <div className="px-2 pb-2 font-mono text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-600">Tags</div>
                       <div className="flex flex-wrap gap-1.5 px-1">
                         {tags.slice(0, 24).map((t) => (
-                          <button key={t.slug} type="button" onClick={() => setTag(t.slug === tag ? null : t.slug)} className={`rounded-full border px-2 py-0.5 text-[10.5px] transition ${tag === t.slug ? "border-[#22D3EE]/60 text-[#22D3EE]" : "border-white/[0.08] text-zinc-500 hover:border-white/20 hover:text-white"}`}>
+                          <button key={t.slug} type="button" onClick={() => setTag(t.slug === tag ? null : t.slug)} className={`rounded-full border px-2 py-0.5 text-[12px] transition ${tag === t.slug ? "border-[#22D3EE]/60 text-[#22D3EE]" : "border-white/[0.08] text-zinc-500 hover:border-white/20 hover:text-white"}`}>
                             {t.name}
                           </button>
                         ))}
@@ -534,7 +534,7 @@ export default function EmailTemplatesPage() {
               {activeCategory && !isMine && (
                 <div className="mb-4 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
                   {activeCategory.children.map((child) => (
-                    <button key={child.slug} type="button" onClick={() => setSubcategory(child.slug === subcategory ? null : child.slug)} className={`shrink-0 rounded-full border px-3 py-1 text-[11.5px] ${subcategory === child.slug ? "border-[#22D3EE]/60 text-[#22D3EE]" : "border-white/[0.08] text-zinc-400"}`}>
+                    <button key={child.slug} type="button" onClick={() => setSubcategory(child.slug === subcategory ? null : child.slug)} className={`shrink-0 rounded-full border px-3 py-1 text-[13px] ${subcategory === child.slug ? "border-[#22D3EE]/60 text-[#22D3EE]" : "border-white/[0.08] text-zinc-400"}`}>
                       {child.name}
                     </button>
                   ))}
@@ -571,7 +571,7 @@ export default function EmailTemplatesPage() {
                       </button>
                       <div className="border-t border-white/[0.06] px-4 py-3">
                         <div className="truncate text-[13px] font-medium text-[#f4f1eb]" title={template.name}>{template.name}</div>
-                        <div className="mt-0.5 text-[11px] text-zinc-500">Edited {new Date(template.updatedAt).toLocaleDateString()}</div>
+                        <div className="mt-0.5 text-[12.5px] text-zinc-500">Edited {new Date(template.updatedAt).toLocaleDateString()}</div>
                         <div className="mt-2.5 flex items-center gap-1 text-zinc-400">
                           <button type="button" onClick={() => renameMine(template)} title="Rename" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/[0.08] hover:text-white"><Pencil size={13} /></button>
                           <button type="button" onClick={() => duplicateMine(template)} title="Duplicate" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/[0.08] hover:text-white"><Copy size={13} /></button>

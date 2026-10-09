@@ -52,7 +52,7 @@ const COLOR_DOT: Record<string, string> = {
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">{label}</span>
+      <span className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -78,9 +78,9 @@ function Card({ card, busy, onPreview, onUse, onFavorite }: { card: LibraryCard;
         <div className="absolute inset-3">
           <TemplateThumb src={libraryPageUrl(card.id)} title={card.title} backing="bg-transparent" />
         </div>
-        <span className="absolute left-2.5 top-2.5 rounded-full border border-emerald-400/25 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-emerald-300 backdrop-blur">Editable</span>
+        <span className="absolute left-2.5 top-2.5 rounded-full border border-emerald-400/25 bg-black/70 px-2 py-0.5 text-[12px] font-medium text-emerald-300 backdrop-blur">Editable</span>
         {deck && (
-          <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-zinc-200 backdrop-blur">
+          <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[12px] font-medium text-zinc-200 backdrop-blur">
             <Layers size={10} /> {card.slideCount} slides
           </span>
         )}
@@ -99,8 +99,8 @@ function Card({ card, busy, onPreview, onUse, onFavorite }: { card: LibraryCard;
       </button>
       <div className="flex flex-1 flex-col p-3.5">
         <div className="line-clamp-2 text-[13px] font-medium leading-snug text-white" title={card.title}>{card.title}</div>
-        <div className="mt-1.5 truncate text-[11.5px] text-zinc-500">{card.subcategoryName} · {card.styleName}</div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-600">
+        <div className="mt-1.5 truncate text-[13px] text-zinc-500">{card.subcategoryName} · {card.styleName}</div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-[12.5px] text-zinc-600">
           <span className="truncate">{card.width} × {card.height}{deck ? ` · ${card.aspect}` : ""}</span>
           <span className="flex shrink-0 gap-1">
             {card.palette.slice(0, 4).map((color, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-white/20" style={{ background: color }} />)}
@@ -165,7 +165,7 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite, onOpen }: { card
               {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
                 <button key={n} type="button" data-page={n} onClick={() => setPage(n)} aria-label={`Slide ${n}`} aria-current={n === page} className={`relative h-[58px] w-[98px] shrink-0 overflow-hidden rounded-md border transition ${n === page ? "border-[#2F81FF]" : "border-white/10 opacity-70 hover:opacity-100"}`}>
                   <TemplateThumb src={libraryPageUrl(card.id, n)} title={`Slide ${n}`} backing="bg-[#0e1319]" />
-                  <span className="absolute bottom-0.5 right-1 rounded bg-black/70 px-1 text-[9px] text-white">{n}</span>
+                  <span className="absolute bottom-0.5 right-1 rounded bg-black/70 px-1 text-[11px] text-white">{n}</span>
                 </button>
               ))}
             </div>
@@ -174,11 +174,11 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite, onOpen }: { card
 
         <aside className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto p-5 lg:w-[320px]">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">{card.id}</div>
+            <div className="font-mono text-[12px] uppercase tracking-[0.16em] text-zinc-500">{card.id}</div>
             <h2 className="mt-1.5 text-[17px] font-semibold leading-snug text-white">{card.title}</h2>
             <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-400">{card.description}</p>
           </div>
-          <dl className="grid grid-cols-2 gap-2 text-[11.5px]">
+          <dl className="grid grid-cols-2 gap-2 text-[13px]">
             {[
               ["Category", card.subcategoryName], ["Style", card.styleName], ["Size", `${card.width} × ${card.height}`],
               [card.type === "presentation" ? "Slides" : "Format", card.type === "presentation" ? `${card.slideCount} · ${card.aspect}` : card.sizeName],
@@ -192,11 +192,11 @@ function PreviewModal({ card, busy, onClose, onUse, onFavorite, onOpen }: { card
           </dl>
           <div className="flex items-center gap-2">
             {card.palette.map((color, i) => <span key={i} className="h-6 w-6 rounded-full border border-white/20" style={{ background: color }} title={color} />)}
-            <span className="ml-1 text-[11px] text-zinc-500">Every colour is editable</span>
+            <span className="ml-1 text-[12.5px] text-zinc-500">Every colour is editable</span>
           </div>
           {related.length > 0 && (
             <div>
-              <div className="mb-2 font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">More like this</div>
+              <div className="mb-2 font-mono text-[11.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">More like this</div>
               <div className="grid grid-cols-3 gap-2">
                 {related.map((item) => (
                   <button
@@ -496,12 +496,12 @@ export function LibraryBrowser({ basePath = "/library", heading = true, external
       {/* Colour shortcuts */}
       {facets && (
         <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <span className="shrink-0 font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Colour</span>
+          <span className="shrink-0 font-mono text-[11.5px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Colour</span>
           {facets.colors.map((c) => (
             <button key={c.slug} type="button" title={c.name} aria-label={`${c.name} templates`} aria-pressed={filters.color === c.slug} onClick={() => setFilter({ color: filters.color === c.slug ? undefined : c.slug })} className={`h-6 w-6 shrink-0 rounded-full border-2 transition ${filters.color === c.slug ? "scale-110 border-white" : "border-white/20 hover:border-white/60"}`} style={{ background: COLOR_DOT[c.slug] || "#888" }} />
           ))}
           {activeFilters > 0 && (
-            <button type="button" onClick={() => { setFilters(EMPTY); setFavoritesOnly(false); }} className="ml-2 shrink-0 rounded-full border border-white/[0.10] px-3 py-1 text-[11.5px] text-zinc-400 hover:text-white">Clear filters</button>
+            <button type="button" onClick={() => { setFilters(EMPTY); setFavoritesOnly(false); }} className="ml-2 shrink-0 rounded-full border border-white/[0.10] px-3 py-1 text-[13px] text-zinc-400 hover:text-white">Clear filters</button>
           )}
         </div>
       )}

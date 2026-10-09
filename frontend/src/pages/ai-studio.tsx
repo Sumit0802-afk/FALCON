@@ -141,13 +141,13 @@ export default function AIStudioPage() {
 
           <div className="pointer-events-none absolute left-10 top-[20%] hidden xl:block">
 
-            <div className="font-mono text-[9px] tracking-[0.3em] text-zinc-600">
+            <div className="font-mono text-[11px] tracking-[0.3em] text-zinc-600">
               FALCON
             </div>
 
             <div className="mt-4 h-20 w-px bg-gradient-to-b from-cyan-400/50 to-transparent" />
 
-            <div className="mt-4 [writing-mode:vertical-rl] font-mono text-[8px] tracking-[0.35em] text-zinc-800">
+            <div className="mt-4 [writing-mode:vertical-rl] font-mono text-[10.5px] tracking-[0.35em] text-zinc-800">
               INTENT / DIRECTION / FORM
             </div>
 
@@ -157,13 +157,13 @@ export default function AIStudioPage() {
 
           <div className="pointer-events-none absolute right-10 top-[20%] hidden text-right xl:block">
 
-            <div className="font-mono text-[9px] tracking-[0.3em] text-zinc-600">
+            <div className="font-mono text-[11px] tracking-[0.3em] text-zinc-600">
               AI / 001
             </div>
 
             <div className="mt-4 ml-auto h-20 w-px bg-gradient-to-b from-cyan-400/40 to-transparent" />
 
-            <div className="mt-4 [writing-mode:vertical-rl] font-mono text-[8px] tracking-[0.35em] text-zinc-800">
+            <div className="mt-4 [writing-mode:vertical-rl] font-mono text-[10.5px] tracking-[0.35em] text-zinc-800">
               CREATIVE INTELLIGENCE
             </div>
 
@@ -184,7 +184,7 @@ export default function AIStudioPage() {
                 className="text-cyan-300"
               />
 
-              <span className="font-mono text-[9px] font-medium tracking-[0.24em] text-cyan-200/75">
+              <span className="font-mono text-[11px] font-medium tracking-[0.24em] text-cyan-200/75">
                 FALCON INTELLIGENCE
               </span>
 
@@ -265,7 +265,7 @@ export default function AIStudioPage() {
 
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/70 shadow-[0_0_12px_rgba(34,211,238,0.45)]" />
 
-              <span className="font-mono text-[8px] tracking-[0.22em] text-zinc-700">
+              <span className="font-mono text-[10.5px] tracking-[0.22em] text-zinc-700">
                 INTELLIGENCE ENGINE ACTIVE
               </span>
 
@@ -273,7 +273,7 @@ export default function AIStudioPage() {
 
             <div className="hidden items-center gap-4 md:flex">
 
-              <span className="font-mono text-[8px] tracking-[0.2em] text-zinc-800">
+              <span className="font-mono text-[10.5px] tracking-[0.2em] text-zinc-800">
                 PURPOSE
               </span>
 
@@ -282,7 +282,7 @@ export default function AIStudioPage() {
                 className="text-zinc-800"
               />
 
-              <span className="font-mono text-[8px] tracking-[0.2em] text-zinc-800">
+              <span className="font-mono text-[10.5px] tracking-[0.2em] text-zinc-800">
                 DIRECTION
               </span>
 
@@ -291,13 +291,13 @@ export default function AIStudioPage() {
                 className="text-zinc-800"
               />
 
-              <span className="font-mono text-[8px] tracking-[0.2em] text-zinc-800">
+              <span className="font-mono text-[10.5px] tracking-[0.2em] text-zinc-800">
                 DESIGN
               </span>
 
             </div>
 
-            <span className="ml-auto font-mono text-[8px] tracking-[0.2em] text-zinc-800">
+            <span className="ml-auto font-mono text-[10.5px] tracking-[0.2em] text-zinc-800">
               FALCON / AI STUDIO / 001
             </span>
 
@@ -380,7 +380,7 @@ function IntelligenceCard({
           {icon}
         </div>
 
-        <span className="font-mono text-[8px] tracking-[0.16em] text-zinc-800">
+        <span className="font-mono text-[10.5px] tracking-[0.16em] text-zinc-800">
           {number}
         </span>
 
@@ -392,7 +392,7 @@ function IntelligenceCard({
           {title}
         </h3>
 
-        <p className="mt-3 text-[11px] leading-5 text-zinc-600">
+        <p className="mt-3 text-[12.5px] leading-5 text-zinc-600">
           {description}
         </p>
 

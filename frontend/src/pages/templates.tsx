@@ -636,33 +636,33 @@ export default function TemplatesPage() {
         <section className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-center pt-[88px] text-center">
           {/* Corner annotations (matches homepage aesthetic) */}
           <div className="pointer-events-none absolute left-[7%] top-[28%] hidden lg:block">
-            <div className="font-mono text-[11px] font-medium uppercase leading-[2] tracking-[0.32em] text-white/40">
+            <div className="font-mono text-[12.5px] font-medium uppercase leading-[2] tracking-[0.32em] text-white/40">
               <div>DESIGN</div>
               <div>LIBRARY</div>
             </div>
             <div className="mt-4 flex items-center gap-3">
               <span className="h-px w-8 bg-white/25" />
-              <span className="font-mono text-[10px] tracking-[0.22em] text-zinc-700">001</span>
+              <span className="font-mono text-[12px] tracking-[0.22em] text-zinc-700">001</span>
             </div>
           </div>
 
           <div className="pointer-events-none absolute right-[7%] top-[28%] hidden text-right lg:block">
-            <div className="font-mono text-[11px] font-medium uppercase leading-[2] tracking-[0.32em] text-white/40">
+            <div className="font-mono text-[12.5px] font-medium uppercase leading-[2] tracking-[0.32em] text-white/40">
               <div>CURATED</div>
               <div>TEMPLATES</div>
             </div>
             <div className="mt-4 flex items-center justify-end gap-3">
-              <span className="font-mono text-[10px] tracking-[0.22em] text-zinc-700">FALCON</span>
+              <span className="font-mono text-[12px] tracking-[0.22em] text-zinc-700">FALCON</span>
               <span className="h-px w-8 bg-white/25" />
             </div>
           </div>
 
           <div className="pointer-events-none absolute bottom-[22%] left-[7%] hidden items-center gap-3 lg:flex">
             <span className="h-1.5 w-1.5 rotate-45 border border-white/25" />
-            <span className="font-mono text-[10px] tracking-[0.25em] text-zinc-700">FULLY EDITABLE</span>
+            <span className="font-mono text-[12px] tracking-[0.25em] text-zinc-700">FULLY EDITABLE</span>
           </div>
           <div className="pointer-events-none absolute bottom-[22%] right-[7%] hidden items-center gap-3 lg:flex">
-            <span className="font-mono text-[10px] tracking-[0.25em] text-zinc-700">ONE-CLICK OPEN</span>
+            <span className="font-mono text-[12px] tracking-[0.25em] text-zinc-700">ONE-CLICK OPEN</span>
             <span className="h-1.5 w-1.5 rotate-45 border border-white/25" />
           </div>
 
@@ -671,7 +671,7 @@ export default function TemplatesPage() {
             {/* Badge */}
             <div className="fade-up mb-8 inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-black/40 px-5 py-2.5 backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.8)]" />
-              <span className="font-mono text-[9px] tracking-[0.2em] text-zinc-400">
+              <span className="font-mono text-[11px] tracking-[0.2em] text-zinc-400">
                 FALCON DESIGN LIBRARY
               </span>
             </div>
@@ -748,7 +748,7 @@ export default function TemplatesPage() {
           </div>
 
           {/* Bottom ticker */}
-          <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[8px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
+          <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[10.5px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
             <span>FALCON / TEMPLATES</span>
             <div className="hidden items-center gap-3 sm:flex">
               <span>01</span>
@@ -765,7 +765,7 @@ export default function TemplatesPage() {
           <div className="mx-auto max-w-[1400px]">
             <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="font-mono text-[9px] tracking-[0.25em] text-zinc-700 uppercase mb-2">
+                <p className="font-mono text-[11px] tracking-[0.25em] text-zinc-700 uppercase mb-2">
                   Collections
                 </p>
                 <h2
@@ -794,7 +794,7 @@ export default function TemplatesPage() {
           <div className="mx-auto max-w-[1400px]">
             {/* Section header */}
             <div className="mb-10">
-              <p className="font-mono text-[9px] tracking-[0.25em] text-zinc-700 uppercase mb-3">
+              <p className="font-mono text-[11px] tracking-[0.25em] text-zinc-700 uppercase mb-3">
                 All templates
               </p>
               <h2
@@ -810,7 +810,7 @@ export default function TemplatesPage() {
               <div className="mb-10">
                 <div className="mb-5 flex items-center gap-3">
                   <Search size={14} className="text-teal-400" />
-                  <p className="font-mono text-[9px] tracking-[0.25em] uppercase text-teal-600">
+                  <p className="font-mono text-[11px] tracking-[0.25em] uppercase text-teal-600">
                     Theme-Related Designs for "{searchQuery}"
                   </p>
                 </div>
@@ -832,14 +832,14 @@ export default function TemplatesPage() {
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
 
                         {/* Tag */}
-                        <span className="absolute left-3 top-3 z-10 rounded-full border border-teal-500/30 bg-teal-500/20 px-2.5 py-0.5 font-mono text-[8px] font-medium text-teal-300 backdrop-blur-sm">
+                        <span className="absolute left-3 top-3 z-10 rounded-full border border-teal-500/30 bg-teal-500/20 px-2.5 py-0.5 font-mono text-[10.5px] font-medium text-teal-300 backdrop-blur-sm">
                           {result.tag}
                         </span>
 
                         {/* Title overlay */}
                         <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
                           <p className="text-xs font-semibold leading-tight text-white">{result.title}</p>
-                          <p className="mt-0.5 font-mono text-[10px] text-zinc-500">{result.category}</p>
+                          <p className="mt-0.5 font-mono text-[12px] text-zinc-500">{result.category}</p>
                         </div>
 
                         {/* Hover CTA */}
@@ -886,10 +886,10 @@ export default function TemplatesPage() {
                 FALCON
               </span>
             </button>
-            <p className="font-mono text-[10px] tracking-[0.12em] text-zinc-700">
+            <p className="font-mono text-[12px] tracking-[0.12em] text-zinc-700">
               © 2026 FALCON INC. ALL TEMPLATES ARE FULLY EDITABLE.
             </p>
-            <div className="flex items-center gap-6 font-mono text-[10px] tracking-[0.15em] text-zinc-700">
+            <div className="flex items-center gap-6 font-mono text-[12px] tracking-[0.15em] text-zinc-700">
               <button type="button" onClick={createBlankDesign} className="hover:text-zinc-400 transition">
                 BLANK CANVAS
               </button>

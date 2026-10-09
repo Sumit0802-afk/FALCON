@@ -90,7 +90,7 @@ export default function QuickStart({ onCreate, onCustomSize }: QuickStartProps) 
                   ? <Loader2 size={20} className="relative z-10 animate-spin" />
                   : <BadgeIcon icon={Icon} tone={shortcut.tone} size={58} className="falcon-quick-icon" />}
               </span>
-              <span className="falcon-quick-label whitespace-nowrap text-[11.5px] font-medium leading-tight">{working ? "Opening…" : shortcut.label}</span>
+              <span className="falcon-quick-label whitespace-nowrap text-[13px] font-medium leading-tight">{working ? "Opening…" : shortcut.label}</span>
             </button>
           );
         })}

@@ -231,7 +231,7 @@ export default function FinalCtaSection({ onEnter }: { onEnter: () => void }) {
       <div className="relative z-10 mx-auto flex w-[90%] max-w-[920px] flex-col items-center px-4 text-center">
         <div className="fx-final-label mb-6 flex items-center gap-2.5">
           <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_rgba(34,211,238,0.7)]" />
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.38em] text-[#8B8F98]">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.38em] text-[#8B8F98]">
             THE NEXT CREATIVE SYSTEM
           </span>
         </div>
@@ -254,7 +254,7 @@ export default function FinalCtaSection({ onEnter }: { onEnter: () => void }) {
       </div>
 
       <div className="fx-final-status pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-6 sm:bottom-8">
-        <div className="flex flex-col items-center gap-1 font-mono text-[8px] uppercase tracking-[0.28em] text-white/25 sm:flex-row sm:gap-4">
+        <div className="flex flex-col items-center gap-1 font-mono text-[10.5px] uppercase tracking-[0.28em] text-white/25 sm:flex-row sm:gap-4">
           <span>FALCON / INTELLIGENCE CORE</span>
           <span className="hidden h-px w-6 bg-white/15 sm:block" />
           <span className="flex items-center gap-1.5">

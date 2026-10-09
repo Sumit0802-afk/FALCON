@@ -78,7 +78,7 @@ function CollectionCard({ collection, index, onOpen }: { collection: TemplateCol
       </span>
 
       <span className="relative flex flex-1 flex-col px-5 pb-5 pt-1">
-        <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em]" style={{ color: collection.accent }}>
+        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: collection.accent }}>
           {collection.type === "presentation" && <Layers size={10} />}
           {TYPE_LABEL[collection.type]}
         </span>

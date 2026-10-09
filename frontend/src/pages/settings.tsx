@@ -107,9 +107,9 @@ function Sessions() {
                 <Icon size={16} className="shrink-0 text-zinc-500" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] text-white">{device.label}</div>
-                  <div className="truncate text-[11.5px] text-zinc-500">Signed in {formatDateTime(session.createdAt)}{session.ipAddress ? ` · ${session.ipAddress}` : ""}</div>
+                  <div className="truncate text-[13px] text-zinc-500">Signed in {formatDateTime(session.createdAt)}{session.ipAddress ? ` · ${session.ipAddress}` : ""}</div>
                 </div>
-                {session.current && <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-0.5 text-[11px] text-emerald-300">This device</span>}
+                {session.current && <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-0.5 text-[12.5px] text-emerald-300">This device</span>}
               </li>
             );
           })}

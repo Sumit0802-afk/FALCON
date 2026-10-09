@@ -303,7 +303,7 @@ export default function ProjectsPage() {
                   }`}
                 >
                   {f.label}
-                  <span className="text-[11px] text-zinc-500">{counts[f.id] || 0}</span>
+                  <span className="text-[12.5px] text-zinc-500">{counts[f.id] || 0}</span>
                 </button>
               ))}
             </div>
@@ -340,7 +340,7 @@ export default function ProjectsPage() {
                 <div key={item.key} className={`group overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0b0f14] transition hover:border-white/20 ${busyKey === item.key ? "pointer-events-none opacity-50" : ""}`}>
                   <button type="button" onClick={() => router.push(item.href)} className="relative flex h-[170px] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#101823] to-[#0a0e13]" aria-label={`Open ${item.title}`}>
                     <Preview item={item} />
-                    <span className="absolute left-2.5 top-2.5 rounded-full border border-white/15 bg-black/65 px-2.5 py-0.5 text-[10.5px] font-medium text-zinc-200 backdrop-blur">
+                    <span className="absolute left-2.5 top-2.5 rounded-full border border-white/15 bg-black/65 px-2.5 py-0.5 text-[12px] font-medium text-zinc-200 backdrop-blur">
                       {KIND_LABEL[item.kind]}
                     </span>
                     <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[12.5px] font-medium text-white opacity-0 transition group-hover:opacity-100">
@@ -349,7 +349,7 @@ export default function ProjectsPage() {
                   </button>
                   <div className="p-3.5">
                     <div className="truncate text-[13.5px] font-medium text-white" title={item.title}>{item.title}</div>
-                    <div className="mt-1 truncate text-[11.5px] text-zinc-500">
+                    <div className="mt-1 truncate text-[13px] text-zinc-500">
                       {[item.detail, `Edited ${formatDate(item.updatedAt)}`].filter(Boolean).join(" · ")}
                     </div>
                     {confirmKey === item.key ? (
@@ -361,11 +361,11 @@ export default function ProjectsPage() {
                     ) : (
                       <div className="mt-3 flex items-center gap-1.5">
                         {item.source !== "draft" && (
-                          <button type="button" onClick={() => duplicate(item)} className="flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-[11.5px] text-zinc-400 transition hover:border-white/20 hover:text-white">
+                          <button type="button" onClick={() => duplicate(item)} className="flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-[13px] text-zinc-400 transition hover:border-white/20 hover:text-white">
                             <Copy size={12} /> Duplicate
                           </button>
                         )}
-                        <button type="button" onClick={() => setConfirmKey(item.key)} className="flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-[11.5px] text-zinc-400 transition hover:border-red-500/30 hover:text-red-300">
+                        <button type="button" onClick={() => setConfirmKey(item.key)} className="flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-[13px] text-zinc-400 transition hover:border-red-500/30 hover:text-red-300">
                           <Trash2 size={12} /> Delete
                         </button>
                       </div>

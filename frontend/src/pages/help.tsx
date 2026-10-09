@@ -113,7 +113,7 @@ function ContactForm({ email }: { email?: string }) {
       <div>
         <label htmlFor="help-message" className={LABEL}>Message</label>
         <textarea id="help-message" value={message} maxLength={4000} rows={6} onChange={(e) => setMessage(e.target.value)} className={`${FIELD} h-auto resize-y py-3 leading-relaxed`} placeholder="Describe what happened and what you expected." />
-        <div className="mt-1 text-right text-[11px] text-zinc-600">{message.length} / 4000</div>
+        <div className="mt-1 text-right text-[12.5px] text-zinc-600">{message.length} / 4000</div>
       </div>
       {status && <Notice kind={status.kind}>{status.text}</Notice>}
       <button type="submit" disabled={sending} className={PRIMARY_BUTTON}>{sending ? "Sending…" : "Send message"}</button>
