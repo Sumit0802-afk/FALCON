@@ -231,6 +231,11 @@ export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
                 <li key={i} className="text-[11.5px] leading-relaxed text-zinc-200">
                   <span className="text-zinc-400">Reason: </span>{warning.reason}<br />
                   <span className="text-zinc-400">Recommendation: </span>{warning.recommendation}
+                  {warning.remedy && (
+                    <button type="button" onClick={() => set({ quietZone: warning.remedy?.quietZone })} className="mt-1.5 block rounded-lg border border-amber-400/40 px-2.5 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-400/15">
+                      {warning.remedy.label}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

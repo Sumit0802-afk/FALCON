@@ -237,6 +237,8 @@ export interface QrWarning {
   level: "problem" | "note";
   reason: string;
   recommendation: string;
+  /** A setting that would clear this warning, offered as a button. It is only applied if the author presses it */
+  remedy?: { label: string; quietZone: number };
 }
 
 /**
@@ -260,8 +262,8 @@ export function qrWarnings(spec: QrSpec, widthOnPage?: number): QrWarning[] {
   if (fgRgb && bgRgb && luminance(fgRgb) > luminance(bgRgb)) out.push({ level: "note", reason: "The code is lighter than its background.", recommendation: "Some scanners cannot read a light code on a dark background. A dark code on a light background is the safe choice." });
 
   const quiet = Math.round(spec.quietZone);
-  if (quiet < 2) out.push({ level: "problem", reason: `The clear margin around the code is ${quiet} module${quiet === 1 ? "" : "s"}.`, recommendation: "Scanners need a clear margin to find the code. Use 4 modules." });
-  else if (quiet < 4) out.push({ level: "note", reason: `The clear margin around the code is ${quiet} modules; the standard asks for 4.`, recommendation: "Widen the margin to 4 if the code sits on a busy or dark part of the design." });
+  if (quiet < 2) out.push({ level: "problem", reason: `The clear margin around the code is ${quiet} module${quiet === 1 ? "" : "s"}.`, recommendation: "Scanners need a clear margin to find the code. Use 4 modules.", remedy: { label: "Set the margin to 4", quietZone: 4 } });
+  else if (quiet < 4) out.push({ level: "note", reason: `The clear margin around the code is ${quiet} modules; the standard asks for 4.`, recommendation: "Widen the margin to 4 if the code sits on a busy or dark part of the design.", remedy: { label: "Set the margin to 4", quietZone: 4 } });
 
   if (widthOnPage) {
     const module = (widthOnPage * M) / width;
@@ -272,7 +274,9 @@ export function qrWarnings(spec: QrSpec, widthOnPage?: number): QrWarning[] {
 
   if (logo) {
     const share = (logo * logo) / (n * n);
-    if (share > 0.07) out.push({ level: share > 0.1 ? "problem" : "note", reason: `The logo covers ${Math.round(share * 100)}% of the code.`, recommendation: "Make the logo smaller. Beyond roughly a tenth of the code, scanning becomes unreliable." });
+    // A code with a logo is made so that a quarter of it can be rebuilt, which covers a logo of this size with room to spare.
+    // Only a logo well beyond what the size slider allows is worth a warning
+    if (share > 0.12) out.push({ level: share > 0.16 ? "problem" : "note", reason: `The logo covers ${Math.round(share * 100)}% of the code.`, recommendation: "Make the logo smaller. Beyond roughly a seventh of the code, scanning becomes unreliable." });
   }
   return out;
 }
