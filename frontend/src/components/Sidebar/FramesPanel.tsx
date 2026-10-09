@@ -12,6 +12,7 @@ import {
   FrameCategory,
   FrameDefinition,
 } from "@/data/frameDefinitions";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface FramesPanelProps {
   onAddFrame: (frameDef: FrameDefinition) => void;
@@ -54,9 +55,7 @@ export function FramesPanel({ onAddFrame }: FramesPanelProps) {
       <div className="border-b border-white/[0.08] bg-[#131416] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-pink-500/10 text-pink-400">
-              <Frame size={16} />
-            </div>
+            <BadgeIcon icon={Frame} tone="green" size={34} />
             <div>
               <h2 className="text-xs font-semibold tracking-wide text-white">
                 Image Frames

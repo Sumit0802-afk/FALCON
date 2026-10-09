@@ -12,6 +12,7 @@ import {
   Palette,
   X,
 } from "lucide-react";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface ImageFiltersPanelProps {
   element: ImageElement;
@@ -78,9 +79,7 @@ export function ImageFiltersPanel({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3.5 bg-[#131416]">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400">
-            <Sliders size={17} />
-          </div>
+          <BadgeIcon icon={Sliders} tone="indigo" size={38} />
           <div>
             <h2 className="text-sm font-semibold text-white">Image Filters & Adjust</h2>
             <p className="text-[11px] text-zinc-400">Color grades and enhancement</p>

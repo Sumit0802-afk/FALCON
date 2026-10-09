@@ -4,12 +4,13 @@ import { useRouter } from "next/router";
 import { FolderOpen, LifeBuoy, Settings, UserRound } from "lucide-react";
 import { AuthUser, isAuthenticated } from "@/services/authService";
 import { UserMenu, useCurrentUser } from "@/components/UserMenu";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 const SECTIONS = [
-  { path: "/projects", label: "My projects", icon: FolderOpen },
-  { path: "/account", label: "My account", icon: UserRound },
-  { path: "/settings", label: "Settings", icon: Settings },
-  { path: "/help", label: "Help & support", icon: LifeBuoy },
+  { path: "/projects", label: "My projects", icon: FolderOpen, tone: "indigo" as const },
+  { path: "/account", label: "My account", icon: UserRound, tone: "purple" as const },
+  { path: "/settings", label: "Settings", icon: Settings, tone: "slate" as const },
+  { path: "/help", label: "Help & support", icon: LifeBuoy, tone: "green" as const },
 ];
 
 interface AccountShellProps {
@@ -52,11 +53,11 @@ export default function AccountShell({ title, description, children }: AccountSh
                 key={section.path}
                 type="button"
                 onClick={() => router.push(section.path)}
-                className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
+                className={`flex shrink-0 items-center gap-2 rounded-full border py-1 pl-2.5 pr-4 text-[12.5px] transition ${
                   router.pathname === section.path ? "border-white/30 bg-white/[0.10] text-white" : "border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:border-white/20 hover:text-white"
                 }`}
               >
-                <section.icon size={13} /> {section.label}
+                <BadgeIcon icon={section.icon} tone={section.tone} size={22} /> {section.label}
               </button>
             ))}
           </nav>

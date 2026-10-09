@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronRight, Eraser, MessageSquare, Sparkles, Wand2 } from "lucide-react";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface AiToolsPanelProps {
   onOpenCoach: () => void;
@@ -13,10 +14,10 @@ interface AiToolsPanelProps {
 export function AiToolsPanel({ onOpenCoach, onOpenStudio, onOpenBgRemover, onMagicWrite, theme = "dark" }: AiToolsPanelProps) {
   const isDark = theme === "dark";
   const tools = [
-    { icon: MessageSquare, title: "AI Coach", text: "Feedback on the design you have open, and what to improve", run: onOpenCoach },
-    { icon: Wand2, title: "AI Write", text: "Draft or rewrite the text of your design", run: onMagicWrite },
-    { icon: Eraser, title: "Background Remover", text: "Cut the subject out of a photo", run: onOpenBgRemover },
-    { icon: Sparkles, title: "AI Studio", text: "Generate a design from a description", run: onOpenStudio },
+    { icon: MessageSquare, tone: "sky" as const, title: "AI Coach", text: "Feedback on the design you have open, and what to improve", run: onOpenCoach },
+    { icon: Wand2, tone: "purple" as const, title: "AI Write", text: "Draft or rewrite the text of your design", run: onMagicWrite },
+    { icon: Eraser, tone: "rose" as const, title: "Background Remover", text: "Cut the subject out of a photo", run: onOpenBgRemover },
+    { icon: Sparkles, tone: "amber" as const, title: "AI Studio", text: "Generate a design from a description", run: onOpenStudio },
   ];
 
   return (
@@ -33,9 +34,7 @@ export function AiToolsPanel({ onOpenCoach, onOpenStudio, onOpenBgRemover, onMag
             onClick={tool.run}
             className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${isDark ? "border-white/[0.08] bg-white/[0.02] hover:border-cyan-400/50 hover:bg-white/[0.05]" : "border-slate-200 hover:border-cyan-500"}`}
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-400">
-              <tool.icon size={16} />
-            </span>
+            <BadgeIcon icon={tool.icon} tone={tool.tone} size={40} />
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-semibold">{tool.title}</span>
               <span className={`mt-0.5 block text-[11px] leading-snug ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{tool.text}</span>

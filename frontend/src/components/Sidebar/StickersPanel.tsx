@@ -25,6 +25,7 @@ import { Sticker, StickerCategory } from "@/types/sticker";
 import { stickerService } from "@/services/stickerService";
 import { STICKER_CATEGORIES } from "@/data/seedStickers";
 import { StickerAdminModal } from "./StickerAdminModal";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface StickersPanelProps {
   onAddSticker: (sticker: Sticker) => void;
@@ -191,9 +192,7 @@ export function StickersPanel({ onAddSticker }: StickersPanelProps) {
           {/* Top Title Row with Admin Trigger */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/25 shadow-[0_0_12px_rgba(6,182,212,0.18)]">
-                <Smile size={17} className="text-cyan-400" />
-              </div>
+              <BadgeIcon icon={Smile} tone="amber" size={38} />
               <div>
                 <h2 className="text-xs font-semibold tracking-wide text-white leading-tight">
                   Sticker Library

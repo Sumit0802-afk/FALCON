@@ -4,6 +4,7 @@ import { ChevronDown, FolderOpen, LifeBuoy, LogOut, Monitor, Moon, Palette, Sett
 import { apiFetch, ApiError } from "@/services/api";
 import { AuthUser, clearToken, isAuthenticated, logout } from "@/services/authService";
 import { ThemeChoice, getThemeChoice, onThemeChange, setThemeChoice } from "@/lib/theme";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 /**
  * The signed-in user for navbars. `signedIn` is known straight away from the
@@ -131,12 +132,12 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
 
           <div className="p-1.5">
             <button type="button" role="menuitem" onClick={() => go("/projects")} className={ITEM}>
-              <FolderOpen size={14} className="text-zinc-500" /> My projects
+              <BadgeIcon icon={FolderOpen} tone="indigo" size={22} /> My projects
             </button>
 
             <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-1.5">
               <span className="flex items-center gap-2.5 text-[13px] text-zinc-300">
-                <Palette size={14} className="text-zinc-500" /> Theme
+                <BadgeIcon icon={Palette} tone="pink" size={22} /> Theme
               </span>
               <div role="radiogroup" aria-label="Theme" className="flex rounded-full border border-white/[0.10] bg-white/[0.03] p-0.5">
                 {THEME_OPTIONS.map((option) => (
@@ -157,19 +158,19 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
             </div>
 
             <button type="button" role="menuitem" onClick={() => go("/account")} className={ITEM}>
-              <UserRound size={14} className="text-zinc-500" /> My account
+              <BadgeIcon icon={UserRound} tone="purple" size={22} /> My account
             </button>
             <button type="button" role="menuitem" onClick={() => go("/settings")} className={ITEM}>
-              <Settings size={14} className="text-zinc-500" /> Settings
+              <BadgeIcon icon={Settings} tone="slate" size={22} /> Settings
             </button>
             <button type="button" role="menuitem" onClick={() => go("/help")} className={ITEM}>
-              <LifeBuoy size={14} className="text-zinc-500" /> Help &amp; support
+              <BadgeIcon icon={LifeBuoy} tone="green" size={22} /> Help &amp; support
             </button>
           </div>
 
           <div className="border-t border-white/[0.07] p-1.5">
             <button type="button" role="menuitem" onClick={async () => { setOpen(false); await onSignOut(); }} className={ITEM}>
-              <LogOut size={14} className="text-zinc-500" /> Log out
+              <BadgeIcon icon={LogOut} tone="rose" size={22} /> Log out
             </button>
           </div>
         </div>

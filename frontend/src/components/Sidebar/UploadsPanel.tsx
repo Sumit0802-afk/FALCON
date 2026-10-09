@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Asset, AssetFolder } from "@/types/asset";
 import { assetService } from "@/services/assetService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface UploadItemProgress {
   id: string;
@@ -372,9 +373,7 @@ export function UploadsPanel({
       <div className="border-b border-white/[0.08] bg-[#111114] p-3.5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <UploadCloud size={18} />
-            </div>
+            <BadgeIcon icon={UploadCloud} tone="sky" size={38} />
             <div>
               <h2 className="text-xs font-semibold tracking-wide text-white">Asset Uploads</h2>
               <p className="text-[10px] text-zinc-400">Images, videos, audio & media</p>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ImageElement } from "@/types";
 import { removeImageBackgroundAI } from "@/services/backgroundRemovalService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface BackgroundRemoverModalProps {
   isOpen: boolean;
@@ -366,9 +367,7 @@ export function BackgroundRemoverModal({
             =================================================== */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/[0.08] px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
-              <Sparkles size={18} />
-            </div>
+            <BadgeIcon icon={Sparkles} tone="purple" size={42} />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-white">Background Remover</h2>

@@ -9,10 +9,13 @@ import {
   Brain,
   CheckCircle2,
   Cpu,
+  Code2,
   Crosshair,
   Eye,
   Layers3,
   Menu,
+  MonitorSmartphone,
+  MousePointerClick,
   Palette,
   Play,
   RefreshCw,
@@ -38,6 +41,7 @@ import SiteIntro from "@/components/SiteIntro";
 import DemoVideo, { openDemoVideo } from "@/components/DemoVideo";
 import { PageSize } from "@/types";
 import { UserMenu, useCurrentUser } from "@/components/UserMenu";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 export default function Home() {
   const router = useRouter();
@@ -1430,13 +1434,13 @@ const openTemplateByName = (name: string) => {
             {/* ─── FEATURE CARDS ──────────────────────────────────── */}
             <div className="mb-14 grid grid-cols-2 gap-4 lg:grid-cols-4">
               {[
-                { icon: "⊞", title: "Drag & Drop", desc: "Build emails visually without code." },
-                { icon: "◱", title: "Responsive by Default", desc: "Design once. Optimize for every screen." },
-                { icon: "◉", title: "Live Preview", desc: "See exactly how your email will look." },
-                { icon: "</>", title: "Export HTML", desc: "Generate production-ready email HTML." },
+                { icon: MousePointerClick, tone: "sky" as const, title: "Drag & Drop", desc: "Build emails visually without code." },
+                { icon: MonitorSmartphone, tone: "purple" as const, title: "Responsive by Default", desc: "Design once. Optimize for every screen." },
+                { icon: Eye, tone: "green" as const, title: "Live Preview", desc: "See exactly how your email will look." },
+                { icon: Code2, tone: "orange" as const, title: "Export HTML", desc: "Generate production-ready email HTML." },
               ].map((f) => (
                 <div key={f.title} className="group rounded-xl border border-white/[0.05] bg-white/[0.02] p-5 transition-all hover:border-accent/20 hover:bg-accent/[0.03]">
-                  <div className="mb-3 font-mono text-[20px] text-zinc-600 group-hover:text-accent">{f.icon}</div>
+                  <BadgeIcon icon={f.icon} tone={f.tone} size={40} className="mb-3 transition-transform duration-300 group-hover:scale-110" />
                   <div className="mb-1.5 text-[13px] font-semibold text-white">{f.title}</div>
                   <div className="text-[12px] leading-relaxed text-zinc-600">{f.desc}</div>
                 </div>
@@ -1547,9 +1551,7 @@ const openTemplateByName = (name: string) => {
                 <div className="relative z-20 flex h-[100px] w-[100px] flex-col items-center justify-center rounded-full border border-[#2F81FF]/35 bg-[#050505] shadow-[0_0_50px_rgba(47,129,255,0.12)] transition-transform duration-500 hover:scale-105 sm:h-[130px] sm:w-[130px]">
                   <div className="absolute inset-1 rounded-full bg-gradient-to-b from-[#2F81FF]/08 via-transparent to-[#22D3EE]/06" />
 
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#2F81FF]/15 border border-[#2F81FF]/35 text-[#22D3EE] mb-1.5 shadow-sm">
-                    <Brain size={18} />
-                  </div>
+                  <BadgeIcon icon={Brain} tone="blue" size={38} className="mb-1.5" />
 
                   <span className="font-serif text-lg font-medium text-white tracking-wide">
                     Falcon
@@ -1680,28 +1682,28 @@ const openTemplateByName = (name: string) => {
             <div className="grid grid-cols-1 border border-white/[0.08] bg-[#000000] md:grid-cols-2 xl:grid-cols-4">
               <SystemCard
                 number="01"
-                icon={<Target size={22} />}
+                icon={<BadgeIcon icon={Target} tone="rose" size={42} />}
                 title="Start with what you mean."
                 description="Tell Falcon what you want to achieve. It turns your purpose, audience and message into a visual direction."
               />
 
               <SystemCard
                 number="02"
-                icon={<Crosshair size={22} />}
+                icon={<BadgeIcon icon={Crosshair} tone="sky" size={42} />}
                 title="Design with a second pair of eyes."
                 description="Falcon spots weak hierarchy, contrast, spacing and alignment while you work."
               />
 
               <SystemCard
                 number="03"
-                icon={<Layers3 size={22} />}
+                icon={<BadgeIcon icon={Layers3} tone="indigo" size={42} />}
                 title="Keep every design unmistakably yours."
                 description="Design DNA captures the visual language of your project and keeps it consistent."
               />
 
               <SystemCard
                 number="04"
-                icon={<RefreshCw size={22} />}
+                icon={<BadgeIcon icon={RefreshCw} tone="green" size={42} />}
                 title="One idea. Every format."
                 description="Turn one strong composition into an entire campaign without starting over."
               />
@@ -1728,7 +1730,7 @@ const openTemplateByName = (name: string) => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <ProcessCard
                 number="01"
-                icon={<Target size={22} />}
+                icon={<BadgeIcon icon={Target} tone="rose" size={42} />}
                 title="Define"
                 description="Choose your goal, audience, tone and format."
                 step="define"
@@ -1736,7 +1738,7 @@ const openTemplateByName = (name: string) => {
 
               <ProcessCard
                 number="02"
-                icon={<Wand2 size={22} />}
+                icon={<BadgeIcon icon={Wand2} tone="purple" size={42} />}
                 title="Generate"
                 description="Explore multiple creative directions before committing."
                 step="generate"
@@ -1744,7 +1746,7 @@ const openTemplateByName = (name: string) => {
 
               <ProcessCard
                 number="03"
-                icon={<Zap size={22} />}
+                icon={<BadgeIcon icon={Zap} tone="amber" size={42} />}
                 title="Improve"
                 description="Use Design Coach to sharpen your composition and visual hierarchy."
                 step="improve"
@@ -1752,7 +1754,7 @@ const openTemplateByName = (name: string) => {
 
               <ProcessCard
                 number="04"
-                icon={<RefreshCw size={22} />}
+                icon={<BadgeIcon icon={RefreshCw} tone="green" size={42} />}
                 title="Remix"
                 description="Extend your visual language across formats and campaigns."
                 step="remix"
@@ -2478,7 +2480,7 @@ function SystemCard({
           {number} // ARCHITECTURE
         </span>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition-all duration-200 group-hover:border-white/[0.18] group-hover:bg-white/[0.06] group-hover:text-white">
+        <div className="flex transition-transform duration-300 group-hover:scale-110">
           {icon}
         </div>
       </div>
@@ -2656,7 +2658,7 @@ function ProcessCard({
     <div className="group relative flex min-h-[440px] flex-col rounded-xl border border-white/[0.08] bg-[#000000] p-6 transition-all duration-300 hover:border-white/[0.18] hover:bg-[#0a0a0a]">
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition-all duration-200 group-hover:border-white/[0.2] group-hover:text-white">
+        <div className="flex transition-transform duration-300 group-hover:scale-110">
           {icon}
         </div>
 

@@ -11,6 +11,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { PageSize, PAGE_PRESETS } from "@/types";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface SelectLayoutModalProps {
   isOpen: boolean;
@@ -98,9 +99,7 @@ export function SelectLayoutModal({
         {/* HEADER */}
         <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
-              <Layout size={20} />
-            </div>
+            <BadgeIcon icon={Layout} tone="indigo" size={46} />
             <div>
               <h2 className="text-base font-semibold text-white">{title}</h2>
               <p className="text-xs text-zinc-400">{subtitle}</p>

@@ -22,6 +22,7 @@ import {
   addRecentFont,
   getRecentFonts,
 } from "@/services/fontService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface FontsPanelProps {
   currentFontFamily?: string;
@@ -126,9 +127,7 @@ export function FontsPanel({
       <div className="border-b border-white/[0.08] bg-[#131416] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
-              <Type size={16} />
-            </div>
+            <BadgeIcon icon={Type} tone="rose" size={34} />
             <div>
               <h2 className="text-xs font-semibold tracking-wide text-white">
                 Font Library

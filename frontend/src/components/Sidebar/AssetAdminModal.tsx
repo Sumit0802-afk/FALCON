@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Asset, AssetType, AssetStatus } from "@/types/asset";
 import { assetService } from "@/services/assetService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface AssetAdminModalProps {
   isOpen: boolean;
@@ -106,9 +107,7 @@ export function AssetAdminModal({ isOpen, onClose }: AssetAdminModalProps) {
         {/* MODAL HEADER */}
         <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#14151c] px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              <ShieldAlert size={20} />
-            </div>
+            <BadgeIcon icon={ShieldAlert} tone="teal" size={42} />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-white">

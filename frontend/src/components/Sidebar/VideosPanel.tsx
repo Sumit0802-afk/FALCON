@@ -16,6 +16,7 @@ import {
 import { Asset } from "@/types/asset";
 import { VIDEO_CATEGORIES, SEED_VIDEOS } from "@/data/seedVideos";
 import { assetService } from "@/services/assetService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface VideosPanelProps {
   onAddVideoToCanvas: (src: string, name?: string) => void;
@@ -98,9 +99,7 @@ export function VideosPanel({ onAddVideoToCanvas }: VideosPanelProps) {
       <div className="border-b border-white/[0.08] bg-[#111114] p-3.5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Film size={18} />
-            </div>
+            <BadgeIcon icon={Film} tone="violet" size={38} />
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="text-xs font-semibold tracking-wide text-white">Videos</h2>

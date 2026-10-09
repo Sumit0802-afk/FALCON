@@ -664,6 +664,15 @@ html[data-theme="light"] img[src*="falcon-logo"] {
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, transform 0.35s cubic-bezier(0.22, 1.4, 0.36, 1);
 }
 
+/* A badge brings its own shape, so the circle behind it is left out */
+.falcon-quick-orb.falcon-quick-badge,
+.falcon-quick-item:hover:not(:disabled) .falcon-quick-orb.falcon-quick-badge,
+.falcon-quick-item:focus-visible .falcon-quick-orb.falcon-quick-badge {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
 /* Expanding ring that pulses outward on hover */
 .falcon-quick-ring {
   position: absolute;

@@ -33,6 +33,7 @@ import { Sticker, StickerImportInput, StickerStatus } from "@/types/sticker";
 import { stickerService } from "@/services/stickerService";
 import { STICKER_CATEGORIES } from "@/data/seedStickers";
 import { STICKER_SOURCES } from "@/data/stickerSources";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface StickerAdminModalProps {
   isOpen: boolean;
@@ -293,9 +294,7 @@ export function StickerAdminModal({
         {/* ── Header ── */}
         <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#15161c] px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
-              <ShieldCheck size={20} />
-            </div>
+            <BadgeIcon icon={ShieldCheck} tone="teal" size={42} />
             <div>
               <h2 className="text-sm font-semibold tracking-wide">Sticker Library — Admin Panel</h2>
               <p className="text-[11px] text-zinc-400">

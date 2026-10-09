@@ -17,6 +17,7 @@ import {
   BackgroundItem,
 } from "@/data/backgrounds";
 import { SEED_VIDEOS } from "@/data/seedVideos";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface BackgroundsPanelProps {
   currentBackground?: string;
@@ -110,9 +111,7 @@ export function BackgroundsPanel({
       <div className="border-b border-white/[0.08] bg-[#111114] p-3.5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Wallpaper size={18} />
-            </div>
+            <BadgeIcon icon={Wallpaper} tone="orange" size={38} />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xs font-semibold tracking-wide text-white">
@@ -363,9 +362,7 @@ export function BackgroundsPanel({
 
         {filteredBackgrounds.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.04] text-zinc-500">
-              <Wallpaper size={20} />
-            </div>
+            <BadgeIcon icon={Wallpaper} tone="orange" size={46} />
             <p className="mt-3 text-xs font-medium text-zinc-400">
               No backgrounds found
             </p>

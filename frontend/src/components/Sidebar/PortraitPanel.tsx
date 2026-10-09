@@ -5,6 +5,7 @@ import { removeImageBackgroundAI } from "@/services/backgroundRemovalService";
 import {
   PortraitCatalogue, PortraitStyle, blendPortrait, getPortraitCatalogue, getPortraitPreviews, onBackground, readPicture, runPortrait,
 } from "@/services/portraitService";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 /** The picture on the canvas that is being worked on */
 export interface PortraitTarget {
@@ -202,9 +203,7 @@ export function PortraitPanel({ target, onApply, onAddNew, onUpload }: PortraitP
       {/* HEADER */}
       <div className="border-b border-white/[0.08] bg-[#111114] p-3.5 space-y-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <CircleUserRound size={18} />
-          </div>
+          <BadgeIcon icon={CircleUserRound} tone="purple" size={38} />
           <div>
             <h2 className="text-xs font-semibold tracking-wide text-white">Portrait</h2>
             <p className="text-[10px] text-zinc-500">Turn a photo into a portrait, in any style</p>
