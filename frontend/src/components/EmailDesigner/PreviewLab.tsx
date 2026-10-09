@@ -51,16 +51,18 @@ interface ScreenProps {
   onWidthChange?: (width: number) => void;
   /** Source offsets of elements to outline */
   marked?: number[];
+  /** A fixed magnification, or leave out to fit the room there is */
+  zoom?: number;
 }
 
 /** The email in a frame exactly `width` pixels wide, scaled down when the window has less room */
-function Screen({ html, width, label, onWidthChange, marked }: ScreenProps) {
+function Screen({ html, width, label, onWidthChange, marked, zoom }: ScreenProps) {
   const holder = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [room, setRoom] = useState(width);
   const [height, setHeight] = useState(520);
   const source = useMemo(() => stripActiveHtml(html), [html]);
-  const scale = Math.min(1, room / width);
+  const scale = zoom ?? Math.min(1, room / width);
 
   useEffect(() => {
     const node = holder.current;
@@ -133,7 +135,7 @@ function Screen({ html, width, label, onWidthChange, marked }: ScreenProps) {
     <div ref={holder} className="min-w-0 flex-1">
       <div className="mb-2 flex items-center justify-center gap-2 font-mono text-[10.5px] text-zinc-500">
         {label && <span className="font-sans font-medium text-zinc-300">{label}</span>}
-        <span>{width}px{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ""}</span>
+        <span>{width}px{scale !== 1 ? ` · shown at ${Math.round(scale * 100)}%` : ""}</span>
       </div>
       <div className="relative mx-auto" style={{ width: width * scale, height: height * scale }}>
         <div className="overflow-hidden rounded-md bg-white shadow-[0_12px_40px_rgba(0,0,0,0.5)] ring-1 ring-white/10" style={{ width, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>
@@ -260,6 +262,7 @@ export default function PreviewLab({ html, onHtmlChange, initialWidth = 1440, on
   const [width, setWidth] = useState(initialWidth);
   const [showCode, setShowCode] = useState(false);
   const [jump, setJump] = useState<{ line: number; at: number } | null>(null);
+  const [zoom, setZoom] = useState<number | null>(null);
 
   // What is being typed, and the same a moment later: previews and checks follow the settled copy
   const [draft, setDraft] = useState(html);
@@ -472,6 +475,16 @@ export default function PreviewLab({ html, onHtmlChange, initialWidth = 1440, on
                 px
               </label>
             )}
+            <label className="flex items-center gap-2 text-[11px] text-zinc-500">
+              Zoom
+              <select value={zoom === null ? "fit" : String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? null : Number(e.target.value))} className="h-7 rounded border border-white/[0.1] bg-black/40 px-1.5 text-[11px] text-zinc-200 outline-none focus:border-[#00D084]/50" aria-label="Preview zoom">
+                <option value="fit">Fit</option>
+                <option value="0.5">50%</option>
+                <option value="0.75">75%</option>
+                <option value="1">100%</option>
+                <option value="1.5">150%</option>
+              </select>
+            </label>
             <div className="flex-1" />
             <button type="button" onClick={() => setShowCode((v) => !v)} aria-pressed={showCode} className={`h-7 rounded-md border px-2.5 text-[11px] transition-colors ${showCode ? "border-[#00D084]/40 bg-[#00D084]/10 text-[#00D084]" : "border-white/[0.1] text-zinc-300 hover:bg-white/[0.06]"}`}>
               {showCode ? "Hide code" : "Show code"}
@@ -500,11 +513,11 @@ export default function PreviewLab({ html, onHtmlChange, initialWidth = 1440, on
                 <p className="mx-auto mt-16 max-w-md text-center text-[13px] text-zinc-400">{compat.status === "error" ? compat.message : "Fetching the sent version…"}</p>
               ) : pair ? (
                 <div className="flex flex-col items-start gap-8 lg:flex-row">
-                  <div className="w-full min-w-0 lg:flex-[3]"><Screen html={shownHtml} width={1440} label="Desktop" /></div>
-                  <div className="w-full min-w-0 lg:w-[390px] lg:flex-none"><Screen html={shownHtml} width={390} label="Mobile" /></div>
+                  <div className="w-full min-w-0 lg:flex-[3]"><Screen html={shownHtml} width={1440} label="Desktop" zoom={zoom ?? undefined} /></div>
+                  <div className="w-full min-w-0 lg:w-[390px] lg:flex-none"><Screen html={shownHtml} width={390} label="Mobile" zoom={zoom ?? undefined} /></div>
                 </div>
               ) : (
-                <div className="px-3"><Screen html={shownHtml} width={Math.max(MIN_WIDTH, width)} label={PRESETS.find((p) => p.width === width)?.label} onWidthChange={setWidth} /></div>
+                <div className="px-3"><Screen html={shownHtml} width={Math.max(MIN_WIDTH, width)} label={PRESETS.find((p) => p.width === width)?.label} onWidthChange={setWidth} zoom={zoom ?? undefined} /></div>
               )}
               {version === "sent" && compat.status === "ready" && (
                 <p className="mx-auto mt-5 max-w-xl text-center text-[11px] leading-relaxed text-zinc-500">

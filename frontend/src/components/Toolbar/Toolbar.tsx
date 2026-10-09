@@ -16,6 +16,7 @@ import {
   Bookmark,
   Layers,
   Wand2,
+  QrCode,
 } from "lucide-react";
 
 export type SidebarTab =
@@ -25,6 +26,7 @@ export type SidebarTab =
   | "uploads"
   | "photos"
   | "transform"
+  | "qr"
   | "backgrounds"
   | "brand-kit"
   | "graphics"
@@ -90,6 +92,11 @@ export function Toolbar({
       id: "transform",
       label: "Transform",
       icon: <Wand2 size={22} />,
+    },
+    {
+      id: "qr",
+      label: "QR Code",
+      icon: <QrCode size={22} />,
     },
     {
       id: "backgrounds",

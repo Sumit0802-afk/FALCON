@@ -288,11 +288,11 @@ const STYLE_CHECKS: [string, string][] = [
   ["font-size", "font size"],
   ["font-weight", "font weight"],
   ["font-family", "font"],
-  ["color", "text colour"],
+  // What the letters are painted with: an outlined title has a see-through fill whatever its "color" says
+  ["-webkit-text-fill-color", "text colour"],
   ["background-color", "background colour"],
   ["text-align", "alignment"],
   ["border-top-width", "border"],
-  ["border-top-color", "border colour"],
   ["border-top-left-radius", "corner radius"],
   ["box-shadow", "shadow"],
   ["opacity", "opacity"],
@@ -310,6 +310,14 @@ export async function compareVersions(code: string, stampedOriginal: string, sta
   const lineOf = lineFinder(code);
   const [a, b] = await Promise.all([stage(stampedOriginal, width), stage(stampedSent, width)]);
   try {
+    // Animations are stopped in both, so two frames caught at different moments of the same
+    // animation are not reported as different
+    for (const side of [a, b]) {
+      const still = side.doc.createElement("style");
+      still.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}";
+      (side.doc.head || side.doc.body).appendChild(still);
+    }
+    await nextFrame();
     const differences: VersionDifference[] = [];
     let compared = 0;
     let missing = 0;
@@ -352,6 +360,10 @@ export async function compareVersions(code: string, stampedOriginal: string, sta
         const va = sa.getPropertyValue(name);
         const vb = sb.getPropertyValue(name);
         if (va !== vb) add(label, va, vb);
+      }
+      // A border's colour only matters where there is a border to draw
+      if (parseFloat(sa.borderTopWidth) > 0 || parseFloat(sb.borderTopWidth) > 0) {
+        if (sa.borderTopColor !== sb.borderTopColor) add("border colour", sa.borderTopColor, sb.borderTopColor);
       }
     });
     missing += others.size;

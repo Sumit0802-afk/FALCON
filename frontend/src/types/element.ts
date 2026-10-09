@@ -80,6 +80,12 @@ export interface ImageElement extends BaseElement {
   naturalWidth: number;
   naturalHeight: number;
 
+  /*
+   * Set when this picture is a QR code made with the QR Code tool: the code's
+   * settings, so it can be opened in the tool and changed again.
+   */
+  qr?: Record<string, unknown>;
+
   /* Image filter */
   filter?: ImageFilter;
 

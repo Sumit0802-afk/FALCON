@@ -48,6 +48,9 @@ import { BackgroundsPanel } from "@/components/Sidebar/BackgroundsPanel";
 import { StickersPanel } from "@/components/Sidebar/StickersPanel";
 import { PhotosPanel } from "@/components/Sidebar/PhotosPanel";
 import { TransformPanel } from "@/components/Sidebar/TransformPanel";
+import { QrPanel } from "@/components/Sidebar/QrPanel";
+import { qrAspect, qrDataUrl } from "@/utils/qrCode";
+import { QrConfig, configOf, storedConfig } from "@/utils/qrDesign";
 import { BrandKitPanel } from "@/components/Sidebar/BrandKitPanel";
 import { AssetAdminModal } from "@/components/Sidebar/AssetAdminModal";
 import { ApplyToPagePrompt, PromptItemType } from "@/components/Editor/ApplyToPagePrompt";
@@ -112,6 +115,7 @@ import {
   Copy,
   Trash2,
   RotateCcw,
+  QrCode as QrCodeIcon,
   Sliders,
   Bold,
   Italic,
@@ -1798,6 +1802,81 @@ export function EditorLayout({
     } as Partial<typeof el>);
   }
 
+  /* The QR code selected on the page, for the QR Code tool to edit */
+  const qrSelected = useMemo(() => {
+    const el = editor.selectedElements[0];
+    if (!el || editor.selectedElements.length !== 1 || !isImage(el) || !el.qr) return null;
+    return { id: el.id, config: configOf(el.qr as Partial<QrConfig>), width: el.width };
+  }, [editor.selectedElements]);
+
+  /* How big a QR picture says it is. It is drawn as SVG, so this only needs to be large enough to export sharply */
+  const QR_PIXELS = 1024;
+
+  /* Puts a new QR code on the page. With one already selected this is a duplicate, placed a little to the side of it */
+  function handleAddQr(config: QrConfig) {
+    const src = qrDataUrl(config, QR_PIXELS);
+    if (!src) return;
+    const aspect = qrAspect(config);
+    const { width: pageWidth, height: pageHeight } = editor.page.size;
+    const from = qrSelected ? editor.page.elements.find((el) => el.id === qrSelected.id) : null;
+    const width = from ? from.width : Math.max(160, Math.round(Math.min(pageWidth, pageHeight) * 0.3));
+    const height = Math.round(width / aspect);
+    const naturalHeight = Math.round(QR_PIXELS / aspect);
+    // A duplicate goes beside the original where there is room, so neither covers the other
+    let x = Math.round((pageWidth - width) / 2);
+    let y = Math.round((pageHeight - height) / 2);
+    if (from) {
+      const gap = Math.round(width * 0.12);
+      x = from.x;
+      y = from.y;
+      if (from.x + from.width + gap + width <= pageWidth) x = from.x + from.width + gap;
+      else if (from.x - gap - width >= 0) x = from.x - gap - width;
+      else if (from.y + from.height + gap + height <= pageHeight) y = from.y + from.height + gap;
+      else if (from.y - gap - height >= 0) y = from.y - gap - height;
+      else { x = Math.round(Math.min(pageWidth - width, from.x + gap)); y = Math.round(Math.min(pageHeight - height, from.y + gap)); }
+    }
+    editor.addElement({
+      type: "image",
+      x,
+      y,
+      width,
+      height,
+      src,
+      naturalWidth: QR_PIXELS,
+      naturalHeight,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: QR_PIXELS,
+      cropHeight: naturalHeight,
+      qr: storedConfig(config),
+    } as Parameters<typeof editor.addElement>[0]);
+  }
+
+  /* Redraws a QR code where it stands. Its width is kept; its height follows if text was added or removed */
+  function handleUpdateQr(id: string, config: QrConfig) {
+    const el = editor.page.elements.find((item) => item.id === id);
+    if (!el || !isImage(el)) return;
+    const src = qrDataUrl(config, QR_PIXELS);
+    // Content too long to encode: the settings are kept so typing can go on, and the last good picture stays
+    if (!src) {
+      editor.updateElement(id, { qr: storedConfig(config) } as Partial<typeof el>);
+      return;
+    }
+    const aspect = qrAspect(config);
+    const naturalHeight = Math.round(QR_PIXELS / aspect);
+    editor.updateElement(id, {
+      src,
+      height: Math.round(el.width / aspect),
+      naturalWidth: QR_PIXELS,
+      naturalHeight,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: QR_PIXELS,
+      cropHeight: naturalHeight,
+      qr: storedConfig(config),
+    } as Partial<typeof el>);
+  }
+
   function handleAddImageToCanvas(src: string) {
     const img = document.createElement("img");
     img.onload = () => {
@@ -2493,6 +2572,11 @@ export function EditorLayout({
           />
         )}
 
+        {/* QR CODE PANEL */}
+        {activeSidebarTab === "qr" && (
+          <QrPanel selected={qrSelected} onAdd={handleAddQr} onUpdate={handleUpdateQr} />
+        )}
+
         {/* TRANSFORM PANEL */}
         {activeSidebarTab === "transform" && (
           <TransformPanel
@@ -2609,6 +2693,22 @@ export function EditorLayout({
                   <Sparkles size={13} className="text-purple-400" />
                   <span>Ask Falcon</span>
                 </button>
+
+                {isImage(selectedElement) && selectedElement.qr && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSidebarTab("qr")}
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition ${
+                      activeSidebarTab === "qr"
+                        ? "bg-[#00dfb6] text-black"
+                        : "bg-[#00dfb6]/15 text-[#00dfb6] hover:bg-[#00dfb6]/25"
+                    }`}
+                    title="Change this QR code's content and design"
+                  >
+                    <QrCodeIcon size={13} />
+                    <span>Edit QR</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

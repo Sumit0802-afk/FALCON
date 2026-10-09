@@ -104,6 +104,61 @@ export function inlineEmailStyles(html: string): string {
   }
 }
 
+/** Adds !important to every declaration of a rule body that does not have it already */
+function important(body: string): string {
+  const out: string[] = [];
+  parseStyle(body).forEach((value, name) => out.push(`${name}:${/!\s*important\s*$/i.test(value) ? value : `${value} !important`}`));
+  return out.join(";");
+}
+
+/**
+ * A style written on an element beats any rule in a stylesheet. Once the
+ * stylesheet has been copied onto the elements, the rules that were meant to
+ * take over in some situation (a small screen, the pointer over a button)
+ * would lose to those copies, and the email would keep its desktop layout on a
+ * phone. Marking those rules important lets them win again, as the author
+ * wrote them.
+ */
+function strengthenConditionalRules(css: string): string {
+  let out = "";
+  let i = 0;
+  /** Reads one "{ ... }" starting at the brace at `from`; returns its inside and where it ends */
+  const block = (from: number): { inside: string; end: number } => {
+    let depth = 0;
+    for (let j = from; j < css.length; j++) {
+      if (css[j] === "{") depth++;
+      else if (css[j] === "}" && --depth === 0) return { inside: css.slice(from + 1, j), end: j + 1 };
+    }
+    return { inside: css.slice(from + 1), end: css.length };
+  };
+  const rules = (text: string, always: boolean): string =>
+    text.replace(/([^{}]+)\{([^{}]*)\}/g, (whole, selector: string, body: string) => {
+      // Keyframe steps and descriptors are not rules, and an important declaration inside keyframes is ignored
+      if (/^\s*(@|from\b|to\b|\d)/i.test(selector)) return whole;
+      return always || /:(hover|focus|active)/i.test(selector) ? `${selector}{${important(body)}}` : whole;
+    });
+
+  while (i < css.length) {
+    const at = css.indexOf("@", i);
+    if (at === -1) { out += rules(css.slice(i), false); break; }
+    out += rules(css.slice(i, at), false);
+    const brace = css.indexOf("{", at);
+    const semi = css.indexOf(";", at);
+    if (brace === -1 || (semi !== -1 && semi < brace)) {
+      // An at-rule without a block, such as @import
+      const end = semi === -1 ? css.length : semi + 1;
+      out += css.slice(at, end);
+      i = end;
+      continue;
+    }
+    const head = css.slice(at, brace);
+    const { inside, end } = block(brace);
+    out += /^@(media|supports)\b/i.test(head) ? `${head}{${rules(inside, true)}}` : `${head}{${inside}}`;
+    i = end;
+  }
+  return out;
+}
+
 function build(html: string, dropStylesheet: boolean): string {
   const inlined = juice(html, {
     removeStyleTags: dropStylesheet,
@@ -118,7 +173,7 @@ function build(html: string, dropStylesheet: boolean): string {
     inlinePseudoElements: false,
   });
 
-  const $ = cheerio.load(inlined);
+  const $ = cheerio.load(inlined.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi, (_m, open, css, close) => open + strengthenConditionalRules(css) + close));
   /** Rules for clients that read stylesheets and attribute selectors; Gmail ignores them */
   const restore: string[] = [];
   let counter = 0;

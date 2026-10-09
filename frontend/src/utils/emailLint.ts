@@ -283,6 +283,62 @@ function supportIssues(html: string, masked: string, declarations: Declaration[]
   return issues;
 }
 
+// ─── Fonts ────────────────────────────────────────────────────────────────────
+
+/** Fonts that are on nearly every device, so every mail app can show them */
+const SAFE_FONTS = new Set([
+  "arial", "arial black", "helvetica", "helvetica neue", "verdana", "tahoma", "trebuchet ms", "georgia", "times", "times new roman",
+  "courier", "courier new", "lucida console", "lucida sans unicode", "lucida grande", "palatino", "palatino linotype", "book antiqua",
+  "impact", "comic sans ms", "segoe ui", "roboto", "sf mono", "consolas", "menlo", "monaco",
+  "serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-sans-serif", "ui-serif", "ui-monospace",
+  "-apple-system", "blinkmacsystemfont", "inherit", "initial", "unset",
+]);
+
+function fontNames(value: string): string[] {
+  return value.replace(/!\s*important/i, "").split(",").map((name) => name.trim().replace(/^["']|["']$/g, "").trim()).filter(Boolean);
+}
+
+/**
+ * A font that is not on every device only shows where the mail app loads it,
+ * and several of the biggest do not. The code is left as written; this says
+ * which fonts are affected and what readers will see instead.
+ */
+function fontIssues(html: string, declarations: Declaration[], lineOf: (o: number) => number): EmailIssue[] {
+  const seen = new Map<string, { name: string; offset: number; fallback: string[]; count: number }>();
+  for (const d of declarations) {
+    if (d.prop !== "font-family" && d.prop !== "font") continue;
+    const list = d.prop === "font" ? fontNames(d.value.replace(/^.*?\d[\w.%]*(?:\s*\/\s*[\w.%]+)?\s+/, "")) : fontNames(d.value);
+    const first = list[0];
+    if (!first || /^var\(/.test(first) || SAFE_FONTS.has(first.toLowerCase())) continue;
+    const key = first.toLowerCase();
+    const entry = seen.get(key);
+    if (entry) entry.count++;
+    else seen.set(key, { name: first, offset: d.offset, fallback: list.slice(1), count: 1 });
+  }
+  const issues: EmailIssue[] = [];
+  for (const [key, entry] of [...seen].slice(0, 8)) {
+    const name = entry.name;
+    void key;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const loaded = new RegExp(`@font-face[^}]*${escaped}|fonts\\.googleapis\\.com[^"')]*${escaped.replace(/\s+/g, "(\\+|%20|\\s)")}`, "i").test(html);
+    const fallback = entry.fallback.length ? entry.fallback.join(", ") : "";
+    issues.push({
+      level: fallback ? "info" : "warning",
+      title: "Font compatibility warning",
+      line: lineOf(entry.offset),
+      excerpt: `font-family: ${name}`,
+      problem: loaded
+        ? `Gmail, Outlook and Yahoo Mail do not load web fonts, so they will not show ${name}. Apple Mail and iOS Mail do. Original font: ${name}. Fallback: ${fallback || "none named, so each app picks its own"}.`
+        : `The email never loads ${name} (no @font-face or font link for it), so it only shows on devices that already have it. Original font: ${name}. Fallback: ${fallback || "none named, so each app picks its own"}.`,
+      fix: fallback
+        ? "Your code is kept as written. Check the email still looks right in the fallback font."
+        : `Your code is kept as written. Name a fallback after it, for example font-family: '${name}', Arial, sans-serif.`,
+      count: entry.count,
+    });
+  }
+  return issues;
+}
+
 // ─── Attributes, pictures, widths ─────────────────────────────────────────────
 
 function attr(tag: string, name: string): string | null {
@@ -388,6 +444,7 @@ export function lintEmail(html: string): EmailIssue[] {
     ...attributeIssues(html, masked, lineOf),
     ...widthIssues(html, masked, declarations, lineOf),
     ...documentIssues(html, lineOf),
+    ...fontIssues(html, declarations, lineOf),
     ...supportIssues(html, masked, declarations, lineOf),
   ];
   return issues.sort((a, b) => ORDER[a.level] - ORDER[b.level] || a.line - b.line);
