@@ -25,6 +25,38 @@ function TextInput({ value, onChange, placeholder }: { value: string; onChange: 
   return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={INPUT} />;
 }
 
+/**
+ * Where a button goes when it is pressed. An address typed without its
+ * beginning ("example.com") gets "https://" when the field is left, and an
+ * email address becomes a mailto link, so the button works in the sent email.
+ */
+function LinkInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const shown = value === "#" ? "" : value;
+  const tidy = (raw: string) => {
+    const text = raw.trim();
+    if (!text) return "#";
+    if (/^(https?:|mailto:|tel:|sms:|#|\/|\{\{)/i.test(text)) return text;
+    if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(text)) return `mailto:${text}`;
+    if (/^\+?[\d\s()-]{7,}$/.test(text)) return `tel:${text.replace(/[^\d+]/g, "")}`;
+    return `https://${text}`;
+  };
+  return (
+    <>
+      <input
+        type="url"
+        inputMode="url"
+        value={shown}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => { const next = tidy(e.target.value); if (next !== value) onChange(next); }}
+        placeholder="https://example.com"
+        spellCheck={false}
+        className={INPUT}
+      />
+      {!shown && <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">Without a link the button goes nowhere when it is pressed.</p>}
+    </>
+  );
+}
+
 function TextArea({ value, onChange, rows = 4, mono }: { value: string; onChange: (v: string) => void; rows?: number; mono?: boolean }) {
   return <textarea value={value} rows={rows} onChange={(e) => onChange(e.target.value)} className={`${INPUT} resize-y ${mono ? "font-mono text-[11px]" : ""}`} />;
 }
@@ -342,6 +374,7 @@ function BlockProperties({ block, onChange }: { block: EmailBlock; onChange: (b:
         <>
           <SectionTitle>Button</SectionTitle>
           <Row><Label>Label</Label><TextInput value={block.text} onChange={(v) => set({ text: v })} /></Row>
+          <Row><Label>Link</Label><LinkInput value={block.linkUrl} onChange={(v) => set({ linkUrl: v })} /></Row>
           <SectionTitle>Style</SectionTitle>
           <Row><Label>Fill Color</Label><ColorInput value={block.bgColor} onChange={(v) => set({ bgColor: v })} allowNone /></Row>
           <Row><Label>Text Color</Label><ColorInput value={block.textColor} onChange={(v) => set({ textColor: v })} /></Row>
@@ -474,6 +507,7 @@ function BlockProperties({ block, onChange }: { block: EmailBlock; onChange: (b:
           <Row><Label>Corner Radius</Label><NumberInput value={block.borderRadius} onChange={(v) => set({ borderRadius: v })} min={0} max={60} /></Row>
           <SectionTitle>Play Button</SectionTitle>
           <Row><Label>Label</Label><TextInput value={block.buttonText} onChange={(v) => set({ buttonText: v })} /></Row>
+          <Row><Label>Video Link</Label><LinkInput value={block.videoUrl} onChange={(v) => set({ videoUrl: v })} /></Row>
           <Row><Label>Button Color</Label><ColorInput value={block.buttonBg} onChange={(v) => set({ buttonBg: v })} /></Row>
           <Row><Label>Text Color</Label><ColorInput value={block.buttonColor} onChange={(v) => set({ buttonColor: v })} /></Row>
           <p className="mb-3 text-[10px] leading-relaxed text-zinc-600">Email clients cannot play video inline, so this links a poster image to your video.</p>
@@ -575,6 +609,7 @@ function BlockProperties({ block, onChange }: { block: EmailBlock; onChange: (b:
           <Row><Label>Alignment</Label><AlignInput value={block.textAlign} onChange={(v) => set({ textAlign: v })} /></Row>
           <SectionTitle>Button</SectionTitle>
           <Row><Label>Label</Label><TextInput value={block.buttonText} onChange={(v) => set({ buttonText: v })} placeholder="Leave empty to hide" /></Row>
+          <Row><Label>Link</Label><LinkInput value={block.buttonUrl} onChange={(v) => set({ buttonUrl: v })} /></Row>
           <Row><Label>Button Color</Label><ColorInput value={block.buttonBg} onChange={(v) => set({ buttonBg: v })} /></Row>
           <Row><Label>Text Color</Label><ColorInput value={block.buttonColor} onChange={(v) => set({ buttonColor: v })} /></Row>
           <Row><Label>Corner Radius</Label><NumberInput value={block.buttonRadius} onChange={(v) => set({ buttonRadius: v })} min={0} max={999} /></Row>
@@ -620,6 +655,7 @@ function BlockProperties({ block, onChange }: { block: EmailBlock; onChange: (b:
           )}
           <SectionTitle>Button</SectionTitle>
           <Row><Label>Label</Label><TextInput value={block.buttonText} onChange={(v) => set({ buttonText: v })} placeholder="Leave empty to hide" /></Row>
+          <Row><Label>Link</Label><LinkInput value={block.buttonUrl} onChange={(v) => set({ buttonUrl: v })} /></Row>
           <Row><Label>Button Color</Label><ColorInput value={block.buttonBg} onChange={(v) => set({ buttonBg: v })} /></Row>
           <Row><Label>Text Color</Label><ColorInput value={block.buttonColor} onChange={(v) => set({ buttonColor: v })} /></Row>
           <SectionTitle>Style</SectionTitle>
@@ -653,6 +689,7 @@ function BlockProperties({ block, onChange }: { block: EmailBlock; onChange: (b:
           <Row><Label>Alignment</Label><AlignInput value={block.textAlign} onChange={(v) => set({ textAlign: v })} /></Row>
           <SectionTitle>Button</SectionTitle>
           <Row><Label>Label</Label><TextInput value={block.buttonText} onChange={(v) => set({ buttonText: v })} placeholder="Leave empty to hide" /></Row>
+          <Row><Label>Link</Label><LinkInput value={block.buttonUrl} onChange={(v) => set({ buttonUrl: v })} /></Row>
           <Row><Label>Button Color</Label><ColorInput value={block.buttonBg} onChange={(v) => set({ buttonBg: v })} /></Row>
           <Row><Label>Text Color</Label><ColorInput value={block.buttonColor} onChange={(v) => set({ buttonColor: v })} /></Row>
           <Row><Label>Corner Radius</Label><NumberInput value={block.buttonRadius} onChange={(v) => set({ buttonRadius: v })} min={0} max={999} /></Row>
