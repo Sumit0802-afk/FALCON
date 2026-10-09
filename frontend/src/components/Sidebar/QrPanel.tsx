@@ -85,10 +85,93 @@ function readLogo(file: File): Promise<string> {
   });
 }
 
+/**
+ * Takes a plain background off a logo: the colour found at the picture's
+ * corners is cleared from the edges inwards, stopping at the logo itself, so
+ * the same colour inside the logo is kept. Returns null when the picture has
+ * no plain background to remove (it is already see-through, or its edges are
+ * a photo or a pattern).
+ */
+function removeLogoBackground(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const w = image.naturalWidth;
+      const h = image.naturalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("no canvas"));
+      ctx.drawImage(image, 0, 0);
+      const picture = ctx.getImageData(0, 0, w, h);
+      const px = picture.data;
+      const at = (x: number, y: number) => (y * w + x) * 4;
+
+      // The background is the colour most of the edge pixels share
+      const edge: number[] = [];
+      for (let x = 0; x < w; x++) edge.push(at(x, 0), at(x, h - 1));
+      for (let y = 0; y < h; y++) edge.push(at(0, y), at(w - 1, y));
+      const solid = edge.filter((o) => px[o + 3] > 200);
+      if (solid.length < edge.length * 0.5) return resolve(null);
+      const counts = new Map<string, { n: number; r: number; g: number; b: number }>();
+      for (const o of solid) {
+        const key = `${px[o] >> 4},${px[o + 1] >> 4},${px[o + 2] >> 4}`;
+        const entry = counts.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        entry.n++; entry.r += px[o]; entry.g += px[o + 1]; entry.b += px[o + 2];
+        counts.set(key, entry);
+      }
+      const top = [...counts.values()].sort((a, b) => b.n - a.n)[0];
+      if (top.n < solid.length * 0.6) return resolve(null);
+      const bg = [top.r / top.n, top.g / top.n, top.b / top.n];
+      const distance = (o: number) => Math.hypot(px[o] - bg[0], px[o + 1] - bg[1], px[o + 2] - bg[2]);
+
+      // Spread inwards from the edges through pixels close to that colour
+      const NEAR = 42;
+      const SOFT = 90;
+      const seen = new Uint8Array(w * h);
+      const queue: number[] = [];
+      const visit = (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= w || y >= h) return;
+        const i = y * w + x;
+        if (seen[i]) return;
+        seen[i] = 1;
+        const o = i * 4;
+        const d = px[o + 3] < 8 ? 0 : distance(o);
+        if (d < NEAR) {
+          px[o + 3] = 0;
+          queue.push(x, y);
+        } else if (d < SOFT) {
+          // The blended rim between background and logo fades out instead of leaving a halo
+          px[o + 3] = Math.round(px[o + 3] * ((d - NEAR) / (SOFT - NEAR)));
+        }
+      };
+      for (let x = 0; x < w; x++) { visit(x, 0); visit(x, h - 1); }
+      for (let y = 0; y < h; y++) { visit(0, y); visit(w - 1, y); }
+      while (queue.length) {
+        const y = queue.pop() as number;
+        const x = queue.pop() as number;
+        visit(x + 1, y); visit(x - 1, y); visit(x, y + 1); visit(x, y - 1);
+      }
+
+      let left = 0;
+      for (let i = 3; i < px.length; i += 4) if (px[i] > 40) left++;
+      // Nothing of the logo would remain: it was one flat colour, so leave it alone
+      if (left < w * h * 0.02) return resolve(null);
+      ctx.putImageData(picture, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error("not a picture"));
+    image.src = dataUrl;
+  });
+}
+
 export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
   // The code being designed while nothing on the page is selected
   const [draft, setDraft] = useState<QrConfig>(() => configOf(QR_DEFAULT));
   const [logoError, setLogoError] = useState("");
+  // Logos whose background was removed here, with the picture they came from, so it can be put back
+  const originals = useRef(new Map<string, string>());
   const file = useRef<HTMLInputElement>(null);
 
   const value = selected ? selected.config : draft;
@@ -239,7 +322,30 @@ export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
           <button type="button" onClick={() => file.current?.click()} className="rounded-lg border border-white/[0.1] px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/[0.06]">{value.logoUrl ? "Change logo" : "Upload a logo"}</button>
           {value.logoUrl && <button type="button" onClick={() => set({ logoUrl: "" })} className="rounded-lg border border-white/[0.1] px-2.5 py-1.5 text-[11px] text-zinc-400 hover:text-zinc-200">Remove logo</button>}
         </div>
-        {logoError && <p className="mt-1.5 text-[11px] text-red-300">{logoError}</p>}
+        {value.logoUrl && (
+          <div className="mt-2 flex items-center gap-2">
+            {originals.current.has(value.logoUrl) ? (
+              <button type="button" onClick={() => { setLogoError(""); set({ logoUrl: originals.current.get(value.logoUrl) as string }); }} className="rounded-lg border border-white/[0.1] px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/[0.06]">Put the background back</button>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setLogoError("");
+                    const cleared = await removeLogoBackground(value.logoUrl);
+                    if (!cleared) { setLogoError("No plain background was found on this logo. It may already be see-through, or its background is a photo or a pattern."); return; }
+                    originals.current.set(cleared, value.logoUrl);
+                    set({ logoUrl: cleared });
+                  } catch { setLogoError("The logo could not be read."); }
+                }}
+                className="rounded-lg border border-[#00dfb6]/40 bg-[#00dfb6]/10 px-2.5 py-1.5 text-[11px] font-medium text-[#00dfb6] hover:bg-[#00dfb6]/20"
+              >
+                Remove logo background
+              </button>
+            )}
+          </div>
+        )}
+        {logoError && <p className="mt-1.5 text-[11px] leading-relaxed text-red-300">{logoError}</p>}
         {value.logoUrl && (
           <>
             <label className="mt-3 block">
