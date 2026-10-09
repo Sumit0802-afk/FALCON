@@ -351,6 +351,18 @@ export function EditorLayout({
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTab>(null);
 
+  // A design started from one of the home page's feature cards opens on that feature's tool.
+  // The request is used once, and only if it was made in the last few minutes
+  useEffect(() => {
+    try {
+      const asked = JSON.parse(sessionStorage.getItem("falcon_open_tool") || "null");
+      sessionStorage.removeItem("falcon_open_tool");
+      if (asked && Date.now() - Number(asked.at) < 5 * 60_000 && (asked.tool === "ai" || asked.tool === "brand-kit")) setActiveSidebarTab(asked.tool);
+    } catch {
+      // No storage, or nothing asked for: the editor opens as usual
+    }
+  }, []);
+
   // On phones and tablets a side panel covers the canvas, so close it once
   // something has been added and the user needs to see the result
   const elementCount = editor.page?.elements?.length ?? 0;

@@ -81,6 +81,16 @@ export default function Home() {
     setLayoutModalOpen(true);
   };
 
+  /** Starts a new design and asks the editor to open on one of its tools */
+  const createDesignWithTool = (tool: "ai" | "brand-kit") => {
+    try {
+      sessionStorage.setItem("falcon_open_tool", JSON.stringify({ tool, at: Date.now() }));
+    } catch {
+      // Without storage the design still opens, just on the editor's usual view
+    }
+    createDesign();
+  };
+
   const createFromTemplate = (template: FalconTemplate) => {
     setPendingTemplate(template);
     setLayoutModalOpen(true);
@@ -1660,6 +1670,8 @@ const openTemplateByName = (name: string) => {
                 icon={<BadgeIcon icon={Target} tone="rose" size={42} />}
                 title="Start with what you mean."
                 description="Tell Falcon what you want to achieve. It turns your purpose, audience and message into a visual direction."
+                action="Open AI Studio"
+                onOpen={openAIStudio}
               />
 
               <SystemCard
@@ -1667,6 +1679,8 @@ const openTemplateByName = (name: string) => {
                 icon={<BadgeIcon icon={Crosshair} tone="sky" size={42} />}
                 title="Design with a second pair of eyes."
                 description="Falcon spots weak hierarchy, contrast, spacing and alignment while you work."
+                action="Try Design Coach"
+                onOpen={() => createDesignWithTool("ai")}
               />
 
               <SystemCard
@@ -1674,6 +1688,8 @@ const openTemplateByName = (name: string) => {
                 icon={<BadgeIcon icon={Layers3} tone="indigo" size={42} />}
                 title="Keep every design unmistakably yours."
                 description="Design DNA captures the visual language of your project and keeps it consistent."
+                action="Open Brand Kit"
+                onOpen={() => createDesignWithTool("brand-kit")}
               />
 
               <SystemCard
@@ -1681,6 +1697,8 @@ const openTemplateByName = (name: string) => {
                 icon={<BadgeIcon icon={RefreshCw} tone="green" size={42} />}
                 title="One idea. Every format."
                 description="Turn one strong composition into an entire campaign without starting over."
+                action="Browse every format"
+                onOpen={() => router.push("/library")}
               />
             </div>
           </div>
@@ -1709,6 +1727,8 @@ const openTemplateByName = (name: string) => {
                 title="Define"
                 description="Choose your goal, audience, tone and format."
                 step="define"
+                action="Start in AI Studio"
+                onOpen={openAIStudio}
               />
 
               <ProcessCard
@@ -1717,6 +1737,8 @@ const openTemplateByName = (name: string) => {
                 title="Generate"
                 description="Explore multiple creative directions before committing."
                 step="generate"
+                action="Generate a design"
+                onOpen={openAIStudio}
               />
 
               <ProcessCard
@@ -1725,6 +1747,8 @@ const openTemplateByName = (name: string) => {
                 title="Improve"
                 description="Use Design Coach to sharpen your composition and visual hierarchy."
                 step="improve"
+                action="Try Design Coach"
+                onOpen={() => createDesignWithTool("ai")}
               />
 
               <ProcessCard
@@ -1733,6 +1757,8 @@ const openTemplateByName = (name: string) => {
                 title="Remix"
                 description="Extend your visual language across formats and campaigns."
                 step="remix"
+                action="Browse every format"
+                onOpen={() => router.push("/library")}
               />
             </div>
           </div>
@@ -2441,14 +2467,26 @@ function SystemCard({
   icon,
   title,
   description,
+  action,
+  onOpen,
 }: {
   number: string;
   icon: ReactNode;
   title: string;
   description: string;
+  /** What pressing the card does, in a few words */
+  action: string;
+  onOpen: () => void;
 }) {
   return (
-    <div className="group relative flex min-h-[500px] flex-col border-b border-white/[0.08] bg-[#000000] p-7 transition-all duration-300 hover:bg-[#0a0a0a] md:border-r md:last:border-r-0 xl:border-b-0">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      aria-label={`${title} ${action}`}
+      className="group relative flex min-h-[500px] cursor-pointer flex-col border-b border-white/[0.08] bg-[#000000] p-7 outline-none transition-all duration-300 hover:bg-[#0a0a0a] focus-visible:bg-[#0a0a0a] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2F81FF]/70 md:border-r md:last:border-r-0 xl:border-b-0"
+    >
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
         <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-500 uppercase font-medium">
@@ -2601,7 +2639,7 @@ function SystemCard({
         <span className="h-px w-8 bg-white/20 transition-all duration-300 group-hover:w-14 group-hover:bg-white/50" />
 
         <div className="flex items-center gap-1 text-[12.5px] font-mono text-zinc-500 transition-colors group-hover:text-white">
-          <span>Explore architecture</span>
+          <span>{action}</span>
           <ArrowUpRight
             size={12}
             className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
@@ -2622,15 +2660,27 @@ function ProcessCard({
   title,
   description,
   step,
+  action,
+  onOpen,
 }: {
   number: string;
   icon: ReactNode;
   title: string;
   description: string;
   step: "define" | "generate" | "improve" | "remix";
+  /** What pressing the card does, in a few words */
+  action: string;
+  onOpen: () => void;
 }) {
   return (
-    <div className="group relative flex min-h-[440px] flex-col rounded-xl border border-white/[0.08] bg-[#000000] p-6 transition-all duration-300 hover:border-white/[0.18] hover:bg-[#0a0a0a]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      aria-label={`${title}. ${action}`}
+      className="group relative flex min-h-[440px] cursor-pointer flex-col rounded-xl border border-white/[0.08] bg-[#000000] p-6 outline-none transition-all duration-300 hover:border-white/[0.18] hover:bg-[#0a0a0a] focus-visible:border-[#2F81FF]/70"
+    >
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
         <div className="flex transition-transform duration-300 group-hover:scale-110">
@@ -2763,7 +2813,7 @@ function ProcessCard({
       <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
         <span className="h-px w-8 bg-white/20 transition-all duration-300 group-hover:w-14 group-hover:bg-white/60" />
         <div className="flex items-center gap-1 font-mono text-[12.5px] text-zinc-500 transition-colors group-hover:text-white">
-          <span>Explore step</span>
+          <span>{action}</span>
           <ArrowUpRight size={12} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </div>
       </div>
