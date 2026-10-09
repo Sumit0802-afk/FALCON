@@ -230,82 +230,105 @@ async function dispatchEmail(email: OutgoingEmail): Promise<void> {
 
 // ─── HTML Templates ──────────────────────────────────────────────────────────
 
-function otpHtml(name: string, otp: string, expiresInMinutes: number): string {
+// Falcon's own emails are laid out with tables and inline styles only. Mail apps
+// differ in what they keep of a stylesheet, and a sign-in code has to look right in all of them.
+
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const MONO = "'SF Mono',Consolas,Menlo,Monaco,'Courier New',monospace";
+
+/** "SUMIT BHAMU 24BCD7025" is greeted as "Sumit": the first word of the name, in ordinary capitals */
+function firstName(name: string): string {
+  const first = name.trim().split(/\s+/)[0] || "";
+  if (first.length < 2 || !/^\p{L}+$/u.test(first)) return name.trim() || "there";
+  const shouting = first === first.toUpperCase() || first === first.toLowerCase();
+  return shouting ? first[0].toUpperCase() + first.slice(1).toLowerCase() : first;
+}
+
+/**
+ * The frame every account email shares: the Falcon band on top, the message in
+ * a dark card, a quiet line underneath.
+ *
+ * `preheader` is the line a mail app shows beside the subject. It is followed by
+ * blank filler so the app does not carry on into the body, which for a sign-in
+ * email would put the code in the notification.
+ */
+function accountEmail(opts: { title: string; label: string; preheader: string; body: string; footer: string }): string {
+  const filler = "&#847;&zwnj;&nbsp;".repeat(90);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Falcon Verification Code</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #05070a; color: #f4f1eb; margin: 0; padding: 32px 16px; }
-    .container { max-width: 520px; margin: 0 auto; background: #0a0e14; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
-    .logo-badge { display: inline-block; background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3); border-radius: 6px; padding: 6px 14px; font-family: monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: #22d3ee; margin-bottom: 24px; text-transform: uppercase; }
-    h1 { font-size: 22px; font-weight: 700; color: #ffffff; margin: 0 0 12px; letter-spacing: -0.02em; }
-    p { font-size: 14px; line-height: 1.6; color: #94a3b8; margin: 0 0 24px; }
-    .otp-box { background: #020408; border: 1px solid rgba(34,211,238,0.35); border-radius: 12px; padding: 24px; text-align: center; margin: 28px 0; }
-    .otp-code { font-family: 'SF Mono', Consolas, Menlo, Monaco, monospace; font-size: 38px; font-weight: 800; letter-spacing: 0.35em; color: #22d3ee; padding-left: 0.35em; display: inline-block; }
-    .otp-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #64748b; margin-top: 8px; font-weight: 600; }
-    .meta-box { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 20px; margin-top: 28px; }
-    .meta-row { font-size: 12px; color: #64748b; line-height: 1.6; margin: 4px 0; }
-    .meta-warning { color: #f59e0b; }
-    .footer { text-align: center; font-size: 11px; color: #475569; margin-top: 24px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<title>${escapeHtml(opts.title)}</title>
 </head>
-<body>
-  <div class="container">
-    <div>
-      <span class="logo-badge">Falcon // Security</span>
-    </div>
-    <h1>Your Falcon verification code</h1>
-    <p>Hello ${escapeHtml(name)},</p>
-    <p>Use the code below to sign in to Falcon.</p>
-    <div class="otp-box">
-      <div class="otp-code">${otp}</div>
-      <div class="otp-label">Verification Code</div>
-    </div>
-    <div class="meta-box">
-      <div class="meta-row">• This code expires in ${expiresInMinutes} minutes and can be used once.</div>
-      <div class="meta-row">• If you did not request this code, you can safely ignore this email.</div>
-      <div class="meta-row meta-warning">• Never share this code with anyone. Falcon will never ask for it outside of the sign-in screen.</div>
-    </div>
-  </div>
-  <div class="footer">
-    Falcon • This is an automated security message.
-  </div>
+<body style="margin:0;padding:0;background-color:#0b0d14;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#0b0d14;">${escapeHtml(opts.preheader)}${filler}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b0d14" style="background-color:#0b0d14;">
+<tr><td align="center" style="padding:32px 12px 40px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#131520" style="max-width:500px;border-collapse:separate;background-color:#131520;border:1px solid #262a40;border-radius:20px;overflow:hidden;">
+    <tr><td bgcolor="#17143f" style="background-color:#17143f;background-image:linear-gradient(135deg,#2a1f78 0%,#141230 55%,#0c0d18 100%);padding:24px 32px;border-radius:19px 19px 0 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="font-family:${FONT};font-size:17px;font-weight:800;letter-spacing:0.3em;color:#ffffff;">FALCON</td>
+        <td align="right" style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#b9b0ff;">${escapeHtml(opts.label)}</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:32px 32px 30px;">
+${opts.body}
+    </td></tr>
+  </table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:500px;">
+    <tr><td align="center" style="padding:20px 24px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:#6b7186;">${opts.footer}</td></tr>
+  </table>
+</td></tr>
+</table>
 </body>
 </html>`;
 }
 
+function otpHtml(name: string, otp: string, expiresInMinutes: number): string {
+  const body = `      <h1 style="margin:0 0 10px;font-family:${FONT};font-size:24px;line-height:1.25;font-weight:700;color:#ffffff;">Your sign-in code</h1>
+      <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;line-height:1.6;color:#a4a9bd;">Hi ${escapeHtml(firstName(name))}, enter this code on the Falcon sign-in screen to finish signing in.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr>
+        <td align="center" bgcolor="#0c0d16" style="background-color:#0c0d16;border:1px solid #3a3580;border-radius:14px;padding:28px 12px 22px;">
+          <div style="font-family:${MONO};font-size:40px;line-height:1;font-weight:700;letter-spacing:0.3em;padding-left:0.3em;color:#ffffff;">${otp}</div>
+          <div style="margin-top:16px;font-family:${FONT};font-size:12px;font-weight:600;letter-spacing:0.02em;color:#a99cff;">Expires in ${expiresInMinutes} minutes &nbsp;&middot;&nbsp; works once</div>
+        </td>
+      </tr></table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin-top:22px;"><tr>
+        <td bgcolor="#1e1a12" style="background-color:#1e1a12;border-left:3px solid #f5b544;border-radius:8px;padding:12px 14px;font-family:${FONT};font-size:13px;line-height:1.55;color:#e6d6ae;"><strong style="color:#ffd88a;">Never share this code.</strong> Falcon will never ask for it anywhere except the sign-in screen.</td>
+      </tr></table>
+      <p style="margin:22px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:#7c8196;">Didn&rsquo;t try to sign in? Then someone else entered your password. They cannot get in without this code, but you should change your password soon.</p>`;
+  return accountEmail({
+    title: "Your Falcon sign-in code",
+    label: "Sign-in code",
+    preheader: `Your sign-in code is inside. It expires in ${expiresInMinutes} minutes.`,
+    body,
+    footer: "This is an automated message from Falcon. Replies are not read.",
+  });
+}
+
 function passwordResetHtml(name: string, resetUrl: string, expiresInMinutes: number): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Reset your Falcon password</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #05070a; color: #f4f1eb; margin: 0; padding: 32px 16px; }
-    .container { max-width: 500px; margin: 0 auto; background: #0a0e14; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px 32px; }
-    .logo { font-weight: 800; letter-spacing: 0.25em; color: #22d3ee; font-size: 13px; text-transform: uppercase; margin-bottom: 24px; }
-    h1 { font-size: 22px; font-weight: 700; color: #ffffff; margin-bottom: 8px; }
-    p { font-size: 14px; line-height: 1.6; color: #8b8f98; margin: 0 0 24px; }
-    .btn-wrap { text-align: center; margin: 28px 0; }
-    .btn { background: #2f81ff; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">FALCON // INTELLIGENCE</div>
-    <h1>Password Reset Request</h1>
-    <p>Hello ${escapeHtml(name)},</p>
-    <p>We received a request to reset your password. Click the button below to choose a new password. This link is single-use and expires in ${expiresInMinutes} minutes.</p>
-    <div class="btn-wrap">
-      <a href="${escapeHtml(resetUrl)}" class="btn">Reset Falcon Password</a>
-    </div>
-    <p style="font-size:12px;color:#64748b;">If you did not request a password reset, you can safely ignore this email.</p>
-  </div>
-</body>
-</html>`;
+  const link = escapeHtml(resetUrl);
+  const body = `      <h1 style="margin:0 0 10px;font-family:${FONT};font-size:24px;line-height:1.25;font-weight:700;color:#ffffff;">Reset your password</h1>
+      <p style="margin:0 0 26px;font-family:${FONT};font-size:15px;line-height:1.6;color:#a4a9bd;">Hi ${escapeHtml(firstName(name))}, we received a request to reset your Falcon password. Choose a new one with the button below.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;margin:0 auto;"><tr>
+        <td align="center" bgcolor="#6d5bff" style="background-color:#6d5bff;border-radius:10px;">
+          <a href="${link}" class="btn" style="display:inline-block;padding:14px 34px;font-family:${FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">Choose a new password</a>
+        </td>
+      </tr></table>
+      <p style="margin:18px 0 0;font-family:${FONT};font-size:12px;font-weight:600;text-align:center;color:#a99cff;">The link expires in ${expiresInMinutes} minutes &nbsp;&middot;&nbsp; works once</p>
+      <p style="margin:26px 0 6px;font-family:${FONT};font-size:12px;line-height:1.6;color:#7c8196;">If the button does not work, paste this address into your browser:</p>
+      <p style="margin:0;font-family:${MONO};font-size:12px;line-height:1.5;word-break:break-all;"><a href="${link}" style="color:#a99cff;text-decoration:underline;">${link}</a></p>
+      <p style="margin:22px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:#7c8196;">Didn&rsquo;t ask for this? You can ignore this email. Your password stays as it is.</p>`;
+  return accountEmail({
+    title: "Reset your Falcon password",
+    label: "Password reset",
+    preheader: `Choose a new Falcon password. The link expires in ${expiresInMinutes} minutes.`,
+    body,
+    footer: "This is an automated message from Falcon. Replies are not read.",
+  });
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -323,8 +346,8 @@ export const emailService = {
       to,
       fromName: "Falcon",
       // The code stays out of the subject so it never shows in notification previews or mail logs
-      subject: "Your Falcon verification code",
-      text: `Your Falcon verification code is ${otp}\n\nThis code expires in ${expiresInMinutes} minutes.\n\nIf you did not request this code, you can safely ignore this email.`,
+      subject: "Your Falcon sign-in code",
+      text: `Your Falcon sign-in code is ${otp}\n\nIt expires in ${expiresInMinutes} minutes and works once. Never share it: Falcon will never ask for it anywhere except the sign-in screen.\n\nDidn't try to sign in? Then someone else entered your password. They cannot get in without this code, but you should change your password soon.`,
       html: otpHtml(name, otp, expiresInMinutes),
     });
   },
@@ -341,7 +364,7 @@ export const emailService = {
       to,
       fromName: "Falcon Security",
       subject: `Reset your Falcon password`,
-      text: `Hello ${name},\n\nClick the link below to reset your Falcon password:\n${resetUrl}\n\nThis link expires in ${expiresInMinutes} minutes.\n\n— Team Falcon`,
+      text: `Hi ${firstName(name)},\n\nOpen this link to choose a new Falcon password:\n${resetUrl}\n\nThe link expires in ${expiresInMinutes} minutes and works once.\n\nDidn't ask for this? You can ignore this email. Your password stays as it is.`,
       html: passwordResetHtml(name, resetUrl, expiresInMinutes),
     });
   },
