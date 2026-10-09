@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateDesignBlueprint } from "../services/ai.service";
 import { AI_DESIGN_SIZES, aiDesignService, designSpecSchema } from "../services/aiDesign.service";
 import { readImage, portraitService } from "../services/portrait.service";
+import { aiStudioService, analysisSchema, contentSchema, dnaSchema, referenceSchema, settingsSchema } from "../services/aiStudio.service";
 import { findPhotos } from "../services/aiImages";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
@@ -66,6 +67,45 @@ const blendSchema = z.object({
   result: z.string().max(400),
   strength: z.number().min(0).max(100),
 });
+
+// ─── AI Studio: reference, request, artwork ──────────────────────────────────
+
+const references = z.array(referenceSchema).max(4).default([]);
+const artworkAddress = z.string().max(400);
+
+const studioAnalyzeSchema = z.object({ references: z.array(referenceSchema).min(1, "Add a reference picture first").max(4) });
+
+const studioCompileSchema = z.object({
+  prompt: z.string().trim().min(3, "Describe the design you want").max(PROMPT_CEILING, TOO_LONG),
+  size: z.enum(SIZE_IDS).default("portrait-4x5"),
+  analysis: analysisSchema.nullable().default(null),
+  dna: dnaSchema.nullable().default(null),
+  settings: settingsSchema.default({}),
+});
+
+const studioArtworkSchema = z.object({
+  compiled: z.string().trim().min(20, "The generation prompt is empty").max(40_000),
+  size: z.enum(SIZE_IDS).default("portrait-4x5"),
+  references,
+  /** An earlier result to work from, with what to do to it */
+  base: artworkAddress.optional(),
+  instruction: z.string().trim().max(600).optional(),
+});
+
+const studioEvaluateSchema = z.object({ reference: referenceSchema.shape.image, result: artworkAddress, content: contentSchema.default({}) });
+
+const studioLayoutSchema = z.object({
+  prompt: z.string().trim().min(3).max(PROMPT_CEILING, TOO_LONG),
+  size: z.enum(SIZE_IDS).default("portrait-4x5"),
+  content: contentSchema.default({}),
+  analysis: analysisSchema.nullable().default(null),
+  settings: settingsSchema.default({}),
+  count: z.number().int().min(1).max(4).default(1),
+  /** A design to make versions of: its words, colours, type and pictures are kept */
+  keep: designSpecSchema.optional(),
+});
+
+const studioOpenSchema = z.object({ url: artworkAddress, size: z.enum(SIZE_IDS).default("portrait-4x5"), title: z.string().trim().max(190).default("") });
 
 /** The public address of this server, used for pictures saved here */
 function baseUrl(req: { protocol: string; get(name: string): string | undefined }): string {
@@ -136,6 +176,63 @@ router.post("/designs/use", validateBody(useSchema), async (req, res, next) => {
   try {
     const result = await aiDesignService.use(userId(req), { spec: req.body.spec, sizeId: req.body.size, baseUrl: baseUrl(req) });
     res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── AI Studio: the steps the browser calls one after another ────────────────
+
+router.get("/studio/status", (_req, res) => {
+  res.status(200).json(aiStudioService.status());
+});
+
+router.post("/studio/analyze", aiRateLimit, validateBody(studioAnalyzeSchema), async (req, res, next) => {
+  try {
+    res.status(200).json(await aiStudioService.analyze({ references: req.body.references }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/studio/compile", aiRateLimit, validateBody(studioCompileSchema), async (req, res, next) => {
+  try {
+    const { prompt, size, analysis, dna, settings } = req.body;
+    res.status(200).json(await aiStudioService.compile({ prompt, sizeId: size, analysis, dna, settings }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/studio/artwork", aiRateLimit, validateBody(studioArtworkSchema), async (req, res, next) => {
+  try {
+    const { compiled, size, references: refs, base, instruction } = req.body;
+    res.status(200).json(await aiStudioService.artwork({ compiled, sizeId: size, references: refs, base, instruction, baseUrl: baseUrl(req) }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/studio/evaluate", validateBody(studioEvaluateSchema), async (req, res, next) => {
+  try {
+    res.status(200).json(await aiStudioService.evaluate(req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/studio/layout", aiRateLimit, validateBody(studioLayoutSchema), async (req, res, next) => {
+  try {
+    const { prompt, size, content, analysis, settings, count, keep } = req.body;
+    res.status(200).json({ size, ...(await aiStudioService.layout({ prompt, sizeId: size, content, analysis, settings, count, keep, baseUrl: baseUrl(req) })) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/studio/open", validateBody(studioOpenSchema), async (req, res, next) => {
+  try {
+    res.status(201).json(await aiStudioService.open(userId(req), { url: req.body.url, sizeId: req.body.size, title: req.body.title }));
   } catch (error) {
     next(error);
   }

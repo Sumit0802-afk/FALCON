@@ -38,7 +38,7 @@ export { AI_ASSET_DIR };
  * AI_API_KEY and one of its models in AI_TEXT_MODEL. Read on each request, so
  * a changed .env takes effect on the next restart without code changes.
  */
-function provider() {
+export function provider() {
   const baseURL = process.env.AI_BASE_URL?.trim() || "";
   return {
     baseURL,
@@ -52,7 +52,7 @@ function provider() {
 
 const STYLE_IDS = STYLES.map((s) => s.id);
 const LAYOUT_IDS = POSTER_LAYOUTS.map((l) => l.id);
-const PHOTO_LAYOUT_IDS = POSTER_LAYOUTS.filter((l) => l.photo).map((l) => l.id);
+export const PHOTO_LAYOUT_IDS = POSTER_LAYOUTS.filter((l) => l.photo).map((l) => l.id);
 const FONT_IDS = FONT_PAIRS.map((f) => f.id);
 const SUBJECTS = Object.keys(CATEGORY_PHOTOS);
 /** Formats AI Studio designs for: the library's poster sizes and a few more that people ask for by name */
@@ -61,7 +61,7 @@ const SIZES = [
   { id: "youtube", name: "YouTube thumbnail 1280 × 720", width: 1280, height: 720 },
   { id: "presentation", name: "Presentation 1920 × 1080", width: 1920, height: 1080 },
 ];
-const SIZE_BY_ID = Object.fromEntries(SIZES.map((s) => [s.id, s]));
+export const SIZE_BY_ID = Object.fromEntries(SIZES.map((s) => [s.id, s]));
 
 export const AI_DESIGN_SIZES = SIZES;
 
@@ -166,20 +166,20 @@ function specJsonSchema(count: number) {
   };
 }
 
-const COPY_RULES = [
+export const COPY_RULES = [
   "Use any names, dates, places, prices or wording the person gave, exactly.",
   "Never invent facts. If the person did not give a date, time, place, price, prize, deadline, number, organiser or brand name, do not make one up: write a short placeholder they will replace, such as \"Add date\", \"Add venue\", \"Add prize\" or \"Your brand\". Headlines, labels and taglines are yours to write freely, as long as they state no made-up facts.",
   "Write in the language of the request. Keep the headline to five words or fewer so it can be set large.",
   "details are up to three label and value pairs such as Date, Time, Venue, Price or Contact, chosen to suit the request.",
 ];
 
-const LOOK_RULES = [
+export const LOOK_RULES = [
   "Choose colours as a designer would for this subject and mood, not at random: for example dark blues and cyan for technology, black and gold for luxury, neon and high contrast for gaming, calm trustworthy tones for finance, clean light tones for education. text must be clearly readable on background, and accent must stand out from background. surface is a panel colour close to background. muted is a quieter text colour.",
   "Choose one font pairing that fits the mood and the kind of design, and a layout that suits the amount of text and the shape of the page.",
   `Every design is built around a photograph, so layout must be one of: ${PHOTO_LAYOUT_IDS.join(", ")}.`,
 ];
 
-const IMAGE_RULES = [
+export const IMAGE_RULES = [
   "imageQueries are three or four stock photo searches, in English, for the one picture this design is built around. Think about the subject, the audience and the mood: a hackathon wants developers at laptops, a sports day wants athletes in action, a food offer wants the dish itself. Start exact and end very general, so that something is always found: the first search is two or three words, the next is two words, and the last two are each ONE common word. For example: \"students coding hackathon\", \"programmer laptop\", \"coding\", \"technology\". Use plain everyday words a photo library would tag a real photograph with (things, people, places), never abstract or stylistic words such as glitch, neon, premium or futuristic, and never the name of the event or brand.",
   "Give each option a different picture idea.",
   "imagePrompt describes that picture in one or two sentences, with no words or lettering in it.",
@@ -213,7 +213,7 @@ function variationInstructions(count: number, sizeName: string): string {
 let client: OpenAI | null = null;
 let clientFor = "";
 
-function ai(): OpenAI {
+export function ai(): OpenAI {
   const { apiKey, baseURL } = provider();
   if (!apiKey) throw new AppError("AI Studio is not set up on this server yet. Add an AI key (AI_API_KEY or OPENAI_API_KEY) to the backend's .env file.", 503, "AI_NOT_CONFIGURED");
   const wanted = `${baseURL}|${apiKey.length}|${apiKey.slice(-4)}`;
@@ -232,7 +232,7 @@ export function canMakeAiImages(): boolean {
 }
 
 /** Says what went wrong in terms the person can act on, without passing on the provider's own text */
-function aiError(err: any, what: string): AppError {
+export function aiError(err: any, what: string): AppError {
   if (err instanceof AppError) return err;
   const status = Number(err?.status) || 0;
   console.error(`[ai] ${what} failed (status: ${status || "n/a"}, code: ${err?.code || err?.name || "unknown"})`);
@@ -248,7 +248,7 @@ function aiError(err: any, what: string): AppError {
 }
 
 /** The model's reply as data, whether or not it wrapped the JSON in a code block or added words around it */
-function readJson(content: string): any {
+export function readJson(content: string): any {
   const text = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
     return JSON.parse(text);
@@ -260,7 +260,7 @@ function readJson(content: string): any {
   }
 }
 
-async function askForSpecs(system: string, prompt: string, count: number): Promise<unknown[]> {
+export async function askForSpecs(system: string, prompt: string, count: number): Promise<unknown[]> {
   const models = provider().textModels;
   if (!models.length) models.push("gpt-5.4-mini");
   const schema = specJsonSchema(count);
@@ -424,7 +424,7 @@ function hasPicture(page: LibPage): boolean {
  * Builds a design and makes sure it is fit to show: it must carry a picture.
  * One that does not is moved to a picture layout and built again.
  */
-async function buildChecked(spec: DesignSpec, sizeId: string, baseUrl: string): Promise<LibPage> {
+export async function buildChecked(spec: DesignSpec, sizeId: string, baseUrl: string): Promise<LibPage> {
   let page = await buildDesign(spec, sizeId, baseUrl);
   for (let attempt = 0; attempt < PHOTO_LAYOUT_IDS.length && !hasPicture(page); attempt++) {
     spec.layout = PHOTO_LAYOUT_IDS[(hashString(spec.title) + attempt) % PHOTO_LAYOUT_IDS.length];
@@ -447,7 +447,7 @@ function spreadLayouts(specs: DesignSpec[]): void {
 }
 
 /** Finds each option a photograph of its own on the subject, and keeps it on this server */
-async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> {
+export async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> {
   const used = new Set<string>();
   await Promise.all(specs.map(async (spec, index) => {
     const found = await findPhotos(spec.imageQueries.length ? spec.imageQueries : [prompt.slice(0, 80)]);
@@ -467,7 +467,7 @@ async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> 
   }));
 }
 
-function present(spec: DesignSpec, page: LibPage): GeneratedDesign {
+export function present(spec: DesignSpec, page: LibPage): GeneratedDesign {
   return { spec, name: spec.name, direction: spec.direction, width: page.width, height: page.height, preview: renderPageSvg(page) };
 }
 
@@ -484,7 +484,7 @@ export interface GeneratedDesign {
   preview: string;
 }
 
-function checkSpecs(raw: unknown[]): DesignSpec[] {
+export function checkSpecs(raw: unknown[]): DesignSpec[] {
   const specs: DesignSpec[] = [];
   for (const item of raw) {
     const checked = designSpecSchema.safeParse(item);
