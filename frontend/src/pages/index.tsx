@@ -652,7 +652,6 @@ const openTemplateByName = (name: string) => {
               flex
               h-[53px]
               w-full
-              max-w-[1400px]
               items-center
               justify-between
               lg:grid

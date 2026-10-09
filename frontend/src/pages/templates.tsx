@@ -504,7 +504,7 @@ export default function TemplatesPage() {
         <header
           className="fixed left-4 right-4 top-4 z-[100] rounded-2xl border border-white/[0.08] bg-black/85 backdrop-blur-xl md:left-6 md:right-6 lg:left-8 lg:right-8 xl:left-[5%] xl:right-[5%]"
         >
-          <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between gap-3 px-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-7">
+          <div className="mx-auto flex h-[72px] w-full items-center justify-between gap-3 px-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-7">
 
             {/* Logo */}
             <button

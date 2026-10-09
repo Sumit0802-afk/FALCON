@@ -407,7 +407,7 @@ export default function EmailTemplatesPage() {
 
         {/* Floating navbar (homepage style) */}
         <header className="fixed left-4 right-4 top-4 z-[100] rounded-2xl border border-white/[0.08] bg-black/85 backdrop-blur-xl md:left-6 md:right-6 lg:left-8 lg:right-8 xl:left-[5%] xl:right-[5%]">
-          <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between gap-3 px-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-7">
+          <div className="mx-auto flex h-[72px] w-full items-center justify-between gap-3 px-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-7">
             <button type="button" onClick={() => router.push("/")} className="group flex shrink-0 cursor-pointer items-center gap-2.5 justify-self-start">
               <img src="/falcon-logo-white.png" alt="Falcon Logo" className="h-8 w-8 object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-[0_0_10px_rgba(255,255,255,0.45)]" />
               <span className="text-[13px] font-semibold tracking-[0.2em] text-[#f4f1eb]">FALCON</span>
