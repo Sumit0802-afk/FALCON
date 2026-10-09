@@ -450,7 +450,7 @@ function spreadLayouts(specs: DesignSpec[]): void {
 async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> {
   const used = new Set<string>();
   await Promise.all(specs.map(async (spec, index) => {
-    const found = await findPhotos(spec.imageQueries.length ? spec.imageQueries : [prompt]);
+    const found = await findPhotos(spec.imageQueries.length ? spec.imageQueries : [prompt.slice(0, 80)]);
     // Each option starts from a different result, so they do not all open on the same picture
     const order = found.map((_, i) => found[(i + index * 2) % found.length]);
     const ids: string[] = [];

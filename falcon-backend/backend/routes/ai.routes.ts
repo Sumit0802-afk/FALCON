@@ -16,12 +16,17 @@ router.use(requireAuth);
 
 const SIZE_IDS = AI_DESIGN_SIZES.map((s) => s.id) as [string, ...string[]];
 
+// A description can be as long as the user likes. The ceiling is only there so one request cannot run up
+// an unbounded bill with the AI service; it is far beyond anything typed or pasted in practice.
+const PROMPT_CEILING = 100_000;
+const TOO_LONG = "That description is too long for Falcon to read in one go. Shorten it a little and try again.";
+
 const generateSchema = z.object({
-  prompt: z.string().min(3).max(2000),
+  prompt: z.string().min(3).max(PROMPT_CEILING, TOO_LONG),
 });
 
 const designsSchema = z.object({
-  prompt: z.string().trim().min(3, "Describe the design you want").max(2000),
+  prompt: z.string().trim().min(3, "Describe the design you want").max(PROMPT_CEILING, TOO_LONG),
   size: z.enum(SIZE_IDS).default("portrait-4x5"),
   count: z.number().int().min(1).max(4).default(4),
   /** Make a picture for the design with the image model */
