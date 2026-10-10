@@ -36,6 +36,7 @@ import {
   ai, aiError, askForSpecs, buildChecked, checkSpecs, choosePhotos, present, provider, readJson,
 } from "./aiDesign.service";
 import { AI_ASSET_DIR } from "./aiImages";
+import { FalError, falPicture } from "./falPicture";
 
 // ─── What the browser and the server pass between them ────────────────────────
 
@@ -425,7 +426,16 @@ function artworkModel(): string {
   return (process.env.AI_ARTWORK_MODEL || process.env.PORTRAIT_IMAGE_MODEL || process.env.TRANSFORM_IMAGE_MODEL || "").trim();
 }
 
+/** Whether this server has been given something to make pictures with at all */
+function artworkConfigured(): boolean {
+  return falPicture.chosen() ? falPicture.hasKey() : artworkModel() !== "";
+}
+
+const NO_ALLOWANCE = "The picture model has no allowance on this server's AI account, so a finished artwork cannot be made. Billing has to be enabled for the account whose key is in the backend's .env file.";
+const NO_BALANCE = "The picture service's account has no balance, or its key is not accepted, so a finished artwork cannot be made. Check the key and the balance of the account named in the backend's .env file.";
+
 function canMakeArtwork(): boolean {
+  if (falPicture.chosen()) return falPicture.ready();
   return artworkModel() !== "" && !!(process.env.AI_API_KEY || "").trim() && Date.now() > artworkDownUntil;
 }
 
@@ -446,6 +456,19 @@ function artworkFile(address: string): string {
 }
 
 async function generateArtwork(prompt: string, pictures: { label: string; data: string }[], width: number, height: number): Promise<Buffer> {
+  if (falPicture.chosen()) {
+    // This model takes the pictures as a numbered set, so what each one is for goes into the words
+    const notes = pictures.map((p, i) => `Picture ${i + 1}: ${p.label}`).join("\n");
+    try {
+      return await falPicture.make(notes ? `${prompt}\n\nTHE PICTURES GIVEN\n${notes}` : prompt, pictures.map((p) => Buffer.from(p.data, "base64")), { shape: width / height });
+    } catch (err) {
+      const reason = err instanceof FalError ? err.reason : "unreachable";
+      if (reason === "no-balance" || reason === "no-access") throw new AppError(NO_BALANCE, 503, "ARTWORK_UNAVAILABLE");
+      if (reason === "empty") throw new AppError("The picture model returned no picture. Try wording the request differently.", 502, "ARTWORK_EMPTY");
+      if (reason === "refused") throw new AppError("The picture model is not answering just now.", 503, "ARTWORK_UNAVAILABLE");
+      throw new AppError("Falcon could not reach the picture model. Check the connection and try again.", 502, "ARTWORK_UNREACHABLE");
+    }
+  }
   const key = (process.env.AI_API_KEY || "").trim();
   const parts: any[] = [{ text: prompt }];
   for (const p of pictures) parts.push({ text: p.label }, { inlineData: { mimeType: "image/jpeg", data: p.data } });
@@ -463,7 +486,7 @@ async function generateArtwork(prompt: string, pictures: { label: string; data: 
       if ([401, 403, 404, 429].includes(res.status)) artworkDownUntil = Date.now() + 10 * 60_000;
       console.error(`[studio] picture model answered ${res.status}`);
       throw new AppError(
-        res.status === 429 ? "The picture model has no allowance on this server's AI account, so a finished artwork cannot be made. Billing has to be enabled for the account whose key is in the backend's .env file." : "The picture model is not answering just now.",
+        res.status === 429 ? NO_ALLOWANCE : "The picture model is not answering just now.",
         503, "ARTWORK_UNAVAILABLE",
       );
     }
@@ -554,7 +577,7 @@ const PARTS = ["composition", "typography", "color", "density", "placement", "ba
 export const aiStudioService = {
   /** Whether a finished artwork can be made right now, or only an editable layout */
   status() {
-    return { artwork: canMakeArtwork(), configured: artworkModel() !== "" };
+    return { artwork: canMakeArtwork(), configured: artworkConfigured() };
   },
 
   /** Looks at the reference pictures and says what they are made of */
@@ -609,8 +632,8 @@ export const aiStudioService = {
    * for a variation or for a fix, so the design stays the same design.
    */
   async artwork(input: { compiled: string; sizeId: string; references: Reference[]; base?: string; instruction?: string; baseUrl: string }): Promise<{ url: string; width: number; height: number }> {
-    if (!artworkModel()) throw new AppError("No picture model is set up on this server, so a finished artwork cannot be made.", 503, "ARTWORK_UNAVAILABLE");
-    if (!canMakeArtwork()) throw new AppError("The picture model has no allowance on this server's AI account, so a finished artwork cannot be made. Billing has to be enabled for the account whose key is in the backend's .env file.", 503, "ARTWORK_UNAVAILABLE");
+    if (!artworkConfigured()) throw new AppError("No picture model is set up on this server, so a finished artwork cannot be made.", 503, "ARTWORK_UNAVAILABLE");
+    if (!canMakeArtwork()) throw new AppError(falPicture.chosen() ? NO_BALANCE : NO_ALLOWANCE, 503, "ARTWORK_UNAVAILABLE");
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
     const pictures: { label: string; data: string }[] = [];
     for (const [i, ref] of input.references.entries()) pictures.push({ label: `Reference ${i + 1}: the visual blueprint for ${ROLE_WORDS[ref.role]}.`, data: await shrink(ref.image) });

@@ -25,6 +25,7 @@ import path from "path";
 import sharp, { Sharp } from "sharp";
 import { AppError } from "../utils/AppError";
 import { AI_ASSET_DIR } from "./aiImages";
+import { falPicture } from "./falPicture";
 import { PORTRAIT_GROUPS } from "./portraitStyles";
 
 /** The longest side a picture is worked on at: sharp enough for a design, quick enough to feel instant */
@@ -681,6 +682,7 @@ function imageModel(): string {
 }
 
 function canGenerate(): boolean {
+  if (falPicture.chosen()) return falPicture.ready();
   return imageModel() !== "" && Date.now() > modelDownUntil && !!(process.env.AI_API_KEY || "").trim();
 }
 
@@ -688,6 +690,8 @@ function canGenerate(): boolean {
 async function generate(input: Buffer, instruction: string): Promise<Buffer> {
   const key = (process.env.AI_API_KEY || "").trim();
   const jpeg = await sharp(input).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+  const asked = `${instruction} Keep the face and likeness of every person in the photo clearly recognisable. Do not add any text.`;
+  if (falPicture.chosen()) return falPicture.make(asked, [jpeg], { timeoutMs: 90_000 });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90_000);
   try {
@@ -696,7 +700,7 @@ async function generate(input: Buffer, instruction: string): Promise<Buffer> {
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${instruction} Keep the face and likeness of every person in the photo clearly recognisable. Do not add any text.` }, { inlineData: { mimeType: "image/jpeg", data: jpeg.toString("base64") } }] }],
+        contents: [{ parts: [{ text: asked }, { inlineData: { mimeType: "image/jpeg", data: jpeg.toString("base64") } }] }],
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
       }),
     });
