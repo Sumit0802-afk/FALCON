@@ -1,0 +1,5415 @@
+import React, {
+  ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { useRouter } from "next/router";
+import { fetchCurrentUser } from "@/services/authService";
+import { DEFAULT_TEXT_COLOR } from "@/utils/constants";
+import { renderPageThumbnail } from "@/utils/canvasExport";
+
+import {
+  CanvasElement,
+  DesignPage,
+  isImage,
+  isText,
+  isShape,
+  isFrame,
+  ImageElement,
+  TextElement,
+  ShapeElement,
+  FrameElement,
+  PageSize,
+} from "@/types";
+
+import { useCanvasEditor } from "@/hooks/useCanvasEditor";
+import { useZoomPan } from "@/hooks/useZoomPan";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+
+import { Toolbar, SidebarTab } from "@/components/Toolbar/Toolbar";
+import { TopBar } from "@/components/TopBar/TopBar";
+import { Canvas } from "@/components/Canvas/Canvas";
+import { BlendControl } from "@/components/Editor/BlendControl";
+import { NotesButton, PagesViewButton, TimerButton } from "@/components/Editor/FooterTools";
+import { AiToolsPanel } from "@/components/Sidebar/AiToolsPanel";
+import { LayersPanel } from "@/components/Sidebar/LayersPanel";
+import { LibraryTemplatesPanel } from "@/components/Sidebar/LibraryTemplatesPanel";
+import { TextPanel } from "@/components/Sidebar/TextPanel";
+import { FontsPanel } from "@/components/Sidebar/FontsPanel";
+import { ElementsPanel } from "@/components/Sidebar/ElementsPanel";
+import { FramesPanel } from "@/components/Sidebar/FramesPanel";
+import { ImageFiltersPanel } from "@/components/Sidebar/ImageFiltersPanel";
+import { UploadsPanel } from "@/components/Sidebar/UploadsPanel";
+import { BackgroundsPanel } from "@/components/Sidebar/BackgroundsPanel";
+import { StickersPanel } from "@/components/Sidebar/StickersPanel";
+import { PhotosPanel } from "@/components/Sidebar/PhotosPanel";
+import { PortraitPanel } from "@/components/Sidebar/PortraitPanel";
+import { QrPanel } from "@/components/Sidebar/QrPanel";
+import { qrAspect, qrDataUrl } from "@/utils/qrCode";
+import { QrConfig, configOf, storedConfig } from "@/utils/qrDesign";
+import { BrandKitPanel } from "@/components/Sidebar/BrandKitPanel";
+import { AssetAdminModal } from "@/components/Sidebar/AssetAdminModal";
+import { ApplyToPagePrompt, PromptItemType } from "@/components/Editor/ApplyToPagePrompt";
+import { BackgroundItem } from "@/data/backgrounds";
+import { Sticker } from "@/types/sticker";
+import { BackgroundRemoverModal } from "@/components/Editor/BackgroundRemoverModal";
+import { LayoutSelectorModal } from "@/components/Editor/LayoutSelectorModal";
+import { ColorPickerPopover } from "@/components/common/ColorPickerPopover";
+import { FontSizeControl } from "@/components/Editor/FontSizeControl";
+
+import { FrameDefinition } from "@/data/frameDefinitions";
+import { loadGoogleFont } from "@/services/fontService";
+import { TextDesignStyle } from "@/data/textDesignStyles";
+
+import { exportService } from "@/services/exportService";
+import { projectService } from "@/services/projectService";
+
+import {
+  analyzeDesign,
+  generateImprovements,
+  DesignAnalysis,
+  DesignIssue,
+} from "@/services/designAnalysisService";
+
+import {
+  generateRemixes,
+  RemixVariant,
+} from "@/services/remixService";
+
+import {
+  generateDesignDNA,
+  DesignDNA,
+} from "@/services/designDNAService";
+
+import {
+  generateCampaign,
+  CampaignVariant,
+  CampaignFormat,
+  CAMPAIGN_FORMATS,
+} from "@/services/campaignService";
+
+import {
+  Brain,
+  RefreshCw,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  Wand2,
+  Zap,
+  X,
+  Check,
+  Palette,
+  Type,
+  LayoutGrid,
+  Wrench,
+  Group,
+  Ungroup,
+  Scissors,
+  Copy,
+  Trash2,
+  RotateCcw,
+  QrCode as QrCodeIcon,
+  Sliders,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Crown,
+  StickyNote,
+  Timer,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  FlipHorizontal,
+  FlipVertical,
+  Plus,
+  Minus,
+  Maximize,
+  Eye,
+  Layers,
+  Frame,
+  Image as ImageIcon,
+} from "lucide-react";
+
+/**
+ * What was last copied. It lives outside the component so a copy made on one
+ * page can be pasted on another.
+ */
+let copiedElements: CanvasElement[] = [];
+
+interface EditorLayoutProps {
+  projectId: string;
+  projectTitle: string;
+  initialPage: DesignPage;
+  onBack: () => void;
+  /** Every page of the project, for the page strip and multi-page export */
+  pages?: DesignPage[];
+  /** Which of `pages` is open */
+  pageIndex?: number;
+  onSelectPage?: (index: number) => void;
+  onAddPage?: () => void;
+  onDuplicatePage?: () => void;
+  onDeletePage?: () => void;
+  /** Reports the open page whenever it changes, so the project always has its latest content */
+  onPageChange?: (page: DesignPage) => void;
+  /** Tells the project its new name after a rename, so every page and export uses it */
+  onTitleChange?: (title: string) => void;
+}
+
+export function EditorLayout({
+  projectId,
+  projectTitle,
+  initialPage,
+  onBack,
+  pages,
+  pageIndex = 0,
+  onSelectPage,
+  onAddPage,
+  onDuplicatePage,
+  onDeletePage,
+  onPageChange,
+  onTitleChange,
+}: EditorLayoutProps) {
+  const router = useRouter();
+
+  const editor = useCanvasEditor({
+    initialPage,
+  });
+
+  const {
+    zoom,
+    pan,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    fitToScreen,
+    onWheel,
+    setZoom,
+  } = useZoomPan();
+
+  // Ref on the canvas wrapper so we can measure its dimensions for fit-to-screen
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
+
+  const handleFitToScreen = useCallback(() => {
+    const el = canvasWrapperRef.current;
+    if (!el) return;
+    fitToScreen(
+      el.clientWidth,
+      el.clientHeight,
+      editor.page.size.width,
+      editor.page.size.height
+    );
+  }, [fitToScreen, editor.page.size]);
+
+  // Auto-fit whenever the editor first loads or the page dimensions change
+  useEffect(() => {
+    handleFitToScreen();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.page.size.width, editor.page.size.height]);
+
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const imagePositionRef = useRef({
+    x: 100,
+    y: 100,
+  });
+
+  /* =======================================================
+     AI COACH
+     ======================================================= */
+
+  const [coachOpen, setCoachOpen] =
+    useState(false);
+
+  const [analysis, setAnalysis] =
+    useState<DesignAnalysis | null>(null);
+
+  const [isImproving, setIsImproving] =
+    useState(false);
+
+  const [
+    improvementMessage,
+    setImprovementMessage,
+  ] = useState("");
+
+  const [
+    fixingIssueId,
+    setFixingIssueId,
+  ] = useState<string | null>(null);
+
+  const [
+    issueFixMessage,
+    setIssueFixMessage,
+  ] = useState("");
+
+  /* =======================================================
+     DESIGN DNA
+     ======================================================= */
+
+  const [designDNA, setDesignDNA] =
+    useState<DesignDNA | null>(null);
+
+  /* =======================================================
+     SMART REMIX
+     ======================================================= */
+
+  const [remixOpen, setRemixOpen] =
+    useState(false);
+
+  const [remixes, setRemixes] =
+    useState<RemixVariant[]>([]);
+
+  const [selectedRemix, setSelectedRemix] =
+    useState<RemixVariant | null>(null);
+
+  const [
+    isGeneratingRemixes,
+    setIsGeneratingRemixes,
+  ] = useState(false);
+
+  const [remixMessage, setRemixMessage] =
+    useState("");
+
+  /* =======================================================
+     ONE → MANY
+     ======================================================= */
+
+  const [campaignOpen, setCampaignOpen] =
+    useState(false);
+
+  const [
+    campaignVariants,
+    setCampaignVariants,
+  ] = useState<CampaignVariant[]>([]);
+
+  const [
+    selectedCampaignFormats,
+    setSelectedCampaignFormats,
+  ] = useState<CampaignFormat[]>(
+    CAMPAIGN_FORMATS.map(
+      (format) => format.id
+    )
+  );
+
+  const [
+    isGeneratingCampaign,
+    setIsGeneratingCampaign,
+  ] = useState(false);
+
+  const [
+    campaignMessage,
+    setCampaignMessage,
+  ] = useState("");
+
+  const [
+    isCreatingCampaignProjects,
+    setIsCreatingCampaignProjects,
+  ] = useState(false);
+
+  /* =======================================================
+     GROUP / UNGROUP
+     ======================================================= */
+
+  const canGroup =
+    editor.selectedElements.length >= 2 &&
+    editor.selectedElements.every(
+      (element) =>
+        !element.locked &&
+        !element.hidden &&
+        element.type !== "group"
+    );
+
+  const canUngroup =
+    editor.selectedElements.some(
+      (element) =>
+        element.type === "group"
+    );
+
+  /* =======================================================
+     BACKGROUND REMOVER
+     ======================================================= */
+
+  const [bgRemoverOpen, setBgRemoverOpen] = useState(false);
+  const [layoutSelectorOpen, setLayoutSelectorOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const colorPickerAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  /* =======================================================
+     SIDEBAR TAB STATE
+     ======================================================= */
+
+  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTab>(null);
+
+  // A design started from one of the home page's feature cards opens on that feature's tool.
+  // The request is used once, and only if it was made in the last few minutes
+  useEffect(() => {
+    try {
+      const asked = JSON.parse(sessionStorage.getItem("falcon_open_tool") || "null");
+      sessionStorage.removeItem("falcon_open_tool");
+      if (asked && Date.now() - Number(asked.at) < 5 * 60_000 && (asked.tool === "ai" || asked.tool === "brand-kit")) setActiveSidebarTab(asked.tool);
+    } catch {
+      // No storage, or nothing asked for: the editor opens as usual
+    }
+  }, []);
+
+  // On phones and tablets a side panel covers the canvas, so close it once
+  // something has been added and the user needs to see the result
+  const elementCount = editor.page?.elements?.length ?? 0;
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 1023px)").matches) setActiveSidebarTab(null);
+    // The panel button that added something keeps the keyboard, so Space or Enter
+    // pressed next would add the same thing again. Hand the keyboard back to the page
+    const focused = document.activeElement as HTMLElement | null;
+    if (focused?.tagName === "BUTTON" && focused.closest("aside")) focused.blur();
+  }, [elementCount]);
+  const [assetAdminOpen, setAssetAdminOpen] = useState(false);
+  // The asset admin window is offered to administrators only
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetchCurrentUser().then((user) => live && setIsAdmin(user?.role === "admin")).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
+
+  /* =======================================================
+     EDITOR THEME (DARK / LIGHT)
+     ======================================================= */
+
+  const [editorTheme, setEditorTheme] = useState<"dark" | "light">("dark");
+
+  /* =======================================================
+     IMAGE BLEND POPOVER STATE
+     ======================================================= */
+
+  const [blendPopoverOpen, setBlendPopoverOpen] = useState(false);
+  const [transparencyPopoverOpen, setTransparencyPopoverOpen] = useState(false);
+
+  /* =======================================================
+     UPLOADS STATE (tracks recent uploads for UploadsPanel)
+     ======================================================= */
+
+  const [recentUploads, setRecentUploads] = useState<string[]>([]);
+
+  /* =======================================================
+     APPLY TO COMPLETE PAGE PROMPT STATE
+     ======================================================= */
+  const [applyPrompt, setApplyPrompt] = useState<{
+    itemType: PromptItemType;
+    itemName?: string;
+    elementId?: string;
+    backgroundValue?: string;
+  } | null>(null);
+
+  function handleApplyPrompt() {
+    if (!applyPrompt) return;
+
+    if (applyPrompt.itemType === "background" && applyPrompt.backgroundValue) {
+      editor.setPage({
+        ...editor.page,
+        background: applyPrompt.backgroundValue,
+      });
+    } else if (applyPrompt.elementId) {
+      const el = editor.page.elements.find((e) => e.id === applyPrompt.elementId);
+      if (el) {
+        const otherElements = editor.page.elements
+          .filter((e) => e.id !== applyPrompt.elementId)
+          .map((e, idx) => ({ ...e, zIndex: idx + 1 }));
+
+        const updatedEl = {
+          ...el,
+          x: 0,
+          y: 0,
+          width: editor.page.size.width,
+          height: editor.page.size.height,
+          rotation: 0,
+          zIndex: 0,
+        };
+
+        editor.setPage({
+          ...editor.page,
+          elements: [updatedEl, ...otherElements],
+        });
+      }
+    }
+  }
+
+  function handleSelectBackground(bg: BackgroundItem) {
+    editor.setPage({
+      ...editor.page,
+      background: bg.value,
+    });
+    setApplyPrompt({
+      itemType: "background",
+      itemName: bg.name,
+      backgroundValue: bg.value,
+    });
+  }
+
+  function handleChangeLayout(newSize: PageSize) {
+    setLayoutSelectorOpen(false);
+    editor.setPage({
+      ...editor.page,
+      size: newSize,
+    });
+  }
+
+  const selectedElement = editor.selectedElements[0];
+
+  // The filter panel belongs to the selected picture. Left open with nothing selected it
+  // showed an empty space, and came back mid-click so the picture could not be picked again
+  const filterTarget = !!selectedElement && isImage(selectedElement);
+  useEffect(() => {
+    if (activeSidebarTab === "filters" && !filterTarget) setActiveSidebarTab(null);
+  }, [activeSidebarTab, filterTarget]);
+  const isSelectedImage = Boolean(
+    selectedElement &&
+    editor.selectedElements.length === 1 &&
+    isImage(selectedElement)
+  );
+  const isSelectedText = Boolean(
+    selectedElement &&
+    editor.selectedElements.length === 1 &&
+    isText(selectedElement)
+  );
+  const isSelectedShape = Boolean(
+    selectedElement &&
+    editor.selectedElements.length === 1 &&
+    isShape(selectedElement)
+  );
+  const isSelectedFrame = Boolean(
+    selectedElement &&
+    editor.selectedElements.length === 1 &&
+    isFrame(selectedElement)
+  );
+
+  /* =======================================================
+     GROUP / UNGROUP KEYBOARD SHORTCUTS
+     ======================================================= */
+
+  useEffect(() => {
+    function handleGroupShortcuts(
+      event: KeyboardEvent
+    ) {
+      const target =
+        event.target as HTMLElement | null;
+
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (
+        event.ctrlKey &&
+        event.key.toLowerCase() === "g"
+      ) {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+          if (canUngroup) {
+            editor.ungroupSelected();
+          }
+        } else {
+          if (canGroup) {
+            editor.groupSelected();
+          }
+        }
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleGroupShortcuts
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleGroupShortcuts
+      );
+    };
+  }, [
+    canGroup,
+    canUngroup,
+    editor,
+  ]);
+
+  /* =======================================================
+     DESIGN ANALYSIS
+     ======================================================= */
+
+  function runDesignAnalysis() {
+    const result =
+      analyzeDesign(
+        editor.page.elements,
+        editor.page.background
+      );
+
+    setAnalysis(result);
+  }
+
+  /* =======================================================
+     DESIGN DNA
+     ======================================================= */
+
+  function runDesignDNA() {
+    const dna =
+      generateDesignDNA(
+        editor.page.elements,
+        editor.page.background
+      );
+
+    setDesignDNA(dna);
+  }
+
+  useEffect(() => {
+    const timer =
+      window.setTimeout(() => {
+        runDesignAnalysis();
+        runDesignDNA();
+      }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    editor.page.elements,
+    editor.page.background,
+  ]);
+
+  /* =======================================================
+     INDIVIDUAL AI ISSUE FIX
+     ======================================================= */
+
+  function handleFixIssue(
+    issue: DesignIssue
+  ) {
+    if (
+      fixingIssueId ||
+      isImproving
+    ) {
+      return;
+    }
+
+    const currentElements =
+      editor.page.elements;
+
+    const currentBackground =
+      editor.page.background;
+
+    const currentAnalysis =
+      analyzeDesign(
+        currentElements,
+        currentBackground
+      );
+
+    setAnalysis(currentAnalysis);
+
+    const latestIssue =
+      currentAnalysis.issues.find(
+        (item) =>
+          item.id === issue.id
+      );
+
+    if (!latestIssue) {
+      setIssueFixMessage(
+        "This issue is already fixed."
+      );
+      return;
+    }
+
+    setFixingIssueId(issue.id);
+    setIssueFixMessage("");
+
+    window.setTimeout(() => {
+      const target =
+        latestIssue.elementId
+          ? currentElements.find(
+              (element) =>
+                element.id ===
+                latestIssue.elementId
+            )
+          : undefined;
+
+      if (!target) {
+        setIssueFixMessage(
+          "Falcon couldn't find the affected element."
+        );
+        setFixingIssueId(null);
+        return;
+      }
+
+      if (
+        target.locked ||
+        target.hidden
+      ) {
+        setIssueFixMessage(
+          "This element is locked or hidden."
+        );
+        setFixingIssueId(null);
+        return;
+      }
+
+      let patch: Partial<CanvasElement> =
+        {};
+
+      if (
+        latestIssue.type ===
+        "contrast"
+      ) {
+        if (
+          target.type !== "text"
+        ) {
+          setIssueFixMessage(
+            "Contrast fix is available for text elements."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        patch = {
+          color:
+            getLuminance(
+              currentBackground
+            ) > 0.5
+              ? "#111111"
+              : "#FFFFFF",
+        };
+      } else if (
+        latestIssue.type ===
+        "readability"
+      ) {
+        if (
+          target.type !== "text"
+        ) {
+          setIssueFixMessage(
+            "Readability fix is available for text elements."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const readabilityPatch: Partial<TextElement> =
+          {};
+
+        if (
+          target.fontSize < 14
+        ) {
+          readabilityPatch.fontSize = 14;
+        }
+
+        if (
+          target.lineHeight < 1.15
+        ) {
+          readabilityPatch.lineHeight = 1.3;
+        }
+
+        if (
+          Object.keys(
+            readabilityPatch
+          ).length === 0
+        ) {
+          setIssueFixMessage(
+            "This text is already readable."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        patch =
+          readabilityPatch;
+      } else if (
+        latestIssue.type ===
+        "hierarchy"
+      ) {
+        if (
+          target.type !== "text"
+        ) {
+          setIssueFixMessage(
+            "Hierarchy fix is available for text elements."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const texts =
+          currentElements.filter(
+            (
+              element
+            ): element is TextElement =>
+              element.type ===
+                "text" &&
+              !element.hidden &&
+              !element.locked
+          );
+
+        if (texts.length < 2) {
+          setIssueFixMessage(
+            "There are not enough text elements to improve hierarchy."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const sorted = [
+          ...texts,
+        ].sort(
+          (a, b) =>
+            b.fontSize -
+            a.fontSize
+        );
+
+        const heading =
+          sorted[0];
+
+        const second =
+          sorted[1];
+
+        if (
+          heading.id !==
+          target.id
+        ) {
+          setIssueFixMessage(
+            "Falcon identified another text element as the primary heading."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const desiredSize =
+          Math.min(
+            72,
+            Math.max(
+              24,
+              Math.round(
+                Math.max(
+                  heading.fontSize,
+                  second.fontSize *
+                    1.6
+                )
+              )
+            )
+          );
+
+        if (
+          heading.fontSize >=
+          desiredSize
+        ) {
+          setIssueFixMessage(
+            "Hierarchy is already strong."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        patch = {
+          fontSize:
+            desiredSize,
+          fontWeight:
+            Math.max(
+              heading.fontWeight,
+              700
+            ),
+        };
+      } else if (
+        latestIssue.type ===
+        "alignment"
+      ) {
+        if (
+          target.type !== "text"
+        ) {
+          setIssueFixMessage(
+            "Alignment fix is available for text elements."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const texts =
+          currentElements.filter(
+            (
+              element
+            ): element is TextElement =>
+              element.type ===
+                "text" &&
+              !element.hidden &&
+              !element.locked
+          );
+
+        if (texts.length < 2) {
+          setIssueFixMessage(
+            "There are not enough text elements to align."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const anchor = [
+          ...texts,
+        ].sort(
+          (a, b) =>
+            a.y - b.y
+        )[0];
+
+        if (
+          anchor.id ===
+          target.id
+        ) {
+          setIssueFixMessage(
+            "This element is already the alignment anchor."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        const difference =
+          Math.abs(
+            target.x -
+              anchor.x
+          );
+
+        if (
+          difference <= 12
+        ) {
+          setIssueFixMessage(
+            "This element is already aligned."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        if (
+          difference > 300
+        ) {
+          setIssueFixMessage(
+            "Falcon avoided moving a distant element."
+          );
+          setFixingIssueId(null);
+          return;
+        }
+
+        patch = {
+          x: anchor.x,
+        };
+      } else if (
+        latestIssue.type ===
+        "spacing"
+      ) {
+        setIssueFixMessage(
+          "Manual review recommended so Falcon doesn't disturb your composition."
+        );
+        setFixingIssueId(null);
+        return;
+      } else if (
+        latestIssue.type ===
+        "layout"
+      ) {
+        setIssueFixMessage(
+          "Manual review recommended because the overlap may be intentional."
+        );
+        setFixingIssueId(null);
+        return;
+      }
+
+      if (
+        Object.keys(patch)
+          .length === 0
+      ) {
+        setIssueFixMessage(
+          "Falcon couldn't find a safe fix."
+        );
+        setFixingIssueId(null);
+        return;
+      }
+
+      const nextElements: CanvasElement[] =
+        currentElements.map(
+          (element) => {
+            if (
+              element.id !==
+              target.id
+            ) {
+              return element;
+            }
+
+            const safePatch: Record<
+              string,
+              unknown
+            > = {
+              ...patch,
+            };
+
+            delete safePatch.id;
+            delete safePatch.type;
+            delete safePatch.y;
+
+            return {
+              ...element,
+              ...safePatch,
+              id: element.id,
+              type: element.type,
+              y: element.y,
+            } as CanvasElement;
+          }
+        );
+
+      editor.setPage({
+        ...editor.page,
+        elements:
+          nextElements,
+      });
+
+      editor.selectElement(
+        target.id
+      );
+
+      const updatedAnalysis =
+        analyzeDesign(
+          nextElements,
+          currentBackground
+        );
+
+      setAnalysis(
+        updatedAnalysis
+      );
+
+      const updatedDNA =
+        generateDesignDNA(
+          nextElements,
+          currentBackground
+        );
+
+      setDesignDNA(
+        updatedDNA
+      );
+
+      setIssueFixMessage(
+        `${latestIssue.title} fixed successfully.`
+      );
+
+      setFixingIssueId(null);
+    }, 250);
+  }
+
+  /* =======================================================
+     IMPROVE DESIGN
+     ======================================================= */
+
+  function handleImproveDesign() {
+    if (isImproving) {
+      return;
+    }
+
+    const currentElements =
+      editor.page.elements;
+
+    const currentBackground =
+      editor.page.background;
+
+    const currentAnalysis =
+      analyzeDesign(
+        currentElements,
+        currentBackground
+      );
+
+    setAnalysis(
+      currentAnalysis
+    );
+
+    if (
+      currentAnalysis.issues
+        .length === 0
+    ) {
+      setImprovementMessage(
+        "Your design is already looking strong."
+      );
+
+      return;
+    }
+
+    setIsImproving(true);
+
+    setImprovementMessage(
+      "Falcon is improving your design..."
+    );
+
+    window.setTimeout(() => {
+      const result =
+        generateImprovements(
+          currentElements,
+          currentBackground,
+          currentAnalysis
+        );
+
+      const patchMap =
+        new Map<string, any>();
+
+      for (
+        const improvement of
+          result.improvements
+      ) {
+        if (
+          !improvement.elementId ||
+          !improvement.patch
+        ) {
+          continue;
+        }
+
+        const previousPatch =
+          patchMap.get(
+            improvement.elementId
+          ) ?? {};
+
+        patchMap.set(
+          improvement.elementId,
+          {
+            ...previousPatch,
+            ...improvement.patch,
+          }
+        );
+      }
+
+      if (
+        patchMap.size === 0
+      ) {
+        setImprovementMessage(
+          "Falcon couldn't find a safe automatic improvement."
+        );
+
+        setIsImproving(false);
+
+        return;
+      }
+
+      const safeElements =
+        currentElements.map(
+          (element) => {
+            const patch =
+              patchMap.get(
+                element.id
+              );
+
+            if (!patch) {
+              return element;
+            }
+
+            const safePatch = {
+              ...patch,
+            };
+
+            delete safePatch.x;
+            delete safePatch.y;
+            delete safePatch.id;
+            delete safePatch.type;
+
+            return {
+              ...element,
+              ...safePatch,
+              x: element.x,
+              y: element.y,
+            };
+          }
+        );
+
+      editor.setPage({
+        ...editor.page,
+        elements:
+          safeElements,
+      });
+
+      const appliedCount =
+        patchMap.size;
+
+      setImprovementMessage(
+        `Falcon applied ${appliedCount} safe improvement${
+          appliedCount === 1
+            ? ""
+            : "s"
+        }.`
+      );
+
+      setIsImproving(false);
+
+      window.setTimeout(() => {
+        const updatedAnalysis =
+          analyzeDesign(
+            safeElements,
+            currentBackground
+          );
+
+        setAnalysis(
+          updatedAnalysis
+        );
+
+        const updatedDNA =
+          generateDesignDNA(
+            safeElements,
+            currentBackground
+          );
+
+        setDesignDNA(
+          updatedDNA
+        );
+      }, 100);
+    }, 450);
+  }
+
+  /* =======================================================
+     SMART REMIX
+     ======================================================= */
+
+  function handleOpenRemix() {
+    if (
+      isGeneratingRemixes
+    ) {
+      return;
+    }
+
+    setRemixOpen(true);
+    setRemixMessage("");
+    setSelectedRemix(null);
+    setIsGeneratingRemixes(true);
+
+    window.setTimeout(() => {
+      const generated =
+        generateRemixes(
+          editor.page.elements
+        );
+
+      setRemixes(generated);
+
+      if (
+        generated.length > 0
+      ) {
+        setSelectedRemix(
+          generated[0]
+        );
+      }
+
+      setIsGeneratingRemixes(
+        false
+      );
+    }, 350);
+  }
+
+  function handleCloseRemix() {
+    if (
+      isGeneratingRemixes
+    ) {
+      return;
+    }
+
+    setRemixOpen(false);
+    setSelectedRemix(null);
+    setRemixMessage("");
+  }
+
+  function handleApplyRemix() {
+    if (!selectedRemix) {
+      return;
+    }
+
+    editor.setPage({
+      ...editor.page,
+      elements:
+        selectedRemix.elements.map(
+          (element) => ({
+            ...element,
+          })
+        ),
+    });
+
+    setRemixMessage(
+      `${selectedRemix.name} remix applied successfully.`
+    );
+
+    setRemixOpen(false);
+    setSelectedRemix(null);
+
+    window.setTimeout(() => {
+      runDesignAnalysis();
+      runDesignDNA();
+    }, 150);
+  }
+
+  /* =======================================================
+     ONE → MANY
+     ======================================================= */
+
+  function handleOpenCampaign() {
+    if (
+      isGeneratingCampaign
+    ) {
+      return;
+    }
+
+    setCampaignOpen(true);
+    setCampaignMessage("");
+    setCampaignVariants([]);
+  }
+
+  function handleCloseCampaign() {
+    if (
+      isGeneratingCampaign ||
+      isCreatingCampaignProjects
+    ) {
+      return;
+    }
+
+    setCampaignOpen(false);
+    setCampaignVariants([]);
+    setCampaignMessage("");
+  }
+
+  function toggleCampaignFormat(
+    format: CampaignFormat
+  ) {
+    setSelectedCampaignFormats(
+      (current) => {
+        if (
+          current.includes(format)
+        ) {
+          return current.filter(
+            (item) =>
+              item !== format
+          );
+        }
+
+        return [
+          ...current,
+          format,
+        ];
+      }
+    );
+  }
+
+  function handleGenerateCampaign() {
+    if (
+      selectedCampaignFormats.length ===
+      0
+    ) {
+      setCampaignMessage(
+        "Select at least one format."
+      );
+
+      return;
+    }
+
+    if (
+      isGeneratingCampaign
+    ) {
+      return;
+    }
+
+    setIsGeneratingCampaign(
+      true
+    );
+
+    setCampaignMessage("");
+
+    window.setTimeout(() => {
+      const generated =
+        generateCampaign(
+          editor.page,
+          selectedCampaignFormats
+        );
+
+      setCampaignVariants(
+        generated
+      );
+
+      setIsGeneratingCampaign(
+        false
+      );
+
+      if (
+        generated.length ===
+        0
+      ) {
+        setCampaignMessage(
+          "Falcon couldn't generate campaign variants."
+        );
+      } else {
+        setCampaignMessage(
+          `${generated.length} campaign variant${
+            generated.length ===
+            1
+              ? ""
+              : "s"
+          } generated successfully.`
+        );
+      }
+    }, 450);
+  }
+
+  async function handleCreateCampaignProjects() {
+    if (
+      campaignVariants.length ===
+      0
+    ) {
+      return;
+    }
+
+    if (
+      isCreatingCampaignProjects
+    ) {
+      return;
+    }
+
+    setIsCreatingCampaignProjects(
+      true
+    );
+
+    let createdCount = 0;
+
+    for (
+      const variant of
+        campaignVariants
+    ) {
+      try {
+        const project =
+          await projectService.create(
+            `${
+              projectTitle ||
+              "Design"
+            } — ${
+              variant.name
+            }`,
+            "local-user"
+          );
+
+        await projectService.save({
+          ...project,
+          title:
+            `${
+              projectTitle ||
+              "Design"
+            } — ${
+              variant.name
+            }`,
+          pages: [
+            {
+              ...variant.page,
+              id: project.pages[0]?.id || variant.page.id,
+            },
+          ],
+        });
+
+        createdCount++;
+      } catch (err) {
+        console.error("Failed to save campaign project variant:", err);
+      }
+    }
+
+    setIsCreatingCampaignProjects(
+      false
+    );
+
+    setCampaignMessage(
+      `${createdCount} campaign designs created successfully.`
+    );
+  }
+
+  /* =======================================================
+     CAMPAIGN ICON
+     ======================================================= */
+
+  function getCampaignIcon(
+    _format: CampaignFormat
+  ) {
+    return LayoutGrid;
+  }
+
+  /* =======================================================
+     AUTO SAVE
+     ======================================================= */
+
+  // The open page as the rest of the app should see it right now
+  useEffect(() => {
+    onPageChange?.(editor.page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.page]);
+
+  // The page as first loaded needs no saving; only real edits do
+  const loadedPage = useRef(editor.page);
+
+  useEffect(() => {
+    if (editor.page === loadedPage.current) return;
+    const timer = setTimeout(() => {
+      // Only this page is written, so editing one slide never rewrites the rest of a deck
+      projectService.savePage(projectId, editor.page).catch((err) => console.warn("Auto-save notification:", err));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [
+    editor.page,
+    projectId,
+  ]);
+
+  // "My Projects" shows a picture of the first page. It is redrawn once the page has been
+  // left alone for a few seconds, and once on opening so older projects get one too
+  const isFirstPage = !pages || pages.length === 0 || pageIndex === 0;
+  useEffect(() => {
+    if (!isFirstPage) return;
+    const page = editor.page;
+    const timer = setTimeout(async () => {
+      const image = await renderPageThumbnail(page);
+      if (image) projectService.saveThumbnail(projectId, image).catch(() => undefined);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [editor.page, projectId, isFirstPage]);
+
+  /* =======================================================
+     KEYBOARD SHORTCUTS
+     ======================================================= */
+
+  useKeyboardShortcuts({
+    onDelete:
+      editor.deleteSelected,
+
+    onUndo:
+      editor.undo,
+
+    onRedo:
+      editor.redo,
+
+    onDuplicate:
+      editor.duplicateSelected,
+
+    onDeselect: () =>
+      editor.selectElement(null),
+
+    onMoveLeft: (amount) => editor.moveSelected(-amount, 0),
+    onMoveRight: (amount) => editor.moveSelected(amount, 0),
+    onMoveUp: (amount) => editor.moveSelected(0, -amount),
+    onMoveDown: (amount) => editor.moveSelected(0, amount),
+
+    onCopy: () => {
+      if (!editor.selectedElements.length) return false;
+      copiedElements = editor.selectedElements.map((el) => ({ ...el }));
+    },
+    onCut: () => {
+      if (!editor.selectedElements.length) return false;
+      copiedElements = editor.selectedElements.map((el) => ({ ...el }));
+      editor.deleteSelected();
+    },
+    onPaste: () => {
+      if (!copiedElements.length) return false;
+      editor.pasteElements(copiedElements);
+      // Pasting again steps on from the last paste instead of landing on top of it
+      copiedElements = copiedElements.map((el) => ({ ...el, x: el.x + 24, y: el.y + 24 }));
+    },
+    onSelectAll: editor.selectAll,
+    onGroup: editor.groupSelected,
+    onUngroup: editor.ungroupSelected,
+  });
+
+  /* =======================================================
+     TITLE
+     ======================================================= */
+
+  async function handleTitleChange(
+    title: string
+  ) {
+    onTitleChange?.(title);
+    try {
+      await projectService.rename(projectId, title);
+    } catch (err) {
+      console.error("Title change save failed:", err);
+    }
+  }
+
+  /* =======================================================
+     TOOL SELECTION
+     ======================================================= */
+
+  function handleToolSelect(
+    tool: typeof editor.activeTool
+  ) {
+    if (tool === "crop") {
+      const selected =
+        editor.selectedElements[0];
+
+      if (!selected) {
+        alert(
+          "Select an image first."
+        );
+
+        return;
+      }
+
+      if (!isImage(selected)) {
+        alert(
+          "Crop can only be used on an image."
+        );
+
+        return;
+      }
+
+      editor.setActiveTool(
+        "crop"
+      );
+
+      return;
+    }
+
+    editor.setActiveTool(
+      tool
+    );
+  }
+
+  /* =======================================================
+     CANVAS CLICK
+     ======================================================= */
+
+  function handleCanvasClick(
+    x: number,
+    y: number
+  ) {
+    if (
+      editor.activeTool ===
+        "select" ||
+      editor.activeTool ===
+        "hand" ||
+      editor.activeTool ===
+        "crop"
+    ) {
+      return;
+    }
+
+    if (
+      editor.activeTool ===
+      "image"
+    ) {
+      imagePositionRef.current = {
+        x,
+        y,
+      };
+
+      fileInputRef.current?.click();
+
+      return;
+    }
+
+    editor.addElement({
+      type:
+        editor.activeTool as any,
+      x,
+      y,
+    });
+
+    editor.setActiveTool(
+      "select"
+    );
+  }
+
+  /* =======================================================
+     ADD FRAME TO CANVAS
+     ======================================================= */
+
+  function handleAddFrame(frameDef: FrameDefinition) {
+    const canvasWidth = editor.page.size.width;
+    const canvasHeight = editor.page.size.height;
+    const w = frameDef.defaultWidth ?? 220;
+    const h = frameDef.defaultHeight ?? 220;
+    editor.addElement({
+      type: "frame",
+      x: Math.round((canvasWidth - w) / 2),
+      y: Math.round((canvasHeight - h) / 2),
+      width: w,
+      height: h,
+      frameShape: frameDef.id,
+    });
+  }
+
+  /* =======================================================
+     FONT SELECTION
+     ======================================================= */
+
+  function handleSelectFont(fontFamily: string) {
+    // Load the font into the document first
+    loadGoogleFont(fontFamily, [300, 400, 500, 600, 700, 800]);
+    // Apply to currently selected text element(s)
+    const textEls = editor.selectedElements.filter(isText);
+    if (textEls.length > 0) {
+      textEls.forEach((el) => {
+        editor.updateElement(el.id, { fontFamily });
+      });
+    }
+  }
+
+  /* White on a dark spot of the page, dark on a light one */
+  function readableColorAt(px: number, py: number): string {
+    let behind = editor.page.background || "";
+    // Later elements lie on top, so the last solid shape under the point is what shows
+    for (const el of editor.page.elements) {
+      if (!isShape(el) || el.type === "line" || el.hidden || el.opacity < 0.6 || !/^#/.test(el.fill || "")) continue;
+      if (px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height) behind = el.fill;
+    }
+    const found = behind.match(/#([0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/i);
+    if (!found) return DEFAULT_TEXT_COLOR;
+    const hex = found[1].length === 3 ? found[1].replace(/./g, (ch) => ch + ch) : found[1];
+    const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5 ? "#FFFFFF" : DEFAULT_TEXT_COLOR;
+  }
+
+  /*
+   * Adds a line of text in the middle of the page. Sizes are given for a small
+   * page and grow with the real one, so a heading is a heading on a large poster too.
+   */
+  function addPageText(spec: { text: string; fontSize: number; fontWeight: number; width: number; at: number; fontFamily?: string }) {
+    const { width: pageWidth, height: pageHeight } = editor.page.size;
+    const unit = Math.max(1, Math.min(pageWidth, pageHeight) / 640);
+    const fontSize = Math.round(spec.fontSize * unit);
+    const width = Math.min(Math.round(spec.width * unit), Math.round(pageWidth * 0.9));
+    const x = Math.round((pageWidth - width) / 2);
+    const y = Math.round(pageHeight * spec.at);
+    return editor.addElement({
+      type: "text",
+      x,
+      y,
+      text: spec.text,
+      fontSize,
+      fontWeight: spec.fontWeight,
+      width,
+      height: Math.round(fontSize * 1.3),
+      align: "center",
+      color: readableColorAt(x + width / 2, y + fontSize / 2),
+      ...(spec.fontFamily ? { fontFamily: spec.fontFamily } : {}),
+    });
+  }
+
+  function handleAddTextWithFont(fontFamily: string) {
+    loadGoogleFont(fontFamily, [300, 400, 500, 600, 700, 800]);
+    addPageText({ text: "Your Text Here", fontSize: 32, fontWeight: 600, width: 320, at: 0.46, fontFamily });
+  }
+
+  /* =======================================================
+     ADD SHAPE FROM ELEMENTS PANEL
+     ======================================================= */
+
+  function handleAddShape(type: "rectangle" | "ellipse" | "line") {
+    const canvasWidth = editor.page.size.width;
+    const canvasHeight = editor.page.size.height;
+    const newEl = editor.addElement({
+      type,
+      x: Math.round((canvasWidth - 200) / 2),
+      y: Math.round((canvasHeight - 120) / 2),
+    });
+    if (newEl) {
+      setApplyPrompt({
+        itemType: "element",
+        itemName: `${type.charAt(0).toUpperCase() + type.slice(1)} Shape`,
+        elementId: newEl.id,
+      });
+    }
+  }
+
+  /* =======================================================
+     ADD TEXT PRESETS
+     ======================================================= */
+
+  function handleAddHeading() {
+    addPageText({ text: "Add a heading", fontSize: 40, fontWeight: 700, width: 380, at: 0.3 });
+  }
+
+  function handleAddSubheading() {
+    addPageText({ text: "Add a subheading", fontSize: 26, fontWeight: 600, width: 320, at: 0.45 });
+  }
+
+  function handleAddBodyText() {
+    addPageText({ text: "Add body text here", fontSize: 16, fontWeight: 400, width: 300, at: 0.6 });
+  }
+
+  function handleAddStyledText(style: TextDesignStyle) {
+    const canvasWidth = editor.page.size.width;
+    const canvasHeight = editor.page.size.height;
+    loadGoogleFont(style.fontFamily, [style.fontWeight || 400], style.fontStyle === "italic");
+    const width = Math.min(canvasWidth * 0.8, 380);
+    const height = Math.round(style.fontSize * 1.8);
+    editor.addElement({
+      type: "text",
+      x: Math.round((canvasWidth - width) / 2),
+      y: Math.round((canvasHeight - height) / 2),
+      width,
+      height,
+      text: style.sampleText,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      color: style.color,
+      italic: style.fontStyle === "italic",
+      textShadow: style.textShadow,
+      stroke: style.stroke,
+      strokeWidth: style.strokeWidth,
+      letterSpacing: style.letterSpacing,
+      textTransform: style.textTransform,
+      backgroundGradient: style.backgroundGradient,
+      badgeBg: style.badgeBg,
+      badgeBorder: style.badgeBorder,
+      badgeRadius: style.badgeRadius,
+      badgePadding: style.badgePadding,
+      textPresetId: style.id,
+      align: "center",
+      lineHeight: 1.2,
+    });
+  }
+
+  /* =======================================================
+     UPLOADS PANEL HANDLER
+     ======================================================= */
+
+  function handleUploadFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result !== "string") return;
+      setRecentUploads((prev) => [result, ...prev].slice(0, 20));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* The photo the Portrait panel works on: a selected image, or the photo inside a selected frame */
+  const portraitTarget = useMemo(() => {
+    const el = editor.selectedElements[0];
+    if (!el || editor.selectedElements.length !== 1) return null;
+    if (isImage(el) && el.src) return { id: el.id, src: el.src };
+    if (isFrame(el) && el.imageSrc) return { id: el.id, src: el.imageSrc };
+    return null;
+  }, [editor.selectedElements]);
+
+  /* Swaps the selected picture for the portrait made from it. Size and place on the page stay as they were */
+  function handleApplyPortrait(id: string, src: string, width: number, height: number) {
+    const el = editor.page.elements.find((item) => item.id === id);
+    if (!el) return;
+    if (isFrame(el)) {
+      editor.updateElement(id, { imageSrc: src, imageNaturalWidth: width, imageNaturalHeight: height });
+      return;
+    }
+    if (!isImage(el)) return;
+    // A crop is kept in step with the picture's new pixel size
+    const ratio = el.naturalWidth > 0 ? width / el.naturalWidth : 1;
+    const crop = el as typeof el & { cropX?: number; cropY?: number; cropWidth?: number; cropHeight?: number };
+    editor.updateElement(id, {
+      src,
+      naturalWidth: width,
+      naturalHeight: height,
+      ...(crop.cropWidth
+        ? { cropX: Math.round((crop.cropX || 0) * ratio), cropY: Math.round((crop.cropY || 0) * ratio), cropWidth: Math.round(crop.cropWidth * ratio), cropHeight: Math.round((crop.cropHeight || 0) * ratio) }
+        : {}),
+    } as Partial<typeof el>);
+  }
+
+  /* The QR code selected on the page, for the QR Code tool to edit */
+  const qrSelected = useMemo(() => {
+    const el = editor.selectedElements[0];
+    if (!el || editor.selectedElements.length !== 1 || !isImage(el) || !el.qr) return null;
+    return { id: el.id, config: configOf(el.qr as Partial<QrConfig>), width: el.width };
+  }, [editor.selectedElements]);
+
+  /* How big a QR picture says it is. It is drawn as SVG, so this only needs to be large enough to export sharply */
+  const QR_PIXELS = 1024;
+
+  /* Puts a new QR code on the page. With one already selected this is a duplicate, placed a little to the side of it */
+  function handleAddQr(config: QrConfig) {
+    const src = qrDataUrl(config, QR_PIXELS);
+    if (!src) return;
+    const aspect = qrAspect(config);
+    const { width: pageWidth, height: pageHeight } = editor.page.size;
+    const from = qrSelected ? editor.page.elements.find((el) => el.id === qrSelected.id) : null;
+    const width = from ? from.width : Math.max(160, Math.round(Math.min(pageWidth, pageHeight) * 0.3));
+    const height = Math.round(width / aspect);
+    const naturalHeight = Math.round(QR_PIXELS / aspect);
+    // A duplicate goes beside the original where there is room, so neither covers the other
+    let x = Math.round((pageWidth - width) / 2);
+    let y = Math.round((pageHeight - height) / 2);
+    if (from) {
+      const gap = Math.round(width * 0.12);
+      x = from.x;
+      y = from.y;
+      if (from.x + from.width + gap + width <= pageWidth) x = from.x + from.width + gap;
+      else if (from.x - gap - width >= 0) x = from.x - gap - width;
+      else if (from.y + from.height + gap + height <= pageHeight) y = from.y + from.height + gap;
+      else if (from.y - gap - height >= 0) y = from.y - gap - height;
+      else { x = Math.round(Math.min(pageWidth - width, from.x + gap)); y = Math.round(Math.min(pageHeight - height, from.y + gap)); }
+    }
+    editor.addElement({
+      type: "image",
+      x,
+      y,
+      width,
+      height,
+      src,
+      naturalWidth: QR_PIXELS,
+      naturalHeight,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: QR_PIXELS,
+      cropHeight: naturalHeight,
+      qr: storedConfig(config),
+    } as Parameters<typeof editor.addElement>[0]);
+  }
+
+  /* Redraws a QR code where it stands. Its width is kept; its height follows if text was added or removed */
+  function handleUpdateQr(id: string, config: QrConfig) {
+    const el = editor.page.elements.find((item) => item.id === id);
+    if (!el || !isImage(el)) return;
+    const src = qrDataUrl(config, QR_PIXELS);
+    // Content too long to encode: the settings are kept so typing can go on, and the last good picture stays
+    if (!src) {
+      editor.updateElement(id, { qr: storedConfig(config) } as Partial<typeof el>);
+      return;
+    }
+    const aspect = qrAspect(config);
+    const naturalHeight = Math.round(QR_PIXELS / aspect);
+    editor.updateElement(id, {
+      src,
+      height: Math.round(el.width / aspect),
+      naturalWidth: QR_PIXELS,
+      naturalHeight,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: QR_PIXELS,
+      cropHeight: naturalHeight,
+      qr: storedConfig(config),
+    } as Partial<typeof el>);
+  }
+
+  function handleAddImageToCanvas(src: string) {
+    const img = document.createElement("img");
+    img.onload = () => {
+      const nw = img.naturalWidth || 300;
+      const nh = img.naturalHeight || 300;
+      const MAX = 400;
+      let w = nw, h = nh;
+      if (w > MAX || h > MAX) {
+        const scale = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const cx = Math.round((editor.page.size.width - w) / 2);
+      const cy = Math.round((editor.page.size.height - h) / 2);
+      const newEl = editor.addElement({
+        type: "image",
+        x: cx,
+        y: cy,
+        width: w,
+        height: h,
+        src,
+        naturalWidth: nw,
+        naturalHeight: nh,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: nw,
+        cropHeight: nh,
+      });
+      if (newEl) {
+        setApplyPrompt({
+          itemType: "image",
+          itemName: "Image",
+          elementId: newEl.id,
+        });
+      }
+    };
+    img.src = src;
+  }
+
+  function handleAddVideoToCanvas(src: string, name?: string) {
+    const w = 480;
+    const h = 270;
+    const cx = Math.round((editor.page.size.width - w) / 2);
+    const cy = Math.round((editor.page.size.height - h) / 2);
+    const newEl = editor.addElement({
+      type: "image",
+      x: cx,
+      y: cy,
+      width: w,
+      height: h,
+      src,
+      naturalWidth: w,
+      naturalHeight: h,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: w,
+      cropHeight: h,
+    });
+    if (newEl) {
+      setApplyPrompt({
+        itemType: "image",
+        itemName: name || "Video Clip",
+        elementId: newEl.id,
+      });
+    }
+  }
+
+  function handleApplyBrandColor(color: string) {
+    const sel = editor.selectedElements[0];
+    if (sel) {
+      if (isShape(sel)) {
+        editor.updateElement(sel.id, { fill: color });
+      } else if (isText(sel)) {
+        editor.updateElement(sel.id, { color });
+      } else {
+        editor.setPage({ ...editor.page, background: color });
+      }
+    } else {
+      editor.setPage({ ...editor.page, background: color });
+    }
+  }
+
+  function handleApplyBrandFont(fontFamily: string) {
+    handleSelectFont(fontFamily);
+  }
+
+  function handleAddBrandHeadingText(fontFamily: string, fontWeight = 700) {
+    loadGoogleFont(fontFamily, [fontWeight]);
+    addPageText({ text: "Brand Heading", fontSize: 42, fontWeight, width: 380, at: 0.35, fontFamily });
+  }
+
+  function handleAddBrandBodyText(fontFamily: string, fontWeight = 400) {
+    loadGoogleFont(fontFamily, [fontWeight]);
+    addPageText({ text: "Consistent brand body text goes here.", fontSize: 18, fontWeight, width: 340, at: 0.5, fontFamily });
+  }
+
+  /* A logo goes on at a size that reads on the page, whatever size its file happens to be */
+  function handleAddBrandLogo(src: string) {
+    const img = document.createElement("img");
+    img.onload = () => {
+      const nw = img.naturalWidth || 300;
+      const nh = img.naturalHeight || 300;
+      const box = Math.min(editor.page.size.width, editor.page.size.height) * 0.3;
+      const scale = Math.min(box / nw, box / nh);
+      const width = Math.max(1, Math.round(nw * scale));
+      const height = Math.max(1, Math.round(nh * scale));
+      editor.addElement({
+        type: "image",
+        x: Math.round((editor.page.size.width - width) / 2),
+        y: Math.round((editor.page.size.height - height) / 2),
+        width,
+        height,
+        src,
+        naturalWidth: nw,
+        naturalHeight: nh,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: nw,
+        cropHeight: nh,
+      });
+    };
+    img.src = src;
+  }
+
+  /* The page's largest text takes the heading font and the rest the body font, as one step to undo */
+  function handleApplyBrandFontsToPage(headingFont: string, bodyFont: string): boolean {
+    const texts = editor.page.elements.filter(isText);
+    if (texts.length === 0) return false;
+    loadGoogleFont(headingFont, [300, 400, 500, 600, 700, 800]);
+    loadGoogleFont(bodyFont, [300, 400, 500, 600, 700, 800]);
+    const largest = Math.max(...texts.map((t) => t.fontSize || 0));
+    editor.setPage({
+      ...editor.page,
+      elements: editor.page.elements.map((el) =>
+        isText(el) ? { ...el, fontFamily: (el.fontSize || 0) >= largest * 0.6 ? headingFont : bodyFont } : el
+      ),
+    });
+    return true;
+  }
+
+  /* The solid colours on the page, for the brand kit to offer */
+  function pageSolidColors(): string[] {
+    const found: string[] = [];
+    const take = (value?: string) => { if (value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) found.push(value); };
+    take(editor.page.background);
+    for (const el of editor.page.elements) {
+      if (isText(el)) take(el.color);
+      else if (isShape(el)) take(el.fill);
+    }
+    return found;
+  }
+
+  /* =======================================================
+     ADD STICKER TO CANVAS
+     ======================================================= */
+  function handleAddSticker(sticker: Sticker) {
+    const src = sticker.fileUrl;
+    const w = sticker.width || 160;
+    const h = sticker.height || 160;
+    const MAX = 220;
+    let finalW = w;
+    let finalH = h;
+    if (finalW > MAX || finalH > MAX) {
+      const scale = Math.min(MAX / finalW, MAX / finalH);
+      finalW = Math.round(finalW * scale);
+      finalH = Math.round(finalH * scale);
+    }
+    const cx = Math.round((editor.page.size.width - finalW) / 2);
+    const cy = Math.round((editor.page.size.height - finalH) / 2);
+    const newEl = editor.addElement({
+      type: "image",
+      x: cx,
+      y: cy,
+      width: finalW,
+      height: finalH,
+      src,
+      naturalWidth: w,
+      naturalHeight: h,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: w,
+      cropHeight: h,
+    });
+    if (newEl) {
+      editor.selectElement(newEl.id);
+    }
+  }
+
+  /* =======================================================
+     CANVAS DROP HANDLER (for frame drag from FramesPanel)
+     ======================================================= */
+
+  function handleCanvasDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const res = ev.target?.result;
+          if (typeof res === "string") {
+            handleAddImageToCanvas(res);
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+    const frameData = e.dataTransfer.getData("application/falcon-frame");
+    if (!frameData) return;
+    try {
+      const frameDef: FrameDefinition = JSON.parse(frameData);
+      const surface = canvasWrapperRef.current;
+      if (!surface) {
+        handleAddFrame(frameDef);
+        return;
+      }
+      const rect = surface.getBoundingClientRect();
+      // Convert drop position to canvas coordinates
+      const dropX = e.clientX - rect.left;
+      const dropY = e.clientY - rect.top;
+      const canvasOriginX = rect.width / 2 + (editor.page.size.width / 2) * -1;
+      const w = frameDef.defaultWidth ?? 220;
+      const h = frameDef.defaultHeight ?? 220;
+      // Simplified: place centered at canvas center (accurate positioning requires zoom/pan math)
+      const cx = Math.round((editor.page.size.width - w) / 2);
+      const cy = Math.round((editor.page.size.height - h) / 2);
+      editor.addElement({
+        type: "frame",
+        x: cx,
+        y: cy,
+        width: w,
+        height: h,
+        frameShape: frameDef.id,
+      });
+    } catch {
+      // Ignore malformed data
+    }
+  }
+
+  /* =======================================================
+     IMAGE UPLOAD
+     ======================================================= */
+
+  function handleImageUpload(
+    e: ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      alert(
+        "Please select an image file."
+      );
+
+      e.target.value = "";
+
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onload = (
+      event
+    ) => {
+      const result =
+        event.target?.result;
+
+      if (
+        typeof result !==
+        "string"
+      ) {
+        alert(
+          "Unable to read image."
+        );
+
+        return;
+      }
+
+      const {
+        x,
+        y,
+      } = imagePositionRef.current;
+
+      const img =
+        document.createElement(
+          "img"
+        );
+
+      img.onload = () => {
+        const naturalWidth =
+          img.naturalWidth ||
+          300;
+
+        const naturalHeight =
+          img.naturalHeight ||
+          300;
+
+        const MAX_SIZE = 400;
+
+        let width =
+          naturalWidth;
+
+        let height =
+          naturalHeight;
+
+        if (
+          width > MAX_SIZE ||
+          height > MAX_SIZE
+        ) {
+          const scale =
+            Math.min(
+              MAX_SIZE / width,
+              MAX_SIZE / height
+            );
+
+          width =
+            Math.round(
+              width * scale
+            );
+
+          height =
+            Math.round(
+              height * scale
+            );
+        }
+
+        editor.addElement({
+          type: "image",
+          x,
+          y,
+          width,
+          height,
+          src: result,
+          naturalWidth,
+          naturalHeight,
+          cropX: 0,
+          cropY: 0,
+          cropWidth:
+            naturalWidth,
+          cropHeight:
+            naturalHeight,
+        });
+
+        editor.setActiveTool(
+          "select"
+        );
+
+        if (
+          fileInputRef.current
+        ) {
+          fileInputRef.current.value =
+            "";
+        }
+      };
+
+      img.onerror = () => {
+        alert(
+          "Unable to load this image."
+        );
+
+        if (
+          fileInputRef.current
+        ) {
+          fileInputRef.current.value =
+            "";
+        }
+      };
+
+      img.src = result;
+    };
+
+    reader.onerror = () => {
+      alert(
+        "Unable to read this image."
+      );
+
+      if (
+        fileInputRef.current
+      ) {
+        fileInputRef.current.value =
+          "";
+      }
+    };
+
+    reader.readAsDataURL(
+      file
+    );
+  }
+
+  /* =======================================================
+     REORDER LAYERS
+     ======================================================= */
+
+  function handleReorderLayers(
+    draggedId: string,
+    targetId: string
+  ) {
+    if (
+      draggedId === targetId
+    ) {
+      return;
+    }
+
+    const ordered = [
+      ...editor.page.elements,
+    ].sort(
+      (a, b) =>
+        b.zIndex - a.zIndex
+    );
+
+    const draggedIndex =
+      ordered.findIndex(
+        (el) =>
+          el.id === draggedId
+      );
+
+    const targetIndex =
+      ordered.findIndex(
+        (el) =>
+          el.id === targetId
+      );
+
+    if (
+      draggedIndex < 0 ||
+      targetIndex < 0
+    ) {
+      return;
+    }
+
+    const next = [
+      ...ordered,
+    ];
+
+    const [dragged] =
+      next.splice(
+        draggedIndex,
+        1
+      );
+
+    const newTargetIndex =
+      next.findIndex(
+        (el) =>
+          el.id === targetId
+      );
+
+    next.splice(
+      newTargetIndex,
+      0,
+      dragged
+    );
+
+    const reordered =
+      next.map(
+        (el, index) => ({
+          ...el,
+          zIndex:
+            next.length -
+            1 -
+            index,
+        })
+      );
+
+    editor.setPage({
+      ...editor.page,
+      elements:
+        reordered,
+    });
+  }
+
+  /* =======================================================
+     EXPORT
+     ======================================================= */
+
+  /** Every page with the open one in its current, possibly unsaved, state */
+  const allPages: DesignPage[] = (pages && pages.length ? pages : [editor.page]).map((p, i) => (i === pageIndex ? editor.page : p));
+  const exportName = projectTitle || "design";
+  const pageSuffix = allPages.length > 1 ? `-${pageIndex + 1}` : "";
+
+  async function runExport(label: string, task: () => Promise<void>) {
+    try {
+      await task();
+    } catch (err) {
+      console.error(`${label} export failed:`, err);
+      alert(`Could not export as ${label}. Please try again.`);
+    }
+  }
+
+  async function handleExportPng() {
+    await runExport("PNG", () => exportService.downloadAsPng(editor.page, `${exportName}${pageSuffix}.png`));
+  }
+
+  async function handleExportJpg() {
+    await runExport("JPG", () => exportService.downloadAsJpg(editor.page, `${exportName}${pageSuffix}.jpg`));
+  }
+
+  async function handleExportPdf() {
+    await runExport("PDF", () => exportService.downloadAsPdf(allPages, exportName));
+  }
+
+  async function handleExportPptx() {
+    await runExport("PowerPoint", () => exportService.downloadAsPptx(allPages, exportName));
+  }
+
+  /* =======================================================
+     ISSUE CLICK
+     ======================================================= */
+
+  function handleIssueClick(
+    elementId?: string
+  ) {
+    if (!elementId) {
+      return;
+    }
+
+    editor.selectElement(
+      elementId
+    );
+  }
+
+  /* =======================================================
+     SCORE
+     ======================================================= */
+
+  const score =
+    analysis?.score ?? 0;
+
+  function scoreLabel(
+    value: number
+  ) {
+    if (value >= 90) {
+      return "Excellent";
+    }
+
+    if (value >= 75) {
+      return "Strong";
+    }
+
+    if (value >= 60) {
+      return "Needs work";
+    }
+
+    return "Needs attention";
+  }
+
+  /* =======================================================
+     RENDER
+     ======================================================= */
+
+  const isDark = editorTheme === "dark";
+
+  return (
+    <div className={`flex h-screen h-[100dvh] w-screen flex-col transition-colors duration-300 ${isDark ? "bg-[#090b0e]" : "bg-slate-100"}`}>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={
+          handleImageUpload
+        }
+        className="hidden"
+      />
+
+      {/* ===================================================
+          TOP BAR
+          =================================================== */}
+
+      <TopBar
+        title={projectTitle}
+        onTitleChange={handleTitleChange}
+        zoomPercent={Math.round(zoom * 100)}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onResetZoom={resetZoom}
+        onFitToScreen={handleFitToScreen}
+        canUndo={editor.canUndo}
+        canRedo={editor.canRedo}
+        onUndo={editor.undo}
+        onRedo={editor.redo}
+        onExportPng={handleExportPng}
+        onExportJpeg={handleExportJpg}
+        onExportPdf={handleExportPdf}
+        onExportPptx={handleExportPptx}
+        pageCount={allPages.length}
+        onBack={onBack}
+        onOpenResize={() => setLayoutSelectorOpen(true)}
+        onShare={async () => {
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            return true;
+          } catch {
+            return false;
+          }
+        }}
+        theme={editorTheme}
+        onToggleTheme={() => setEditorTheme(prev => prev === "dark" ? "light" : "dark")}
+        onOpenAssetAdmin={isAdmin ? () => setAssetAdminOpen(true) : undefined}
+      />
+
+      {/* ===================================================
+          EDITOR AREA
+          =================================================== */}
+
+      <div className="falcon-editor-area relative flex min-h-0 flex-1 overflow-hidden">
+
+        {/* =================================================
+            LEFT TOOLBAR
+            ================================================= */}
+
+        <Toolbar
+          activeTool={editor.activeTool}
+          onSelectTool={handleToolSelect}
+          activeTab={activeSidebarTab}
+          onSelectTab={setActiveSidebarTab}
+          onOpenBgRemover={() => setBgRemoverOpen(true)}
+          theme={editorTheme}
+        />
+
+        {/* =================================================
+            SIDEBAR PANELS — rendered based on active tab
+            ================================================= */}
+
+        {/* TEMPLATES PANEL: the template library; a chosen design replaces this page */}
+        {activeSidebarTab === "templates" && (
+          <LibraryTemplatesPanel
+            page={editor.page}
+            onApply={(next) => editor.setPage(next)}
+            theme={editorTheme}
+          />
+        )}
+
+        {/* AI TOOLS PANEL */}
+        {activeSidebarTab === "ai" && (
+          <AiToolsPanel
+            theme={editorTheme}
+            onOpenCoach={() => setCoachOpen(true)}
+            onMagicWrite={() => setCoachOpen(true)}
+            onOpenBgRemover={() => setBgRemoverOpen(true)}
+            onOpenStudio={() => router.push("/ai-studio")}
+          />
+        )}
+
+        {/* TEXT PANEL */}
+        {activeSidebarTab === "text" && (
+          <TextPanel
+            selectedElement={editor.selectedElements[0]}
+            onAddHeading={handleAddHeading}
+            onAddSubheading={handleAddSubheading}
+            onAddBodyText={handleAddBodyText}
+            onAddStyledText={handleAddStyledText}
+            onUpdateElement={(patch) => {
+              const sel = editor.selectedElements[0];
+              if (sel) editor.updateElement(sel.id, patch as Partial<CanvasElement>);
+            }}
+            onOpenFontLibrary={() => setActiveSidebarTab("fonts")}
+            onMagicWrite={() => setCoachOpen(true)}
+          />
+        )}
+
+        {/* FONT LIBRARY PANEL */}
+        {activeSidebarTab === "fonts" && (
+          <FontsPanel
+            currentFontFamily={
+              (() => {
+                const sel = editor.selectedElements[0];
+                return sel && isText(sel) ? sel.fontFamily : "Inter";
+              })()
+            }
+            hasSelectedText={
+              editor.selectedElements.some(isText)
+            }
+            onSelectFont={handleSelectFont}
+            onAddTextWithFont={handleAddTextWithFont}
+          />
+        )}
+
+        {/* ELEMENTS PANEL */}
+        {activeSidebarTab === "elements" && (
+          <ElementsPanel
+            onAddShape={handleAddShape}
+            onAddFrame={handleAddFrame}
+            onAddImage={handleAddImageToCanvas}
+            onAddElements={(elements, width, height) => {
+              // Scaled to sit comfortably on the page, whatever size the page is
+              const page = editor.page.size;
+              const scale = Math.min((page.width * 0.72) / width, (page.height * 0.6) / height);
+              const left = (page.width - width * scale) / 2;
+              const top = (page.height - height * scale) / 2;
+              loadGoogleFont("Inter", [400, 500, 600, 700, 800]);
+              editor.insertElements(
+                elements.map((el) => {
+                  const placed = {
+                    ...el,
+                    x: Math.round(left + el.x * scale),
+                    y: Math.round(top + el.y * scale),
+                    width: Math.max(1, Math.round(el.width * scale)),
+                    height: Math.max(1, Math.round(el.height * scale)),
+                    rotation: el.rotation ?? 0,
+                    opacity: el.opacity ?? 1,
+                  } as Record<string, unknown>;
+                  if (el.type === "text") {
+                    placed.fontFamily = "Inter";
+                    placed.fontSize = Math.max(6, Math.round((el.fontSize ?? 16) * scale));
+                    placed.letterSpacing = Math.round((el.letterSpacing ?? 0) * scale * 10) / 10;
+                    placed.italic = false;
+                  } else if (el.type === "frame") {
+                    placed.stroke = "transparent";
+                    placed.strokeWidth = 0;
+                  } else {
+                    placed.strokeWidth = el.strokeWidth ? Math.max(1, Math.round(el.strokeWidth * scale)) : 0;
+                    placed.cornerRadius = Math.round((el.cornerRadius ?? 0) * scale);
+                  }
+                  return placed as unknown as CanvasElement;
+                })
+              );
+            }}
+          />
+        )}
+
+        {/* FRAMES PANEL */}
+        {activeSidebarTab === "frames" && (
+          <FramesPanel
+            onAddFrame={handleAddFrame}
+          />
+        )}
+
+        {/* UPLOADS PANEL */}
+        {activeSidebarTab === "uploads" && (
+          <UploadsPanel
+            onAddImageToCanvas={handleAddImageToCanvas}
+            onAddVideoToCanvas={handleAddVideoToCanvas}
+          />
+        )}
+
+        {/* PHOTOS PANEL */}
+        {activeSidebarTab === "photos" && (
+          <PhotosPanel
+            onAddImageToCanvas={handleAddImageToCanvas}
+          />
+        )}
+
+        {/* QR CODE PANEL */}
+        {activeSidebarTab === "qr" && (
+          <QrPanel selected={qrSelected} onAdd={handleAddQr} onUpdate={handleUpdateQr} />
+        )}
+
+        {/* PORTRAIT PANEL */}
+        {activeSidebarTab === "portrait" && (
+          <PortraitPanel
+            target={portraitTarget}
+            onApply={handleApplyPortrait}
+            onAddNew={handleAddImageToCanvas}
+            onUpload={() => setActiveSidebarTab("uploads")}
+          />
+        )}
+
+
+        {/* BRAND KIT PANEL */}
+        {activeSidebarTab === "brand-kit" && (
+          <BrandKitPanel
+            onApplyColor={handleApplyBrandColor}
+            onApplyFont={handleApplyBrandFont}
+            onAddLogoToCanvas={handleAddBrandLogo}
+            onAddHeadingText={handleAddBrandHeadingText}
+            onAddBodyText={handleAddBrandBodyText}
+            selection={editor.selectedElements.some(isText) ? "text" : editor.selectedElements[0] && isShape(editor.selectedElements[0]) ? "shape" : "none"}
+            pageColors={pageSolidColors()}
+            onApplyFontsToPage={handleApplyBrandFontsToPage}
+          />
+        )}
+
+        {/* BACKGROUNDS PANEL */}
+        {activeSidebarTab === "backgrounds" && (
+          <BackgroundsPanel
+            currentBackground={editor.page.background}
+            onSelectBackground={handleSelectBackground}
+            onCustomColorChange={(color) => {
+              editor.setPage({
+                ...editor.page,
+                background: color,
+              });
+            }}
+          />
+        )}
+
+        {/* STICKERS PANEL — removed; now integrated into Elements panel */}
+
+        {/* LAYERS PANEL */}
+        {activeSidebarTab === "layers" && (
+          <LayersPanel
+            elements={editor.page.elements}
+            selectedIds={editor.selectedIds}
+            onSelect={editor.selectElement}
+            onToggleHidden={(id) => {
+              const element = find(editor, id);
+              if (!element) return;
+              editor.updateElement(id, { hidden: !element.hidden });
+            }}
+            onToggleLocked={(id) => {
+              const element = find(editor, id);
+              if (!element) return;
+              editor.updateElement(id, { locked: !element.locked });
+            }}
+            onBringForward={editor.bringForward}
+            onSendBackward={editor.sendBackward}
+            onReorder={handleReorderLayers}
+          />
+        )}
+
+
+        {/* IMAGE FILTERS & ADJUSTMENTS PANEL */}
+        {activeSidebarTab === "filters" && selectedElement && isImage(selectedElement) && (
+          <ImageFiltersPanel
+            element={selectedElement}
+            onChange={(patch) => editor.updateElement(selectedElement.id, patch)}
+            onClose={() => setActiveSidebarTab(null)}
+          />
+        )}
+
+        {/* DRAWER COLLAPSE / EXPAND TOGGLE PILL (Canva border pill handle) */}
+        {activeSidebarTab && (
+          <button
+            type="button"
+            onClick={() => setActiveSidebarTab(null)}
+            className="falcon-panel-handle absolute left-[436px] top-1/2 z-40 -translate-y-1/2 flex h-14 w-4 items-center justify-center rounded-r-md border-y border-r border-white/[0.1] bg-[#12151c] text-zinc-400 shadow-md transition hover:bg-[#181d28] hover:text-[#00dfb6]"
+            title="Collapse side panel"
+          >
+            <ChevronLeft size={14} />
+          </button>
+        )}
+
+        {/* =================================================
+            CANVAS WORKSPACE (CANVA DESIGN SYSTEM)
+            ================================================= */}
+
+        <div
+          ref={canvasWrapperRef}
+          className={`relative flex min-w-0 flex-1 flex-col h-full overflow-hidden select-none transition-colors duration-300 ${isDark ? "bg-[#0e0f12]" : "bg-slate-200"}`}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleCanvasDrop}
+        >
+          {/* APPLY TO COMPLETE PAGE PROMPT */}
+          {applyPrompt && (
+            <ApplyToPagePrompt
+              itemType={applyPrompt.itemType}
+              itemName={applyPrompt.itemName}
+              onApply={handleApplyPrompt}
+              onDismiss={() => setApplyPrompt(null)}
+            />
+          )}
+
+          {/* ── CANVA CONTEXTUAL FLOATING TOOLBAR ── */}
+          <div className="absolute left-1/2 top-3.5 z-40 -translate-x-1/2 flex w-max max-w-[calc(100%-1rem)] flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-white/[0.09] bg-[#1a1b1e]/95 p-1.5 shadow-2xl backdrop-blur-xl text-white lg:flex-nowrap">
+            {/* 1. When Image is Selected */}
+            {isSelectedImage && !canGroup && !canUngroup && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setCoachOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/25 border border-purple-500/30 px-3 py-1.5 text-xs font-semibold text-purple-200 hover:text-white transition"
+                  title="Ask Falcon AI"
+                >
+                  <Sparkles size={13} className="text-purple-400" />
+                  <span>Ask Falcon</span>
+                </button>
+
+                {isImage(selectedElement) && selectedElement.qr && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSidebarTab("qr")}
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition ${
+                      activeSidebarTab === "qr"
+                        ? "bg-[#00dfb6] text-black"
+                        : "bg-[#00dfb6]/15 text-[#00dfb6] hover:bg-[#00dfb6]/25"
+                    }`}
+                    title="Change this QR code's content and design"
+                  >
+                    <QrCodeIcon size={13} />
+                    <span>Edit QR</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebarTab("filters")}
+                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition ${
+                    activeSidebarTab === "filters"
+                      ? "bg-indigo-600 text-white"
+                      : "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                  title="Image filters & adjustment sliders"
+                >
+                  <Sliders size={13} className="text-indigo-400" />
+                  <span>Edit</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Replace image"
+                >
+                  <ImageIcon size={13} className="text-zinc-400" />
+                  <span>Replace</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBgRemoverOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/30 px-2.5 py-1.5 text-xs font-semibold text-purple-200 hover:bg-purple-600/30 hover:text-white transition"
+                  title="AI Background Remover"
+                >
+                  <Crown size={12} className="text-amber-400" />
+                  <span>BG Remover</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.setActiveTool(editor.activeTool === "crop" ? "select" : "crop");
+                  }}
+                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition ${
+                    editor.activeTool === "crop"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                  title={editor.activeTool === "crop" ? "Exit crop mode" : "Crop image"}
+                >
+                  <Scissors size={13} className={editor.activeTool === "crop" ? "text-white" : "text-zinc-400"} />
+                  <span>{editor.activeTool === "crop" ? "Done" : "Crop"}</span>
+                </button>
+
+                {selectedElement &&
+                  isImage(selectedElement) &&
+                  (selectedElement.cropX ||
+                    selectedElement.cropY ||
+                    (selectedElement.cropWidth &&
+                      selectedElement.cropWidth !== selectedElement.naturalWidth) ||
+                    (selectedElement.cropHeight &&
+                      selectedElement.cropHeight !== selectedElement.naturalHeight)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = selectedElement as ImageElement;
+                        const currentCropWidth = el.cropWidth ?? el.naturalWidth;
+                        const scale = el.width / (currentCropWidth || 1);
+                        const fullWidth = Math.round(el.naturalWidth * scale);
+                        const fullHeight = Math.round(el.naturalHeight * scale);
+                        const offsetX = Math.round((el.cropX ?? 0) * scale);
+                        const offsetY = Math.round((el.cropY ?? 0) * scale);
+                        editor.updateElement(el.id, {
+                          x: Math.round(el.x - offsetX),
+                          y: Math.round(el.y - offsetY),
+                          width: fullWidth,
+                          height: fullHeight,
+                          cropX: 0,
+                          cropY: 0,
+                          cropWidth: el.naturalWidth,
+                          cropHeight: el.naturalHeight,
+                        });
+                        if (editor.activeTool === "crop") {
+                          editor.setActiveTool("select");
+                        }
+                      }}
+                      className="flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-400/10 transition"
+                      title="Reset image crop to original full view"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Reset Crop</span>
+                    </button>
+                  )}
+
+                {selectedElement &&
+                  isImage(selectedElement) &&
+                  selectedElement.originalSrc &&
+                  selectedElement.originalSrc !== selectedElement.src && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        editor.updateElement(selectedElement.id, {
+                          src: selectedElement.originalSrc,
+                        });
+                      }}
+                      className="flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-400/10 transition"
+                      title="Revert to original"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Revert</span>
+                    </button>
+                  )}
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                {/* ── IMAGE BLEND: fade and blend mode ── */}
+                <BlendControl
+                  element={selectedElement}
+                  open={blendPopoverOpen}
+                  onToggle={() => { setBlendPopoverOpen((v) => !v); setTransparencyPopoverOpen(false); }}
+                  onClose={() => setBlendPopoverOpen(false)}
+                  onChange={(patch) => editor.updateElement(selectedElement.id, patch)}
+                />
+
+                {/* ── TRANSPARENCY (dark + light mode) ── */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setTransparencyPopoverOpen(v => !v); setBlendPopoverOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition ${
+                      isDark
+                        ? "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                    title={`Transparency: ${Math.round((selectedElement.opacity ?? 1) * 100)}%`}
+                  >
+                    <Eye size={13} className={isDark ? "text-zinc-400" : "text-slate-400"} />
+                    <span>{Math.round((selectedElement.opacity ?? 1) * 100)}%</span>
+                    <ChevronDown size={11} className={isDark ? "text-zinc-400" : "text-slate-400"} />
+                  </button>
+
+                  {transparencyPopoverOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setTransparencyPopoverOpen(false)} />
+                      <div className={`absolute left-0 top-full mt-2 z-50 w-52 rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl ${
+                        isDark
+                          ? "border-white/10 bg-[#161a24]"
+                          : "border-slate-200 bg-white"
+                      }`}>
+                        <p className={`mb-2.5 text-[10px] font-semibold uppercase tracking-wider ${
+                          isDark ? "text-zinc-400" : "text-slate-500"
+                        }`}>Transparency</p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={Math.round((selectedElement.opacity ?? 1) * 100)}
+                            onChange={(e) => editor.updateElement(selectedElement.id, { opacity: Number(e.target.value) / 100 })}
+                            className={`flex-1 h-1.5 cursor-pointer ${
+                              isDark ? "accent-indigo-500" : "accent-indigo-600"
+                            }`}
+                          />
+                          <span className={`w-9 text-right text-xs font-semibold tabular-nums ${
+                            isDark ? "text-white" : "text-slate-800"
+                          }`}>
+                            {Math.round((selectedElement.opacity ?? 1) * 100)}%
+                          </span>
+                        </div>
+                        {/* Quick presets */}
+                        <div className="mt-2.5 flex gap-1.5">
+                          {[100, 75, 50, 25].map(v => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => editor.updateElement(selectedElement.id, { opacity: v / 100 })}
+                              className={`flex-1 rounded-lg py-1 text-[10px] font-medium transition ${
+                                Math.round((selectedElement.opacity ?? 1) * 100) === v
+                                  ? "bg-indigo-600 text-white"
+                                  : isDark
+                                  ? "bg-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                              }`}
+                            >
+                              {v}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = selectedElement as ImageElement;
+                    editor.updateElement(el.id, {
+                      rotation: (el.rotation + 180) % 360,
+                    });
+                  }}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Rotate / Flip (180°)"
+                >
+                  <FlipHorizontal size={14} />
+                </button>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => editor.duplicateSelected()}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Duplicate (Ctrl+D)"
+                >
+                  <Copy size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => editor.deleteSelected()}
+                  className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/15 transition"
+                  title="Delete (Del)"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+
+            {/* 2. When Text is Selected */}
+            {isSelectedText && !canGroup && !canUngroup && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebarTab("fonts")}
+                  className="flex items-center gap-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] px-3 py-1.5 text-xs text-white transition max-w-[140px]"
+                  title="Change font family"
+                >
+                  <span className="truncate font-medium" style={{ fontFamily: (selectedElement as TextElement).fontFamily }}>
+                    {(selectedElement as TextElement).fontFamily}
+                  </span>
+                  <ChevronDown size={12} className="text-zinc-400 shrink-0" />
+                </button>
+
+                <FontSizeControl
+                  fontSize={(selectedElement as TextElement).fontSize}
+                  onChange={(newSize, opts) => {
+                    editor.updateElement(
+                      selectedElement!.id,
+                      { fontSize: newSize },
+                      opts
+                    );
+                  }}
+                />
+
+                {/* ─ COLOR PICKER SWATCH ─ */}
+                <div className="relative">
+                  <button
+                    ref={colorPickerAnchorRef}
+                    type="button"
+                    onClick={() => setColorPickerOpen((v) => !v)}
+                    className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white transition"
+                    title="Text color"
+                  >
+                    <span className="relative flex h-5 w-5 items-center justify-center">
+                      {/* Big "A" */}
+                      <span className="text-sm font-bold text-white leading-none">A</span>
+                      {/* Color underline bar */}
+                      <span
+                        className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full"
+                        style={{
+                          background:
+                            (selectedElement as TextElement).backgroundGradient ||
+                            (selectedElement as TextElement).color ||
+                            "#ffffff",
+                        }}
+                      />
+                    </span>
+                  </button>
+
+                  {colorPickerOpen && isSelectedText && (
+                    <ColorPickerPopover
+                      color={
+                        /^#[0-9a-fA-F]{6}$/i.test((selectedElement as TextElement).color || "")
+                          ? (selectedElement as TextElement).color!
+                          : "#ffffff"
+                      }
+                      onChange={(hex) => {
+                        editor.updateElement(selectedElement!.id, {
+                          color: hex,
+                          // Remove gradient if manually setting a solid color
+                          backgroundGradient: undefined,
+                        } as Partial<TextElement>);
+                      }}
+                      onClose={() => setColorPickerOpen(false)}
+                      designColors={editor.page.elements
+                        .filter(isText)
+                        .map((el) => (el as TextElement).color)
+                        .filter((c): c is string => /^#[0-9a-fA-F]{6}$/i.test(c || ""))}
+                      anchorRef={colorPickerAnchorRef as React.RefObject<HTMLElement | null>}
+                    />
+                  )}
+                </div>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = selectedElement as TextElement;
+                    editor.updateElement(el.id, {
+                      fontWeight: el.fontWeight >= 700 ? 400 : 700,
+                    });
+                  }}
+                  className={`rounded-lg p-1.5 transition ${
+                    (selectedElement as TextElement).fontWeight >= 700
+                      ? "bg-white/20 text-white"
+                      : "text-zinc-400 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                  title="Bold"
+                >
+                  <Bold size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = selectedElement as TextElement;
+                    editor.updateElement(el.id, {
+                      italic: !el.italic,
+                    });
+                  }}
+                  className={`rounded-lg p-1.5 transition ${
+                    (selectedElement as TextElement).italic
+                      ? "bg-white/20 text-white"
+                      : "text-zinc-400 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                  title="Italic"
+                >
+                  <Italic size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = selectedElement as TextElement;
+                    editor.updateElement(el.id, {
+                      textTransform: el.textTransform === "uppercase" ? "none" : "uppercase",
+                    });
+                  }}
+                  className={`rounded-lg px-1.5 py-1 text-xs font-semibold transition ${
+                    (selectedElement as TextElement).textTransform === "uppercase"
+                      ? "bg-white/20 text-white"
+                      : "text-zinc-400 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                  title="Uppercase (aA)"
+                >
+                  aA
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = selectedElement as TextElement;
+                    const nextAlign: Record<string, "left" | "center" | "right"> = {
+                      left: "center",
+                      center: "right",
+                      right: "left",
+                    };
+                    editor.updateElement(el.id, {
+                      align: nextAlign[el.align || "left"],
+                    });
+                  }}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title={`Alignment: ${(selectedElement as TextElement).align || "left"}`}
+                >
+                  {(selectedElement as TextElement).align === "center" ? (
+                    <AlignCenter size={13} />
+                  ) : (selectedElement as TextElement).align === "right" ? (
+                    <AlignRight size={13} />
+                  ) : (
+                    <AlignLeft size={13} />
+                  )}
+                </button>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                {/* Effects (Opens Text Tab with 100+ Styles) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebarTab("text")}
+                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition ${
+                    activeSidebarTab === "text"
+                      ? "bg-[#8b3dff] text-white"
+                      : "bg-[#8b3dff]/15 border border-[#8b3dff]/30 text-purple-300 hover:text-white hover:bg-[#8b3dff]/25"
+                  }`}
+                  title="Browse text design styles"
+                >
+                  <Sparkles size={13} className="text-purple-400" />
+                  <span>Effects</span>
+                </button>
+
+                {/* Transparency for Text (dark + light mode) */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setTransparencyPopoverOpen(v => !v); setBlendPopoverOpen(false); }}
+                    className={`flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-medium transition ${
+                      isDark
+                        ? "text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                    title={`Transparency: ${Math.round((selectedElement.opacity ?? 1) * 100)}%`}
+                  >
+                    <Eye size={13} className={isDark ? "text-zinc-400" : "text-slate-400"} />
+                    <span>{Math.round((selectedElement.opacity ?? 1) * 100)}%</span>
+                  </button>
+
+                  {transparencyPopoverOpen && isSelectedText && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setTransparencyPopoverOpen(false)} />
+                      <div className={`absolute left-0 top-full mt-2 z-50 w-52 rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl ${
+                        isDark
+                          ? "border-white/10 bg-[#161a24]"
+                          : "border-slate-200 bg-white"
+                      }`}>
+                        <p className={`mb-2.5 text-[10px] font-semibold uppercase tracking-wider ${
+                          isDark ? "text-zinc-400" : "text-slate-500"
+                        }`}>Transparency</p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range" min={0} max={100}
+                            value={Math.round((selectedElement.opacity ?? 1) * 100)}
+                            onChange={(e) => editor.updateElement(selectedElement.id, { opacity: Number(e.target.value) / 100 })}
+                            className={`flex-1 h-1.5 cursor-pointer ${
+                              isDark ? "accent-indigo-500" : "accent-indigo-600"
+                            }`}
+                          />
+                          <span className={`w-9 text-right text-xs font-semibold tabular-nums ${
+                            isDark ? "text-white" : "text-slate-800"
+                          }`}>{Math.round((selectedElement.opacity ?? 1) * 100)}%</span>
+                        </div>
+                        <div className="mt-2.5 flex gap-1.5">
+                          {[100, 75, 50, 25].map(v => (
+                            <button key={v} type="button"
+                              onClick={() => editor.updateElement(selectedElement.id, { opacity: v / 100 })}
+                              className={`flex-1 rounded-lg py-1 text-[10px] font-medium transition ${
+                                Math.round((selectedElement.opacity ?? 1) * 100) === v
+                                  ? "bg-indigo-600 text-white"
+                                  : isDark
+                                  ? "bg-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                              }`}>{v}%</button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => editor.duplicateSelected()}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Duplicate text"
+                >
+                  <Copy size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => editor.deleteSelected()}
+                  className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/15 transition"
+                  title="Delete text"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+
+            {/* 3. When Shape is Selected */}
+            {isSelectedShape && !canGroup && !canUngroup && (
+              <>
+                <span className="text-xs font-medium text-zinc-300 px-2 capitalize">
+                  {(selectedElement as ShapeElement).type}
+                </span>
+
+                <div className="flex items-center gap-1.5 px-2">
+                  <span className="text-[11px] text-zinc-400">Fill</span>
+                  <input
+                    type="color"
+                    value={(selectedElement as ShapeElement).fill || "#ffffff"}
+                    onChange={(e) =>
+                      editor.updateElement(selectedElement.id, { fill: e.target.value })
+                    }
+                    className="h-6 w-6 cursor-pointer rounded-full border border-white/20 bg-transparent"
+                    title="Shape fill color"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 px-2">
+                  <span className="text-[11px] text-zinc-400">Border</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={(selectedElement as ShapeElement).strokeWidth || 0}
+                    onChange={(e) =>
+                      editor.updateElement(selectedElement.id, {
+                        strokeWidth: Number(e.target.value),
+                      })
+                    }
+                    className="h-6 w-12 rounded bg-zinc-800 px-1 text-center text-xs text-white"
+                  />
+                </div>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => editor.duplicateSelected()}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Duplicate shape"
+                >
+                  <Copy size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => editor.deleteSelected()}
+                  className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/15 transition"
+                  title="Delete shape"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+
+            {/* 4. When Frame is Selected */}
+            {isSelectedFrame && !canGroup && !canUngroup && (
+              <>
+                <span className="text-xs font-semibold text-pink-300 px-2 flex items-center gap-1.5">
+                  <Frame size={13} />
+                  <span>{(selectedElement as FrameElement).frameShape} frame</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-xl bg-pink-500/20 border border-pink-500/30 px-3 py-1.5 text-xs font-medium text-pink-200 hover:bg-pink-500/30 transition"
+                  title="Upload / Replace image inside frame"
+                >
+                  <ImageIcon size={13} />
+                  <span>{(selectedElement as FrameElement).imageSrc ? "Replace Image" : "Add Image"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebarTab("frames")}
+                  className="rounded-xl px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] transition"
+                  title="Browse frame shapes"
+                >
+                  Change Shape
+                </button>
+
+                <div className="mx-0.5 h-4 w-px bg-white/[0.1]" />
+
+                <button
+                  type="button"
+                  onClick={() => editor.duplicateSelected()}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+                  title="Duplicate frame"
+                >
+                  <Copy size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => editor.deleteSelected()}
+                  className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/15 transition"
+                  title="Delete frame"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+
+            {/* 5. Group / Ungroup controls */}
+            {canGroup && (
+              <button
+                type="button"
+                onClick={() => editor.groupSelected()}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/30 transition"
+                title="Group selected elements (Ctrl+G)"
+              >
+                <Group size={14} />
+                <span>Group</span>
+                <span className="text-[10px] text-zinc-400 font-mono">Ctrl G</span>
+              </button>
+            )}
+
+            {canUngroup && (
+              <button
+                type="button"
+                onClick={() => editor.ungroupSelected()}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/30 transition"
+                title="Ungroup (Ctrl+Shift+G)"
+              >
+                <Ungroup size={14} />
+                <span>Ungroup</span>
+              </button>
+            )}
+
+            {/* 6. When Nothing is Selected (Default Canvas Toolbar) */}
+            {!selectedElement && !canGroup && !canUngroup && (
+              <>
+                <div className="flex items-center gap-2 px-2">
+                  <span className="text-xs text-zinc-400 font-medium">Canvas:</span>
+                  <span className="text-xs text-white font-mono">
+                    {editor.page.size.width} × {editor.page.size.height}
+                  </span>
+                </div>
+
+                {editor.page.background && editor.page.background !== "transparent" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = editor.page;
+                      const first = prev.elements[0];
+                      const isBgRect =
+                        first &&
+                        first.type === "rectangle" &&
+                        first.width >= prev.size.width * 0.8 &&
+                        first.height >= prev.size.height * 0.8;
+
+                      editor.setPage({
+                        ...prev,
+                        background: "transparent",
+                        elements: isBgRect ? prev.elements.slice(1) : prev.elements,
+                      });
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/[0.08] transition"
+                    title="Remove canvas background color"
+                  >
+                    <span>Remove Canvas BG</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setLayoutSelectorOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition"
+                  title="Change layout dimensions"
+                >
+                  <LayoutGrid size={13} className="text-emerald-400" />
+                  <span>Change Layout</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/ai-studio")}
+                  className="flex items-center gap-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 transition"
+                  title="Open Falcon AI Studio"
+                >
+                  <Sparkles size={13} className="text-indigo-400" />
+                  <span>AI Studio</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCoachOpen((prev) => !prev)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-medium transition ${
+                    coachOpen
+                      ? "bg-indigo-600 text-white"
+                      : "border border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08]"
+                  }`}
+                  title="Falcon AI Coach"
+                >
+                  <Brain size={13} className="text-indigo-400" />
+                  <span>AI Coach</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* ── CANVAS WORKSPACE ── */}
+          <div className="relative flex-1 w-full overflow-hidden">
+            <Canvas
+              page={editor.page}
+              zoom={zoom}
+              pan={pan}
+              selectedIds={editor.selectedIds}
+              activeTool={editor.activeTool}
+              onSelect={editor.selectElement}
+              onElementChange={(id, patch, opts) =>
+                editor.updateElement(id, patch as any, opts)
+              }
+              onCanvasClick={handleCanvasClick}
+              onWheel={onWheel}
+              onToolChange={editor.setActiveTool}
+            />
+          </div>
+
+          {/* ── CANVA BOTTOM FILMSTRIP & CONTROLS FOOTER ── */}
+          <div className="no-scrollbar flex h-13 w-full shrink-0 items-center justify-between gap-3 overflow-x-auto border-t border-white/[0.08] bg-[#111214] px-2 select-none z-30 sm:px-4 [&>*]:shrink-0">
+            {/* Left: Notes & Timer */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <NotesButton projectId={projectId} />
+              <TimerButton />
+            </div>
+
+            {/* Center: one thumbnail per page; click to open, with add, duplicate and delete */}
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="no-scrollbar flex max-w-[44vw] items-center gap-1.5 overflow-x-auto py-1">
+                {allPages.map((p, i) => {
+                  const bg = p.background === "transparent" ? "#ffffff" : p.background || "#ffffff";
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => i !== pageIndex && onSelectPage?.(i)}
+                      aria-current={i === pageIndex}
+                      aria-label={`Page ${i + 1}: ${p.name}`}
+                      title={p.name}
+                      className={`relative h-8 shrink-0 overflow-hidden rounded-md border-2 shadow-md transition ${
+                        i === pageIndex ? "border-[#8b3dff]" : "border-white/10 opacity-70 hover:opacity-100"
+                      }`}
+                      style={{
+                        width: Math.max(22, Math.min(64, Math.round((32 * p.size.width) / p.size.height))),
+                        background: bg.startsWith("http") || bg.startsWith("data:") ? `url("${bg}") center / cover` : bg,
+                      }}
+                    >
+                      <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
+                        {i + 1}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {onAddPage && (
+                <button
+                  type="button"
+                  onClick={onAddPage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-zinc-700 text-zinc-400 transition hover:border-zinc-500 hover:text-white"
+                  title="Add a page after this one"
+                  aria-label="Add page"
+                >
+                  <Plus size={13} />
+                </button>
+              )}
+              {onDuplicatePage && (
+                <button
+                  type="button"
+                  onClick={onDuplicatePage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Duplicate this page"
+                  aria-label="Duplicate page"
+                >
+                  <Copy size={13} />
+                </button>
+              )}
+              {onDeletePage && allPages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={onDeletePage}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-red-500/15 hover:text-red-300"
+                  title="Delete this page"
+                  aria-label="Delete page"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Right: Zoom Slider & View Options */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={zoomOut}
+                  className="rounded p-1 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Zoom out"
+                >
+                  <Minus size={13} />
+                </button>
+
+                <input
+                  type="range"
+                  min={10}
+                  max={300}
+                  value={Math.round(zoom * 100)}
+                  onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                  aria-label="Zoom"
+                  className="w-20 h-1 accent-white cursor-pointer bg-zinc-700 rounded"
+                />
+
+                <button
+                  type="button"
+                  onClick={zoomIn}
+                  className="rounded p-1 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Zoom in"
+                >
+                  <Plus size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetZoom}
+                  className="font-mono text-xs text-zinc-300 hover:text-white transition w-10 text-right"
+                  title="Reset zoom to 100%"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+              </div>
+
+              <div className="h-4 w-px bg-white/[0.1]" />
+
+              <button
+                type="button"
+                onClick={handleFitToScreen}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                title="Fit to screen"
+              >
+                <Maximize2 size={13} />
+                <span>Fit</span>
+              </button>
+
+              <PagesViewButton pages={allPages} pageIndex={pageIndex} onSelect={onSelectPage} />
+            </div>
+          </div>
+        </div>
+
+        {/* =================================================
+            AI COACH PANEL
+            PROPERTIES PANEL IS GONE
+            ================================================= */}
+
+        {coachOpen && (
+          <aside
+            className="
+              relative
+              z-50
+              flex
+              h-full
+              min-h-0
+              w-[320px]
+              shrink-0
+              flex-col
+              overflow-hidden
+              border-l
+              border-white/[0.07]
+              bg-[#0d0d10]
+            "
+          >
+
+            {/* =================================================
+                AI COACH HEADER
+                ================================================= */}
+
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-4">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                  <Brain
+                    size={19}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-base font-semibold text-white">
+                    Falcon AI Coach
+                  </p>
+
+                  <p className="text-xs text-zinc-500">
+                    Design intelligence
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="flex items-center gap-1.5">
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    runDesignAnalysis();
+                    runDesignDNA();
+                  }}
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Analyze design"
+                >
+                  <RefreshCw
+                    size={16}
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCoachOpen(false)
+                  }
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
+                  title="Close AI Coach"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                DESIGN SCORE
+                ================================================= */}
+
+            <div className="shrink-0 border-b border-white/[0.07] p-4">
+
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Design Score
+                    </p>
+
+                    <div className="mt-2 flex items-end gap-2">
+
+                      <span className="text-5xl font-semibold tracking-tight text-white">
+                        {score}
+                      </span>
+
+                      <span className="mb-1.5 text-base text-zinc-600">
+                        / 100
+                      </span>
+
+                    </div>
+
+                    <p className="mt-1 text-sm text-indigo-400">
+                      {scoreLabel(
+                        score
+                      )}
+                    </p>
+
+                  </div>
+
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-indigo-400/20 bg-indigo-500/5">
+
+                    <Sparkles
+                      size={22}
+                      className="text-indigo-400"
+                    />
+
+                  </div>
+
+                </div>
+
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+
+                  <div
+                    className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                    style={{
+                      width: `${score}%`,
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+
+              {/* =================================================
+                  DESIGN HEALTH
+                  ================================================= */}
+
+              <div className="border-b border-white/[0.07] p-4">
+
+                <div className="mb-3 flex items-center justify-between">
+
+                  <p className="text-sm font-medium text-zinc-300">
+                    Design health
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={
+                      runDesignAnalysis
+                    }
+                    className="text-xs text-zinc-500 hover:text-white"
+                  >
+                    Re-analyze
+                  </button>
+
+                </div>
+
+                <div className="space-y-3">
+
+                  {analysis && (
+                    <>
+                      <ScoreRow
+                        label="Alignment"
+                        value={
+                          analysis
+                            .breakdown
+                            .alignment
+                        }
+                      />
+
+                      <ScoreRow
+                        label="Spacing"
+                        value={
+                          analysis
+                            .breakdown
+                            .spacing
+                        }
+                      />
+
+                      <ScoreRow
+                        label="Contrast"
+                        value={
+                          analysis
+                            .breakdown
+                            .contrast
+                        }
+                      />
+
+                      <ScoreRow
+                        label="Hierarchy"
+                        value={
+                          analysis
+                            .breakdown
+                            .hierarchy
+                        }
+                      />
+
+                      <ScoreRow
+                        label="Readability"
+                        value={
+                          analysis
+                            .breakdown
+                            .readability
+                        }
+                      />
+                    </>
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* =================================================
+                  DESIGN DNA
+                  ================================================= */}
+
+              <div className="border-b border-white/[0.07] p-4">
+
+                <div className="mb-3 flex items-center justify-between">
+
+                  <div className="flex items-center gap-2.5">
+
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                      <Sparkles
+                        size={15}
+                      />
+                    </div>
+
+                    <div>
+
+                      <p className="text-sm font-medium text-zinc-300">
+                        Design DNA
+                      </p>
+
+                      <p className="text-xs text-zinc-600">
+                        Your visual identity
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      runDesignDNA
+                    }
+                    className="rounded-lg p-2 text-zinc-600 transition hover:bg-white/[0.05] hover:text-indigo-300"
+                    title="Refresh Design DNA"
+                  >
+                    <RefreshCw
+                      size={14}
+                    />
+                  </button>
+
+                </div>
+
+                {designDNA ? (
+                  <div className="space-y-3">
+
+                    <div className="grid grid-cols-2 gap-2">
+
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-600">
+                          Visual style
+                        </p>
+
+                        <p className="mt-1 text-xs font-medium capitalize text-zinc-300">
+                          {
+                            designDNA.visualStyle
+                          }
+                        </p>
+
+                      </div>
+
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-600">
+                          Typography
+                        </p>
+
+                        <p className="mt-1 text-xs font-medium capitalize text-zinc-300">
+                          {
+                            designDNA.typographyStyle
+                          }
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+
+                      <div className="mb-2 flex items-center gap-2">
+
+                        <Type
+                          size={14}
+                          className="text-indigo-400"
+                        />
+
+                        <p className="text-xs font-medium text-zinc-400">
+                          Typography system
+                        </p>
+
+                      </div>
+
+                      <div className="space-y-2">
+
+                        <div className="flex items-center justify-between gap-3">
+
+                          <div className="min-w-0">
+
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-700">
+                              Heading
+                            </p>
+
+                            <p className="truncate text-xs text-zinc-300">
+                              {
+                                designDNA.headingFont
+                              }
+                            </p>
+
+                          </div>
+
+                          <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-500">
+                            {
+                              designDNA.headingWeight
+                            }
+                          </span>
+
+                        </div>
+
+                        <div className="h-px bg-white/[0.05]" />
+
+                        <div className="flex items-center justify-between gap-3">
+
+                          <div className="min-w-0">
+
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-700">
+                              Body
+                            </p>
+
+                            <p className="truncate text-xs text-zinc-300">
+                              {
+                                designDNA.bodyFont
+                              }
+                            </p>
+
+                          </div>
+
+                          <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-500">
+                            {
+                              designDNA.bodyWeight
+                            }
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+
+                      <div className="mb-2 flex items-center gap-2">
+
+                        <Palette
+                          size={14}
+                          className="text-indigo-400"
+                        />
+
+                        <p className="text-xs font-medium text-zinc-400">
+                          Color palette
+                        </p>
+
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+
+                        <ColorSwatch
+                          label="Primary"
+                          value={
+                            designDNA.primaryColor
+                          }
+                        />
+
+                        <ColorSwatch
+                          label="Secondary"
+                          value={
+                            designDNA.secondaryColor
+                          }
+                        />
+
+                        <ColorSwatch
+                          label="Background"
+                          value={
+                            designDNA.backgroundColor
+                          }
+                        />
+
+                      </div>
+
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+
+                      <MiniStat
+                        label="Avg spacing"
+                        value={`${designDNA.averageSpacing}px`}
+                      />
+
+                      <MiniStat
+                        label="Corner radius"
+                        value={`${designDNA.averageCornerRadius}px`}
+                      />
+
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4 text-center">
+
+                    <Sparkles
+                      size={17}
+                      className="mx-auto text-indigo-400"
+                    />
+
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Generating your visual identity...
+                    </p>
+
+                  </div>
+                )}
+
+              </div>
+
+              {/* =================================================
+                  COACH INSIGHTS
+                  ================================================= */}
+
+              <div className="p-4">
+
+                <div className="mb-3 flex items-center justify-between">
+
+                  <p className="text-sm font-medium text-zinc-300">
+                    Coach insights
+                  </p>
+
+                  <span className="text-xs text-zinc-600">
+                    {
+                      analysis?.issues
+                        .length ??
+                      0
+                    }{" "}
+                    issues
+                  </span>
+
+                </div>
+
+                {issueFixMessage && (
+                  <div className="mb-3 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.04] px-3 py-2.5">
+
+                    <div className="flex items-center gap-2">
+
+                      <CheckCircle2
+                        size={15}
+                        className="shrink-0 text-emerald-400"
+                      />
+
+                      <p className="text-xs leading-4 text-emerald-300">
+                        {
+                          issueFixMessage
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+                )}
+
+                {!analysis ||
+                analysis.issues
+                  .length === 0 ? (
+                  <div className="rounded-2xl border border-emerald-500/10 bg-emerald-500/[0.04] p-4">
+
+                    <div className="flex gap-3">
+
+                      <CheckCircle2
+                        size={19}
+                        className="mt-0.5 shrink-0 text-emerald-400"
+                      />
+
+                      <div>
+
+                        <p className="text-sm font-medium text-emerald-300">
+                          Looking good
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Your design currently has
+                          no major issues detected.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+
+                    {analysis.issues.map(
+                      (issue) => {
+
+                        const isFixing =
+                          fixingIssueId ===
+                          issue.id;
+
+                        const canAutoFix =
+                          issue.type !==
+                            "spacing" &&
+                          issue.type !==
+                            "layout";
+
+                        return (
+                          <div
+                            key={
+                              issue.id
+                            }
+                            className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 transition hover:border-indigo-500/20 hover:bg-white/[0.04]"
+                          >
+
+                            <div className="flex gap-3">
+
+                              <div className="mt-0.5 shrink-0">
+
+                                {issue.severity ===
+                                "high" ? (
+                                  <AlertTriangle
+                                    size={17}
+                                    className="text-red-400"
+                                  />
+                                ) : (
+                                  <Sparkles
+                                    size={17}
+                                    className="text-indigo-400"
+                                  />
+                                )}
+
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+
+                                <div className="flex items-start justify-between gap-2">
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleIssueClick(
+                                        issue.elementId
+                                      )
+                                    }
+                                    className="min-w-0 text-left"
+                                  >
+
+                                    <p className="text-sm font-medium text-zinc-200">
+                                      {
+                                        issue.title
+                                      }
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-zinc-500">
+                                      {
+                                        issue.description
+                                      }
+                                    </p>
+
+                                  </button>
+
+                                  <ChevronRight
+                                    size={14}
+                                    className="mt-1 shrink-0 text-zinc-700"
+                                  />
+
+                                </div>
+
+                                <p className="mt-2 text-xs leading-4 text-indigo-400/80">
+                                  {
+                                    issue.suggestion
+                                  }
+                                </p>
+
+                                <div className="mt-3 flex items-center gap-2">
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleIssueClick(
+                                        issue.elementId
+                                      )
+                                    }
+                                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                                  >
+
+                                    <ChevronRight
+                                      size={12}
+                                    />
+
+                                    Inspect
+
+                                  </button>
+
+                                  {canAutoFix ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleFixIssue(
+                                          issue
+                                        )
+                                      }
+                                      disabled={
+                                        !!fixingIssueId ||
+                                        isImproving
+                                      }
+                                      className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+
+                                      {isFixing ? (
+                                        <>
+                                          <RefreshCw
+                                            size={12}
+                                            className="animate-spin"
+                                          />
+
+                                          Fixing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Wrench
+                                            size={12}
+                                          />
+
+                                          Fix
+                                        </>
+                                      )}
+
+                                    </button>
+                                  ) : (
+                                    <span className="rounded-lg border border-white/[0.06] px-2.5 py-1.5 text-[11px] text-zinc-600">
+                                      Manual review
+                                    </span>
+                                  )}
+
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+                        );
+                      }
+                    )}
+
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                AI ACTIONS
+                ================================================= */}
+
+            <div className="shrink-0 border-t border-white/[0.07] bg-[#0d0d10] p-3">
+
+              <button
+                type="button"
+                onClick={
+                  handleOpenCampaign
+                }
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] hover:text-white"
+              >
+                <LayoutGrid
+                  size={16}
+                  className="text-indigo-400"
+                />
+
+                One → Many
+              </button>
+
+              {remixMessage && (
+                <div className="mb-2 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.04] px-3 py-2.5">
+
+                  <div className="flex items-start gap-2">
+
+                    <Check
+                      size={15}
+                      className="mt-0.5 shrink-0 text-emerald-400"
+                    />
+
+                    <p className="text-xs leading-4 text-emerald-300">
+                      {
+                        remixMessage
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={
+                  handleOpenRemix
+                }
+                disabled={
+                  isGeneratingRemixes
+                }
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.08] px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:border-indigo-500/40 hover:bg-indigo-500/[0.14] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+
+                {isGeneratingRemixes ? (
+                  <>
+                    <RefreshCw
+                      size={16}
+                      className="animate-spin"
+                    />
+
+                    Creating remixes...
+                  </>
+                ) : (
+                  <>
+                    <Zap
+                      size={16}
+                    />
+
+                    Smart Remix
+                  </>
+                )}
+
+              </button>
+
+              {improvementMessage && (
+                <div className="mb-2 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.04] px-3 py-2.5">
+
+                  <p className="text-xs leading-4 text-indigo-300">
+                    {
+                      improvementMessage
+                    }
+                  </p>
+
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={
+                  handleImproveDesign
+                }
+                disabled={
+                  isImproving
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+
+                {isImproving ? (
+                  <>
+                    <RefreshCw
+                      size={16}
+                      className="animate-spin"
+                    />
+
+                    Improving...
+                  </>
+                ) : (
+                  <>
+                    <Wand2
+                      size={16}
+                    />
+
+                    Improve Design
+                  </>
+                )}
+
+              </button>
+
+              <div className="mt-2 flex items-center gap-2 rounded-xl bg-white/[0.025] px-3 py-2.5">
+
+                <Sparkles
+                  size={15}
+                  className="text-indigo-400"
+                />
+
+                <p className="text-xs leading-4 text-zinc-500">
+                  Falcon analyzes your composition and
+                  applies safe visual improvements.
+                </p>
+
+              </div>
+
+            </div>
+
+          </aside>
+        )}
+
+        {/* =================================================
+            ONE → MANY MODAL
+            ================================================= */}
+
+        {campaignOpen && (
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm">
+
+            <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#111114] shadow-2xl">
+
+              <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-5">
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                    <LayoutGrid
+                      size={20}
+                    />
+                  </div>
+
+                  <div>
+
+                    <p className="text-base font-semibold text-white">
+                      One → Many
+                    </p>
+
+                    <p className="text-xs text-zinc-500">
+                      Turn one design into a complete campaign
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleCloseCampaign
+                  }
+                  disabled={
+                    isGeneratingCampaign ||
+                    isCreatingCampaignProjects
+                  }
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                >
+                  <X
+                    size={18}
+                  />
+                </button>
+
+              </div>
+
+              <div className="max-h-[70vh] overflow-y-auto p-6">
+
+                <div className="mb-6">
+
+                  <p className="text-sm font-medium text-zinc-300">
+                    Choose campaign formats
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Falcon will adapt your current composition to each selected platform.
+                  </p>
+
+                </div>
+
+                <div className="grid grid-cols-5 gap-3">
+
+                  {CAMPAIGN_FORMATS.map(
+                    (format) => {
+
+                      const selected =
+                        selectedCampaignFormats.includes(
+                          format.id
+                        );
+
+                      const Icon =
+                        getCampaignIcon(
+                          format.id
+                        );
+
+                      return (
+                        <button
+                          key={
+                            format.id
+                          }
+                          type="button"
+                          onClick={() =>
+                            toggleCampaignFormat(
+                              format.id
+                            )
+                          }
+                          disabled={
+                            isGeneratingCampaign ||
+                            isCreatingCampaignProjects
+                          }
+                          className={`relative rounded-2xl border p-4 text-left transition ${
+                            selected
+                              ? "border-indigo-500/40 bg-indigo-500/[0.08]"
+                              : "border-white/[0.07] bg-white/[0.025] hover:border-white/[0.14]"
+                          }`}
+                        >
+
+                          {selected && (
+                            <div className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-white">
+
+                              <Check
+                                size={12}
+                              />
+
+                            </div>
+                          )}
+
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                              selected
+                                ? "bg-indigo-500 text-white"
+                                : "bg-white/[0.05] text-zinc-500"
+                            }`}
+                          >
+                            <Icon
+                              size={18}
+                            />
+                          </div>
+
+                          <p className="mt-3 text-sm font-medium text-white">
+                            {
+                              format.name
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-600">
+                            {
+                              format.width
+                            }{" "}
+                            ×{" "}
+                            {
+                              format.height
+                            }
+                          </p>
+
+                        </button>
+                      );
+                    }
+                  )}
+
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-zinc-300">
+                        Campaign setup
+                      </p>
+
+                      <p className="mt-1 text-xs text-zinc-600">
+                        {
+                          selectedCampaignFormats.length
+                        }{" "}
+                        format
+                        {selectedCampaignFormats.length ===
+                        1
+                          ? ""
+                          : "s"}{" "}
+                        selected
+                      </p>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleGenerateCampaign
+                      }
+                      disabled={
+                        isGeneratingCampaign ||
+                        selectedCampaignFormats.length ===
+                          0
+                      }
+                      className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+                    >
+
+                      {isGeneratingCampaign ? (
+                        <>
+                          <RefreshCw
+                            size={15}
+                            className="animate-spin"
+                          />
+
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles
+                            size={15}
+                          />
+
+                          Generate Campaign
+                        </>
+                      )}
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+                {campaignMessage && (
+                  <div className="mt-4 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.04] px-4 py-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <CheckCircle2
+                        size={16}
+                        className="text-indigo-400"
+                      />
+
+                      <p className="text-xs text-indigo-300">
+                        {
+                          campaignMessage
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+                )}
+
+                {campaignVariants.length >
+                  0 && (
+                  <div className="mt-6">
+
+                    <div className="mb-3 flex items-center justify-between">
+
+                      <div>
+
+                        <p className="text-sm font-medium text-zinc-300">
+                          Generated campaign
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-600">
+                          Your original design remains unchanged.
+                        </p>
+
+                      </div>
+
+                      <span className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300">
+                        {
+                          campaignVariants.length
+                        }{" "}
+                        ready
+                      </span>
+
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+
+                      {campaignVariants.map(
+                        (variant) => {
+
+                          const Icon =
+                            getCampaignIcon(
+                              variant.format
+                            );
+
+                          return (
+                            <div
+                              key={
+                                variant.id
+                              }
+                              className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"
+                            >
+
+                              <div className="flex items-start justify-between gap-3">
+
+                                <div className="flex items-center gap-3">
+
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+
+                                    <Icon
+                                      size={18}
+                                    />
+
+                                  </div>
+
+                                  <div>
+
+                                    <p className="text-sm font-medium text-white">
+                                      {
+                                        variant.name
+                                      }
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-zinc-600">
+                                      {
+                                        variant.width
+                                      }{" "}
+                                      ×{" "}
+                                      {
+                                        variant.height
+                                      }
+                                    </p>
+
+                                  </div>
+
+                                </div>
+
+                                <CheckCircle2
+                                  size={17}
+                                  className="text-emerald-400"
+                                />
+
+                              </div>
+
+                              <p className="mt-3 text-xs leading-4 text-zinc-500">
+                                {
+                                  variant.description
+                                }
+                              </p>
+
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+
+                                <MiniStat
+                                  label="Elements"
+                                  value={
+                                    variant
+                                      .page
+                                      .elements
+                                      .length
+                                  }
+                                />
+
+                                <MiniStat
+                                  label="Status"
+                                  value="Ready"
+                                />
+
+                              </div>
+
+                            </div>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/[0.07] px-6 py-4">
+
+                <p className="text-xs text-zinc-600">
+                  One source design • Multiple platform-ready designs
+                </p>
+
+                <div className="flex items-center gap-2">
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleCloseCampaign
+                    }
+                    disabled={
+                      isGeneratingCampaign ||
+                      isCreatingCampaignProjects
+                    }
+                    className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleCreateCampaignProjects
+                    }
+                    disabled={
+                      campaignVariants.length ===
+                        0 ||
+                      isGeneratingCampaign ||
+                      isCreatingCampaignProjects
+                    }
+                    className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40"
+                  >
+
+                    {isCreatingCampaignProjects ? (
+                      <>
+                        <RefreshCw
+                          size={15}
+                          className="animate-spin"
+                        />
+
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <LayoutGrid
+                          size={15}
+                        />
+
+                        Create Designs
+                      </>
+                    )}
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* =================================================
+            SMART REMIX MODAL
+            ================================================= */}
+
+        {remixOpen && (
+          <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+
+            <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#111114] shadow-2xl">
+
+              <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-5">
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                    <Zap
+                      size={20}
+                    />
+                  </div>
+
+                  <div>
+
+                    <p className="text-base font-semibold text-white">
+                      Smart Remix
+                    </p>
+
+                    <p className="text-xs text-zinc-500">
+                      Explore alternate versions of your design
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleCloseRemix
+                  }
+                  className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
+                >
+                  <X
+                    size={18}
+                  />
+                </button>
+
+              </div>
+
+              <div className="p-6">
+
+                {isGeneratingRemixes ? (
+                  <div className="flex min-h-[280px] flex-col items-center justify-center">
+
+                    <RefreshCw
+                      size={26}
+                      className="animate-spin text-indigo-400"
+                    />
+
+                    <p className="mt-5 text-base font-medium text-white">
+                      Falcon is creating variations...
+                    </p>
+
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Analyzing your current composition
+                    </p>
+
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-5">
+
+                      <p className="text-sm font-medium text-zinc-300">
+                        Choose a direction
+                      </p>
+
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Your original design will remain unchanged until you apply a remix.
+                      </p>
+
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+
+                      {remixes.map(
+                        (remix) => {
+
+                          const active =
+                            selectedRemix?.id ===
+                            remix.id;
+
+                          return (
+                            <button
+                              key={
+                                remix.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                setSelectedRemix(
+                                  remix
+                                )
+                              }
+                              className={`rounded-2xl border p-4 text-left transition ${
+                                active
+                                  ? "border-indigo-500/50 bg-indigo-500/[0.08]"
+                                  : "border-white/[0.07] bg-white/[0.025] hover:border-white/[0.14]"
+                              }`}
+                            >
+
+                              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+
+                                {remix.style ===
+                                "bold" ? (
+                                  <Zap
+                                    size={18}
+                                  />
+                                ) : remix.style ===
+                                  "premium" ? (
+                                  <Wand2
+                                    size={18}
+                                  />
+                                ) : remix.style ===
+                                  "social" ? (
+                                  <Brain
+                                    size={18}
+                                  />
+                                ) : (
+                                  <Sparkles
+                                    size={18}
+                                  />
+                                )}
+
+                              </div>
+
+                              <p className="text-sm font-medium text-white">
+                                {
+                                  remix.name
+                                }
+                              </p>
+
+                              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                                {
+                                  remix.description
+                                }
+                              </p>
+
+                              {active && (
+                                <div className="mt-3 flex items-center gap-1.5 text-xs text-indigo-300">
+
+                                  <Check
+                                    size={13}
+                                  />
+
+                                  Selected
+
+                                </div>
+                              )}
+
+                            </button>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                    {selectedRemix && (
+                      <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+
+                        <div className="flex items-center justify-between">
+
+                          <div>
+
+                            <p className="text-sm font-medium text-white">
+                              {
+                                selectedRemix.name
+                              }{" "}
+                              remix
+                            </p>
+
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {
+                                selectedRemix.description
+                              }
+                            </p>
+
+                          </div>
+
+                          <span className="rounded-lg bg-indigo-500/10 px-2.5 py-1.5 text-xs text-indigo-300">
+                            Preview ready
+                          </span>
+
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+
+                          <MiniStat
+                            label="Elements"
+                            value={
+                              selectedRemix
+                                .elements
+                                .length
+                            }
+                          />
+
+                          <MiniStat
+                            label="Direction"
+                            value={
+                              selectedRemix.name
+                            }
+                          />
+
+                          <MiniStat
+                            label="Status"
+                            value="Ready"
+                          />
+
+                        </div>
+
+                      </div>
+                    )}
+
+                  </>
+                )}
+
+              </div>
+
+              {!isGeneratingRemixes && (
+                <div className="flex items-center justify-between border-t border-white/[0.07] px-6 py-4">
+
+                  <p className="text-xs text-zinc-600">
+                    Original design is protected until Apply.
+                  </p>
+
+                  <div className="flex items-center gap-2">
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleCloseRemix
+                      }
+                      className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-sm text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleApplyRemix
+                      }
+                      disabled={
+                        !selectedRemix
+                      }
+                      className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40"
+                    >
+
+                      <Check
+                        size={15}
+                      />
+
+                      Apply Remix
+
+                    </button>
+
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
+      {/* =================================================
+          BACKGROUND REMOVER MODAL
+          ================================================= */}
+      <BackgroundRemoverModal
+        isOpen={bgRemoverOpen}
+        onClose={() => setBgRemoverOpen(false)}
+        element={
+          selectedElement && isImage(selectedElement)
+            ? (selectedElement as ImageElement)
+            : null
+        }
+        canvasImages={
+          editor.page.elements.filter(isImage) as ImageElement[]
+        }
+        onSelectCanvasImage={(img) => {
+          editor.selectElement(img.id);
+        }}
+        onApply={(newSrc, origSrc) => {
+          if (selectedElement && isImage(selectedElement)) {
+            editor.updateElement(selectedElement.id, {
+              src: newSrc,
+              originalSrc: origSrc,
+            });
+          }
+        }}
+        onAddAsNew={(src, origSrc, w, h) => {
+          const maxDim = 450;
+          let width = w || 400;
+          let height = h || 400;
+          if (width > maxDim || height > maxDim) {
+            const scale = Math.min(maxDim / width, maxDim / height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const cx = Math.max(
+            40,
+            Math.round((editor.page.size.width - width) / 2)
+          );
+          const cy = Math.max(
+            40,
+            Math.round((editor.page.size.height - height) / 2)
+          );
+          editor.addElement({
+            type: "image",
+            x: cx,
+            y: cy,
+            width,
+            height,
+            src,
+            originalSrc: origSrc,
+            naturalWidth: w || width,
+            naturalHeight: h || height,
+            cropX: 0,
+            cropY: 0,
+            cropWidth: w || width,
+            cropHeight: h || height,
+            rotation: 0,
+            opacity: 1,
+            locked: false,
+            hidden: false,
+          } as CanvasElement);
+        }}
+      />
+
+      {/* =================================================
+          CHANGE LAYOUT MODAL
+          ================================================= */}
+      {layoutSelectorOpen && (
+        <LayoutSelectorModal
+          title="Change Canvas Layout"
+          currentLayoutName={editor.page.size.name}
+          onSelect={handleChangeLayout}
+          onClose={() => setLayoutSelectorOpen(false)}
+        />
+      )}
+
+      {/* =================================================
+          ASSET GOVERNANCE & ADMIN MODAL
+          ================================================= */}
+      <AssetAdminModal
+        isOpen={assetAdminOpen}
+        onClose={() => setAssetAdminOpen(false)}
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   SCORE ROW
+   ========================================================= */
+
+function ScoreRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div>
+
+      <div className="mb-1.5 flex items-center justify-between">
+
+        <span className="text-xs text-zinc-500">
+          {label}
+        </span>
+
+        <span className="text-xs font-medium text-zinc-400">
+          {value}
+        </span>
+
+      </div>
+
+      <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
+
+        <div
+          className="h-full rounded-full bg-indigo-500/70 transition-all duration-500"
+          style={{
+            width: `${value}%`,
+          }}
+        />
+
+      </div>
+
+    </div>
+  );
+}
+
+/* =========================================================
+   MINI STAT
+   ========================================================= */
+
+function MiniStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2.5">
+
+      <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-600">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-sm font-medium text-zinc-300">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+/* =========================================================
+   COLOR SWATCH
+   ========================================================= */
+
+function ColorSwatch({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+
+      <div
+        className="h-8 w-full rounded-lg border border-white/[0.08]"
+        style={{
+          backgroundColor: value,
+        }}
+      />
+
+      <p className="mt-1 text-[10px] text-zinc-700">
+        {label}
+      </p>
+
+      <p className="truncate text-[10px] font-mono text-zinc-500">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+/* =========================================================
+   FIND ELEMENT
+   ========================================================= */
+
+function find(
+  editor: ReturnType<
+    typeof useCanvasEditor
+  >,
+  id: string
+) {
+  return editor.page.elements.find(
+    (el) =>
+      el.id === id
+  );
+}
+
+/* =========================================================
+   COLOR LUMINANCE
+   ========================================================= */
+
+function getLuminance(
+  color: string
+): number {
+  let value =
+    color
+      .replace("#", "")
+      .trim();
+
+  if (
+    value.length === 3
+  ) {
+    value = value
+      .split("")
+      .map(
+        (char) =>
+          char + char
+      )
+      .join("");
+  }
+
+  if (
+    value.length !== 6
+  ) {
+    return 0.5;
+  }
+
+  const r =
+    parseInt(
+      value.slice(0, 2),
+      16
+    ) / 255;
+
+  const g =
+    parseInt(
+      value.slice(2, 4),
+      16
+    ) / 255;
+
+  const b =
+    parseInt(
+      value.slice(4, 6),
+      16
+    ) / 255;
+
+  if (
+    Number.isNaN(r) ||
+    Number.isNaN(g) ||
+    Number.isNaN(b)
+  ) {
+    return 0.5;
+  }
+
+  const convert =
+    (channel: number) =>
+      channel <= 0.03928
+        ? channel / 12.92
+        : Math.pow(
+            (channel + 0.055) /
+              1.055,
+            2.4
+          );
+
+  const rr =
+    convert(r);
+
+  const gg =
+    convert(g);
+
+  const bb =
+    convert(b);
+
+  return (
+    0.2126 * rr +
+    0.7152 * gg +
+    0.0722 * bb
+  );
+}
