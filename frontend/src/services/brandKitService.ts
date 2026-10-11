@@ -60,6 +60,23 @@ export const brandKitService = {
     return newColor;
   },
 
+  /** Replaces every colour in the kit */
+  setColors(colors: Omit<BrandColor, "id">[]): void {
+    const kit = this.getBrandKit();
+    kit.colors = colors.map((color, i) => ({ ...color, id: `bc-${Date.now()}-${i}` }));
+    this.saveBrandKit(kit);
+  },
+
+  /** Adds several colours as extras, leaving out any the kit already has */
+  addColors(colors: Omit<BrandColor, "id">[]): number {
+    const kit = this.getBrandKit();
+    const have = new Set(kit.colors.map((c) => normalizeHex(c.value)));
+    const fresh = colors.filter((color) => !have.has(normalizeHex(color.value)));
+    fresh.forEach((color, i) => kit.colors.push({ ...color, type: "custom", id: `bc-${Date.now()}-${i}` }));
+    if (fresh.length) this.saveBrandKit(kit);
+    return fresh.length;
+  },
+
   updateColor(id: string, value: string, label?: string, type?: BrandColor["type"]): boolean {
     const kit = this.getBrandKit();
     const color = kit.colors.find((c) => c.id === id);

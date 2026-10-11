@@ -19,6 +19,8 @@ import { BrandKit, BrandColor, BrandFont } from "@/types/asset";
 import { brandKitService, normalizeHex } from "@/services/brandKitService";
 import { filterAndSearchFonts, getFontMeta, loadFontPreview, loadGoogleFont } from "@/services/fontService";
 import { BadgeIcon } from "@/components/common/BadgeIcon";
+import { MarkLibrary, MarkUse, PairingLibrary, PaletteLibrary } from "@/components/Sidebar/BrandLibrary";
+import type { LibraryPairing, LibraryPalette } from "@/data/brandLibrary";
 
 interface BrandKitPanelProps {
   onApplyColor: (color: string) => void;
@@ -84,6 +86,8 @@ export function BrandKitPanel({
   const [activeSection, setActiveSection] = useState<Section>("colors");
   const [flash, setFlash] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // A way back from the last change made from the library, offered with its notice
+  const [undo, setUndo] = useState<(() => void) | null>(null);
 
   // Kit name
   const [renaming, setRenaming] = useState(false);
@@ -111,9 +115,11 @@ export function BrandKitPanel({
     setFlash(id);
     timers.current.push(window.setTimeout(() => setFlash(null), 1400));
   };
-  const say = (text: string) => {
+  const say = (text: string, back?: () => void) => {
     setNotice(text);
-    timers.current.push(window.setTimeout(() => setNotice(""), 3200));
+    setUndo(back ? () => back : null);
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [window.setTimeout(() => { setNotice(""); setUndo(null); }, back ? 7000 : 3200)];
   };
 
   const heading = brandKit.fonts.find((f) => f.type === "heading");
@@ -196,6 +202,20 @@ export function BrandKitPanel({
     refresh();
   };
 
+  const applyPalette = (palette: LibraryPalette) => {
+    const before = brandKit.colors.map(({ label, value, type }) => ({ label, value, type }));
+    brandKitService.setColors(palette.colors);
+    setColorForm(null);
+    refresh();
+    say(`${palette.name} is now your brand palette.`, () => { brandKitService.setColors(before); refresh(); });
+  };
+
+  const addPalette = (palette: LibraryPalette) => {
+    const added = brandKitService.addColors(palette.colors);
+    refresh();
+    say(added ? `${palette.name} added to your colors.` : "Your kit already has those colors.");
+  };
+
   /* ─── Fonts ─── */
 
   const fontChoices = useMemo(() => (pickingFont ? filterAndSearchFonts(fontQuery, "all").slice(0, 40) : []), [pickingFont, fontQuery]);
@@ -241,7 +261,24 @@ export function BrandKitPanel({
     say(onApplyFontsToPage(heading.fontFamily, body.fontFamily) ? "Page text set in your brand fonts. Undo brings the old fonts back." : "There is no text on this page yet.");
   };
 
+  const applyPairing = (pairing: LibraryPairing) => {
+    const before = brandKit.fonts.map((f) => ({ type: f.type, fontFamily: f.fontFamily, fontWeight: f.fontWeight }));
+    brandKitService.updateFont("heading", pairing.heading, pairing.headingWeight);
+    brandKitService.updateFont("body", pairing.body, pairing.bodyWeight);
+    setPickingFont(null);
+    refresh();
+    say(`Brand fonts set to ${pairing.heading} and ${pairing.body}.`, () => { before.forEach((f) => brandKitService.updateFont(f.type, f.fontFamily, f.fontWeight)); refresh(); });
+  };
+
   /* ─── Logos ─── */
+
+  const pickMark = (src: string, name: string, use: MarkUse) => {
+    if (use === "page") return onAddLogoToCanvas(src, name);
+    brandKitService.addLogo({ label: LOGO_NAMES[use].name, type: use, fileUrl: src });
+    refresh();
+    say(`Saved as your ${use === "icon" ? "icon" : `${use} logo`}.`);
+  };
+  const primaryColor = brandKit.colors.find((c) => c.type === "primary")?.value || brandKit.colors[0]?.value || "#06b6d4";
 
   const uploadLogo = (e: React.ChangeEvent<HTMLInputElement>, type: LogoType) => {
     const file = e.target.files?.[0];
@@ -541,6 +578,8 @@ export function BrandKitPanel({
                 </div>
               </div>
             )}
+
+            <PaletteLibrary onUse={applyPalette} onAdd={addPalette} onApplyColor={onApplyColor} />
           </div>
         )}
 
@@ -672,6 +711,8 @@ export function BrandKitPanel({
                 </button>
               </div>
             )}
+
+            <PairingLibrary heading={heading?.fontFamily} body={body?.fontFamily} onUse={applyPairing} />
           </div>
         )}
 
@@ -757,14 +798,21 @@ export function BrandKitPanel({
                 );
               })}
             </div>
+
+            <MarkLibrary color={primaryColor} onPick={pickMark} />
           </div>
         )}
       </div>
 
       {/* What just happened */}
       {notice && (
-        <div role="status" className="absolute inset-x-3 bottom-3 rounded-lg border border-white/[0.1] bg-[#1b1c23] px-3 py-2 text-xs leading-snug text-zinc-100 shadow-xl">
-          {notice}
+        <div role="status" className="absolute inset-x-3 bottom-3 flex items-center gap-3 rounded-lg border border-white/[0.1] bg-[#1b1c23] px-3 py-2 text-xs leading-snug text-zinc-100 shadow-xl">
+          <span className="flex-1">{notice}</span>
+          {undo && (
+            <button type="button" onClick={() => { undo(); setNotice(""); setUndo(null); }} className="shrink-0 rounded-md border border-cyan-500/50 px-2 py-0.5 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-slate-950">
+              Undo
+            </button>
+          )}
         </div>
       )}
     </aside>
