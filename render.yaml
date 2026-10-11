@@ -1,0 +1,37 @@
+# Render blueprint for the Falcon backend.
+# In Render: New > Blueprint, choose this repository. The values marked "sync: false"
+# are asked for there and are never kept in the repository.
+services:
+  - type: web
+    name: falcon-api
+    runtime: node
+    plan: free
+    rootDir: falcon-backend/backend
+    buildCommand: npm install && npx prisma generate
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_TEXT_MODEL
+        sync: false

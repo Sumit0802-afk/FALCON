@@ -141,6 +141,70 @@ function readSmtpConfig(): { config?: SmtpConfig; missing: string[] } {
   };
 }
 
+// ─── Sending over HTTPS ──────────────────────────────────────────────────────
+
+// Some hosts close the SMTP ports. With BREVO_API_KEY set, mail goes to Brevo over
+// HTTPS instead, from the address in EMAIL_FROM (or SMTP_FROM), which has to be a
+// sender verified in that Brevo account.
+
+function brevoKey(): string {
+  return (process.env.BREVO_API_KEY || "").trim();
+}
+
+function httpsFrom(): string {
+  return (process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || "").trim();
+}
+
+/** '"Falcon" <a@b.c>' or 'a@b.c' as its two parts */
+function nameAndAddress(value: string, fallbackName: string): { name: string; email: string } {
+  const found = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(value);
+  return found ? { name: found[1].trim() || fallbackName, email: found[2].trim() } : { name: fallbackName, email: value.trim() };
+}
+
+const addressList = (value?: string) => (value || "").split(",").map((v) => v.trim()).filter(Boolean).map((email) => ({ email }));
+
+/** Sends one email through Brevo; returns its id. Throws an error carrying `status`, or `code` when the service was not reached */
+async function sendOverHttps(email: OutgoingEmail, key: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        sender: nameAndAddress(httpsFrom(), email.fromName || "Falcon"),
+        to: addressList(email.to),
+        ...(email.cc ? { cc: addressList(email.cc) } : {}),
+        ...(email.bcc ? { bcc: addressList(email.bcc) } : {}),
+        ...(email.replyTo ? { replyTo: { email: email.replyTo } } : {}),
+        subject: email.subject,
+        htmlContent: email.html,
+        textContent: email.text,
+      }),
+    });
+  } catch {
+    throw Object.assign(new Error("email service not reached"), { code: "ECONNECTION" });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) throw Object.assign(new Error("email service refused"), { status: res.status });
+  const body: any = await res.json().catch(() => ({}));
+  return String(body?.messageId || "accepted");
+}
+
+/** Sorts the email service's refusal into a reason */
+function httpsFailureReason(err: any): EmailFailureReason {
+  if (err?.code === "ECONNECTION") return "connection";
+  const status = Number(err?.status) || 0;
+  if (status === 401 || status === 403) return "sign_in";
+  if (status === 413) return "too_large";
+  if (status === 429 || status === 402) return "limit";
+  if (status === 400) return "recipient";
+  return "unknown";
+}
+
 let _smtpTransporter: Transporter | null = null;
 
 function getSmtpTransporter(config: SmtpConfig): Transporter {
@@ -198,6 +262,30 @@ async function dispatchEmail(email: OutgoingEmail): Promise<void> {
       throw new Error("Simulated email delivery failure");
     }
     return;
+  }
+
+  const key = brevoKey();
+  if (key) {
+    if (!httpsFrom()) {
+      console.error(`[email.service] Cannot send email to ${maskEmail(email.to)}: EMAIL_FROM is not set`);
+      throw new EmailDeliveryError("not_configured");
+    }
+    try {
+      let id: string;
+      try {
+        id = await sendOverHttps(email, key);
+      } catch (first: any) {
+        // A dropped connection is worth one more try
+        if (httpsFailureReason(first) !== "connection") throw first;
+        id = await sendOverHttps(email, key);
+      }
+      console.log(`[email.service] Email delivered to ${maskEmail(email.to.split(",")[0])}${email.to.includes(",") || email.cc || email.bcc ? " and others" : ""} (id: ${id})`);
+      return;
+    } catch (err: any) {
+      // Only the status is logged, never the message or the service's reply
+      console.error(`[email.service] HTTPS delivery to ${maskEmail(email.to)} failed (status: ${err?.status || err?.code || "UNKNOWN"})`);
+      throw new EmailDeliveryError(httpsFailureReason(err));
+    }
   }
 
   const { config, missing } = readSmtpConfig();
@@ -482,6 +570,11 @@ export const emailService = {
 
   /** Check current email configuration status (safe to log: contains no credentials) */
   getConfigStatus(): { configured: boolean; details: string } {
+    if (brevoKey()) {
+      return httpsFrom()
+        ? { configured: true, details: "Email ready (Brevo over HTTPS)" }
+        : { configured: false, details: "BREVO_API_KEY is set but EMAIL_FROM is not, so sign-in codes cannot be sent" };
+    }
     const { config, missing } = readSmtpConfig();
     return {
       configured: !!config,

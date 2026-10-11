@@ -22,7 +22,8 @@
     "email:seed": "ts-node --transpile-only scripts/seed-email-templates.ts",
     "test:auth": "ts-node tests/auth.test.ts",
     "test:account": "ts-node tests/account.test.ts",
-    "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts"
+    "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts",
+    "start:prod": "ts-node --transpile-only server.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -37,8 +38,11 @@
     "morgan": "1.10.0",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.15",
+    "prisma": "5.22.0",
     "puppeteer-core": "^25.12.0",
     "sharp": "^0.35.5",
+    "ts-node": "10.9.2",
+    "typescript": "5.5.3",
     "zod": "3.23.8"
   },
   "devDependencies": {
@@ -51,9 +55,9 @@
     "@types/multer": "^2.2.0",
     "@types/node": "20.14.9",
     "@types/nodemailer": "^8.0.2",
-    "prisma": "5.22.0",
-    "ts-node": "10.9.2",
-    "ts-node-dev": "2.0.0",
-    "typescript": "5.5.3"
+    "ts-node-dev": "2.0.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
