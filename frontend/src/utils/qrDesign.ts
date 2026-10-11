@@ -6,6 +6,7 @@
 
 import qrcode from "qrcode-generator";
 import { QrSpec } from "@/utils/qrCode";
+import { QR_LIBRARY } from "@/utils/qrDesignLibrary";
 
 /** A QR code's whole configuration. It is kept on the picture it draws, so the code can be edited again */
 export interface QrConfig extends QrSpec {
@@ -142,12 +143,14 @@ export function readFields(json: string): Record<string, string> {
 export interface QrTemplate {
   id: string;
   name: string;
+  /** The part of the library it is listed under */
+  group: string;
   look: Partial<QrSpec>;
 }
 
 const PLAIN: Partial<QrSpec> = { pattern: "square", foreground: "#111111", foreground2: "", background: "#ffffff", frame: "none", frameColor: "#111111", quietZone: 4, caption: "", captionPosition: "below", captionColor: "#111111" };
 
-export const QR_TEMPLATES: QrTemplate[] = [
+const ESSENTIALS: Omit<QrTemplate, "group">[] = [
   { id: "classic", name: "Classic", look: { ...PLAIN } },
   { id: "minimal", name: "Minimal", look: { ...PLAIN, foreground: "#3f3f46", quietZone: 2 } },
   { id: "modern", name: "Modern", look: { ...PLAIN, pattern: "rounded", foreground: "#0f172a", frame: "rounded", frameColor: "#cbd5e1" } },
@@ -168,6 +171,11 @@ export const QR_TEMPLATES: QrTemplate[] = [
   { id: "contact", name: "Contact", look: { ...PLAIN, pattern: "rounded", foreground: "#1f2937", frame: "rounded", frameColor: "#9ca3af", caption: "Save our contact" } },
   { id: "payment", name: "Payment", look: { ...PLAIN, foreground: "#111111", frame: "solid", frameColor: "#16a34a", caption: "Scan to pay", captionColor: "#15803d" } },
 ];
+
+export const QR_TEMPLATES: QrTemplate[] = [...ESSENTIALS.map((template) => ({ ...template, group: "Essentials" })), ...QR_LIBRARY];
+
+/** The parts of the library, in the order they are offered */
+export const QR_GROUPS: string[] = [...new Set(QR_TEMPLATES.map((template) => template.group))];
 
 export const QR_DEFAULT: QrConfig = {
   template: "classic", contentType: "url", fields: '{"url":"https://example.com"}', data: "https://example.com", modules: "",

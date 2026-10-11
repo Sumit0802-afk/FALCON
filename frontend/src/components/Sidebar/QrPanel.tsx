@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { QrCode } from "lucide-react";
 import { qrDataUrl, qrWarnings } from "@/utils/qrCode";
-import { QR_CONTENT_TYPES, QR_DEFAULT, QR_TEMPLATES, QrConfig, applyTemplate, changeQr, configOf, contentType, encodeQr, readFields } from "@/utils/qrDesign";
+import { QR_CONTENT_TYPES, QR_DEFAULT, QR_GROUPS, QR_TEMPLATES, QrConfig, applyTemplate, changeQr, configOf, contentType, encodeQr, readFields } from "@/utils/qrDesign";
 
 /**
  * The QR Code tool. With nothing selected it designs a new code and adds it to
@@ -173,6 +173,18 @@ export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
   // Logos whose background was removed here, with the picture they came from, so it can be put back
   const originals = useRef(new Map<string, string>());
   const file = useRef<HTMLInputElement>(null);
+  // The part of the design library on show; it starts on the part the code's own design is in
+  const [group, setGroup] = useState(() => QR_TEMPLATES.find((t) => t.id === (selected ? selected.config : QR_DEFAULT).template)?.group || QR_GROUPS[0]);
+
+  // Selecting another code on the page shows the part of the library its design is in
+  const selectedId = selected?.id;
+  const selectedTemplate = selected?.config.template;
+  useEffect(() => {
+    const found = QR_TEMPLATES.find((t) => t.id === selectedTemplate);
+    if (selectedId && found) setGroup(found.group);
+    // Only when a different code is selected: choosing a design must not move the list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const value = selected ? selected.config : draft;
   const apply = (next: QrConfig) => (selected ? onUpdate(selected.id, next) : setDraft(next));
@@ -244,8 +256,15 @@ export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
         )}
 
         <Title>Design</Title>
+        <div role="group" aria-label="Kind of design" className="mb-2.5 flex flex-wrap gap-1">
+          {QR_GROUPS.map((name) => (
+            <button key={name} type="button" onClick={() => setGroup(name)} aria-pressed={group === name} className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${group === name ? "border-[#00dfb6]/50 bg-[#00dfb6]/15 text-[#00dfb6]" : "border-white/[0.08] text-zinc-400 hover:text-zinc-200"}`}>
+              {name}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-3 gap-1.5">
-          {gallery.map(({ template, src }) => (
+          {gallery.filter(({ template }) => template.group === group).map(({ template, src }) => (
             <button
               key={template.id}
               type="button"
@@ -258,7 +277,7 @@ export function QrPanel({ selected, onAdd, onUpdate }: QrPanelProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt="" className="h-full w-auto" loading="lazy" />
               </span>
-              <span className="w-full truncate text-center text-[10px] text-zinc-300">{template.name}</span>
+              <span className="w-full truncate text-center text-[11px] text-zinc-300">{template.name}</span>
             </button>
           ))}
         </div>
