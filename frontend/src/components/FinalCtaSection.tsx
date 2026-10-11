@@ -150,7 +150,7 @@ export default function FinalCtaSection({ onEnter }: { onEnter: () => void }) {
   return (
     <section
       ref={sectionRef}
-      className={`fx-final relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#050505]${active ? " is-inview" : ""}`}
+      className={`fx-final relative flex min-h-[72dvh] items-center md:min-h-[100dvh] justify-center overflow-hidden bg-[#050505]${active ? " is-inview" : ""}`}
     >
       <div className="fx-final-veil pointer-events-none absolute inset-0" />
       <div className="fx-final-grid pointer-events-none absolute inset-0" />

@@ -359,7 +359,7 @@ export default function ProjectsPage() {
                         <button type="button" onClick={() => setConfirmKey(null)} className="rounded-md px-2 py-1 text-zinc-400 hover:text-white">Cancel</button>
                       </div>
                     ) : (
-                      <div className="mt-3 flex items-center gap-1.5">
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
                         {item.source !== "draft" && (
                           <button type="button" onClick={() => duplicate(item)} className="flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-[13px] text-zinc-400 transition hover:border-white/20 hover:text-white">
                             <Copy size={12} /> Duplicate

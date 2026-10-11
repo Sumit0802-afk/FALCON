@@ -1219,7 +1219,7 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="email-design"
-          className="relative overflow-hidden border-b border-white/[0.08] bg-transparent py-20 lg:py-28"
+          className="relative overflow-hidden border-b border-white/[0.08] bg-transparent py-14 md:py-20 lg:py-28"
         >
           <div className="relative mx-auto max-w-[1440px] px-4 lg:px-8">
 
@@ -1273,10 +1273,10 @@ const openTemplateByName = (name: string) => {
               </div>
 
               {/* Three panels */}
-              <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr_340px]" style={{ minHeight: 620 }}>
+              <div className="grid grid-cols-1 lg:min-h-[620px] lg:grid-cols-[228px_1fr_340px]">
 
                 {/* LEFT: BLOCKS PANEL */}
-                <div className="border-b border-white/[0.08] bg-[#0B0D12] lg:border-b-0 lg:border-r">
+                <div className="hidden border-b border-white/[0.08] bg-[#0B0D12] lg:block lg:border-b-0 lg:border-r">
                   <div className="border-b border-white/[0.08] px-4 py-2.5">
                     <span className="font-mono text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Content Blocks</span>
                   </div>
@@ -1313,7 +1313,7 @@ const openTemplateByName = (name: string) => {
                 </div>
 
                 {/* CENTER: EMAIL CANVAS - LAPTOP FRAME */}
-                <div className="flex items-center justify-center overflow-auto border-r border-white/[0.08] bg-[#12141A] p-6 sm:p-8">
+                <div className="flex items-center justify-center overflow-auto border-white/[0.08] bg-[#12141A] p-4 sm:p-8 lg:border-r">
                   <div data-theme-keep="" className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
                     <div style={{ backgroundColor: "#0B1220", padding: "14px 22px", display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2F81FF,#22D3EE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>F</div>
@@ -1349,7 +1349,7 @@ const openTemplateByName = (name: string) => {
 
 
                 {/* RIGHT: HTML CODE PANEL */}
-                <div className="flex flex-col">
+                <div className="hidden flex-col lg:flex">
                   <div className="flex shrink-0 items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#FF4D4D]" />
@@ -1460,7 +1460,7 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="why"
-          className="relative overflow-hidden border-b border-white/[0.10] bg-[#050505] py-20 lg:py-28"
+          className="relative overflow-hidden border-b border-white/[0.10] bg-[#050505] py-14 md:py-20 lg:py-28"
         >
           <div className="pointer-events-none absolute inset-0 falcon-noise" />
           <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:items-end lg:gap-10 lg:px-12 xl:grid-cols-[minmax(420px,0.85fr)_minmax(560px,1.15fr)] xl:gap-16">
@@ -1651,15 +1651,15 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="how"
-          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent"
+          className="relative flex md:min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent"
         >
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
+          <div className="mx-auto w-full max-w-[1600px] px-5 py-14 md:px-6 md:py-24 lg:px-12">
             <div className="mb-14">
               <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 THE SYSTEM
               </span>
 
-              <h2 className="mt-5 max-w-[900px] text-[clamp(3rem,5.5vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-white">
+              <h2 className="mt-5 max-w-[900px] text-[clamp(2.3rem,5.5vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-white">
                 From first thought<span className="block text-gradient">to finished campaign.</span>
               </h2>
             </div>
@@ -1708,14 +1708,14 @@ const openTemplateByName = (name: string) => {
             HOW IT WORKS
             ===================================================== */}
 
-        <section className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
+        <section className="relative flex md:min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
+          <div className="mx-auto w-full max-w-[1600px] px-5 py-14 md:px-6 md:py-24 lg:px-12">
             <div className="mb-14">
               <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 HOW IT WORKS
               </span>
 
-              <h2 className="mt-5 max-w-[900px] text-[clamp(3rem,5.5vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-white">
+              <h2 className="mt-5 max-w-[900px] text-[clamp(2.3rem,5.5vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-white">
                 You bring the intent.<span className="block text-gradient">Falcon finds the form.</span>
               </h2>
             </div>
@@ -1770,15 +1770,15 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="intelligence"
-          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.07]"
+          className="relative flex md:min-h-[100dvh] items-center border-b border-white/[0.07]"
         >
-          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
+          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-12 px-5 py-14 md:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             <div>
               <span className="font-mono text-[11px] tracking-[0.25em] text-[#00D084] font-medium uppercase">
                 DESIGN INTELLIGENCE
               </span>
 
-              <h2 className="mt-6 max-w-[800px] text-[clamp(3.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
+              <h2 className="mt-6 max-w-[800px] text-[clamp(2.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
                 Make better decisions,
                 <span className="block font-normal text-zinc-400">
                   not just prettier pixels.
@@ -1914,8 +1914,8 @@ const openTemplateByName = (name: string) => {
             DESIGN DNA (NEXT.JS STYLE TOKEN ENGINE)
             ===================================================== */}
 
-        <section id="dna" className="relative flex min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
-          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
+        <section id="dna" className="relative flex md:min-h-[100dvh] items-center border-b border-white/[0.08] bg-transparent">
+          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-5 py-14 md:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             {/* LEFT: NEXT.JS TOKEN MATRIX BENTO */}
             <div className="next-card relative overflow-hidden p-8 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9)]">
               {/* TOP HEADER */}
@@ -2004,7 +2004,7 @@ const openTemplateByName = (name: string) => {
                 DESIGN DNA // TOKEN ENGINE
               </span>
 
-              <h2 className="mt-6 max-w-[700px] text-[clamp(3.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
+              <h2 className="mt-6 max-w-[700px] text-[clamp(2.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
                 Your visual language,
                 <span className="block text-gradient">
                   remembered.
@@ -2016,7 +2016,7 @@ const openTemplateByName = (name: string) => {
               </p>
 
               <div className="mt-10 divide-y divide-white/[0.06] border-t border-b border-white/[0.06]">
-                <div className="py-4 flex items-center justify-between group cursor-default">
+                <div className="py-4 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between group cursor-default">
                   <div className="flex items-center gap-4">
                     <span className="font-mono text-xs text-zinc-500">01</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Adaptive Color Primitives</span>
@@ -2024,7 +2024,7 @@ const openTemplateByName = (name: string) => {
                   <span className="font-mono text-[12px] text-zinc-500 uppercase">Auto-Derives Palettes</span>
                 </div>
 
-                <div className="py-4 flex items-center justify-between group cursor-default">
+                <div className="py-4 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between group cursor-default">
                   <div className="flex items-center gap-4">
                     <span className="font-mono text-xs text-zinc-500">02</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Typographic Modular Scale</span>
@@ -2032,7 +2032,7 @@ const openTemplateByName = (name: string) => {
                   <span className="font-mono text-[12px] text-zinc-500 uppercase">Golden Ratio 1.25</span>
                 </div>
 
-                <div className="py-4 flex items-center justify-between group cursor-default">
+                <div className="py-4 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between group cursor-default">
                   <div className="flex items-center gap-4">
                     <span className="font-mono text-xs text-zinc-500">03</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Strict 8pt Spatial Baseline</span>
@@ -2040,7 +2040,7 @@ const openTemplateByName = (name: string) => {
                   <span className="font-mono text-[12px] text-zinc-500 uppercase">Pixel-Perfect Layouts</span>
                 </div>
 
-                <div className="py-4 flex items-center justify-between group cursor-default">
+                <div className="py-4 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between group cursor-default">
                   <div className="flex items-center gap-4">
                     <span className="font-mono text-xs text-zinc-500">04</span>
                     <span className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Component Hierarchy & Weight</span>
@@ -2058,15 +2058,15 @@ const openTemplateByName = (name: string) => {
 
         <section
           id="templates"
-          className="relative flex min-h-[100dvh] items-center border-b border-white/[0.07]"
+          className="relative flex md:min-h-[100dvh] items-center border-b border-white/[0.07]"
         >
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-24 lg:px-12">
+          <div className="mx-auto w-full max-w-[1600px] px-5 py-14 md:px-6 md:py-24 lg:px-12">
             <div className="mb-16">
               <span className="font-mono text-[11px] tracking-[0.25em] text-zinc-600">
                 CREATIVE STARTING POINTS
               </span>
 
-              <h2 className="mt-8 max-w-[1000px] font-serif text-[clamp(4rem,7vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+              <h2 className="mt-8 max-w-[1000px] font-serif text-[clamp(2.6rem,7vw,7rem)] leading-[0.86] tracking-[-0.05em]">
                 Start somewhere.
 
                 <span className="block text-zinc-500">
@@ -2131,15 +2131,15 @@ const openTemplateByName = (name: string) => {
             ONE → MANY (NEXT.JS MULTI-CHANNEL ENGINE)
             ===================================================== */}
 
-        <section id="remix" className="relative flex min-h-[100dvh] items-center overflow-hidden border-b border-white/[0.08] bg-transparent">
-          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-6 py-24 lg:grid-cols-2 lg:items-center lg:px-12">
+        <section id="remix" className="relative flex md:min-h-[100dvh] items-center overflow-hidden border-b border-white/[0.08] bg-transparent">
+          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-14 px-5 py-14 md:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:px-12">
             {/* LEFT CONTENT */}
             <div>
               <span className="font-mono text-[12px] tracking-[0.25em] text-blue-400 uppercase font-semibold">
                 ONE → MANY // CAMPAIGN ENGINE
               </span>
 
-              <h2 className="mt-6 max-w-[650px] text-[clamp(3.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
+              <h2 className="mt-6 max-w-[650px] text-[clamp(2.5rem,6.2vw,6.2rem)] font-bold leading-[0.92] tracking-[-0.035em] text-white">
                 One strong idea.
                 <span className="block text-gradient">
                   Everywhere it matters.
@@ -2485,7 +2485,7 @@ function SystemCard({
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       aria-label={`${title} ${action}`}
-      className="group relative flex min-h-[500px] cursor-pointer flex-col border-b border-white/[0.08] bg-[#000000] p-7 outline-none transition-all duration-300 hover:bg-[#0a0a0a] focus-visible:bg-[#0a0a0a] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2F81FF]/70 md:border-r md:last:border-r-0 xl:border-b-0"
+      className="group relative flex md:min-h-[500px] cursor-pointer flex-col border-b border-white/[0.08] bg-[#000000] p-7 outline-none transition-all duration-300 hover:bg-[#0a0a0a] focus-visible:bg-[#0a0a0a] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2F81FF]/70 md:border-r md:last:border-r-0 xl:border-b-0"
     >
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
@@ -2679,7 +2679,7 @@ function ProcessCard({
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       aria-label={`${title}. ${action}`}
-      className="group relative flex min-h-[440px] cursor-pointer flex-col rounded-xl border border-white/[0.08] bg-[#000000] p-6 outline-none transition-all duration-300 hover:border-white/[0.18] hover:bg-[#0a0a0a] focus-visible:border-[#2F81FF]/70"
+      className="group relative flex md:min-h-[440px] cursor-pointer flex-col rounded-xl border border-white/[0.08] bg-[#000000] p-6 outline-none transition-all duration-300 hover:border-white/[0.18] hover:bg-[#0a0a0a] focus-visible:border-[#2F81FF]/70"
     >
       {/* TOP HEADER */}
       <div className="flex items-center justify-between">
@@ -2919,7 +2919,7 @@ function TemplateCard({
       type="button"
       onClick={onClick}
       data-theme-keep=""
-      className="falcon-laser group relative flex min-h-[460px] cursor-pointer flex-col overflow-hidden border border-blue-400/[0.13] bg-[#07080c] text-left transition-all duration-500 hover:-translate-y-1.5 hover:border-blue-400/40 hover:shadow-[0_16px_40px_-12px_rgba(25,115,255,0.22)] focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+      className="falcon-laser group relative flex min-h-[250px] cursor-pointer md:min-h-[460px] flex-col overflow-hidden border border-blue-400/[0.13] bg-[#07080c] text-left transition-all duration-500 hover:-translate-y-1.5 hover:border-blue-400/40 hover:shadow-[0_16px_40px_-12px_rgba(25,115,255,0.22)] focus:outline-none focus:ring-2 focus:ring-blue-400/30"
     >
       {/* REAL IMAGE BACKGROUND */}
       <div className="absolute inset-0 z-0 overflow-hidden">
