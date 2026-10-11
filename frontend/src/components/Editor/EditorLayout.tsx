@@ -1975,14 +1975,70 @@ export function EditorLayout({
     handleSelectFont(fontFamily);
   }
 
-  function handleAddBrandHeadingText(fontFamily: string) {
-    loadGoogleFont(fontFamily, [700]);
-    addPageText({ text: "Brand Heading", fontSize: 42, fontWeight: 700, width: 380, at: 0.35, fontFamily });
+  function handleAddBrandHeadingText(fontFamily: string, fontWeight = 700) {
+    loadGoogleFont(fontFamily, [fontWeight]);
+    addPageText({ text: "Brand Heading", fontSize: 42, fontWeight, width: 380, at: 0.35, fontFamily });
   }
 
-  function handleAddBrandBodyText(fontFamily: string) {
-    loadGoogleFont(fontFamily, [400]);
-    addPageText({ text: "Consistent brand body text goes here.", fontSize: 18, fontWeight: 400, width: 340, at: 0.5, fontFamily });
+  function handleAddBrandBodyText(fontFamily: string, fontWeight = 400) {
+    loadGoogleFont(fontFamily, [fontWeight]);
+    addPageText({ text: "Consistent brand body text goes here.", fontSize: 18, fontWeight, width: 340, at: 0.5, fontFamily });
+  }
+
+  /* A logo goes on at a size that reads on the page, whatever size its file happens to be */
+  function handleAddBrandLogo(src: string) {
+    const img = document.createElement("img");
+    img.onload = () => {
+      const nw = img.naturalWidth || 300;
+      const nh = img.naturalHeight || 300;
+      const box = Math.min(editor.page.size.width, editor.page.size.height) * 0.3;
+      const scale = Math.min(box / nw, box / nh);
+      const width = Math.max(1, Math.round(nw * scale));
+      const height = Math.max(1, Math.round(nh * scale));
+      editor.addElement({
+        type: "image",
+        x: Math.round((editor.page.size.width - width) / 2),
+        y: Math.round((editor.page.size.height - height) / 2),
+        width,
+        height,
+        src,
+        naturalWidth: nw,
+        naturalHeight: nh,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: nw,
+        cropHeight: nh,
+      });
+    };
+    img.src = src;
+  }
+
+  /* The page's largest text takes the heading font and the rest the body font, as one step to undo */
+  function handleApplyBrandFontsToPage(headingFont: string, bodyFont: string): boolean {
+    const texts = editor.page.elements.filter(isText);
+    if (texts.length === 0) return false;
+    loadGoogleFont(headingFont, [300, 400, 500, 600, 700, 800]);
+    loadGoogleFont(bodyFont, [300, 400, 500, 600, 700, 800]);
+    const largest = Math.max(...texts.map((t) => t.fontSize || 0));
+    editor.setPage({
+      ...editor.page,
+      elements: editor.page.elements.map((el) =>
+        isText(el) ? { ...el, fontFamily: (el.fontSize || 0) >= largest * 0.6 ? headingFont : bodyFont } : el
+      ),
+    });
+    return true;
+  }
+
+  /* The solid colours on the page, for the brand kit to offer */
+  function pageSolidColors(): string[] {
+    const found: string[] = [];
+    const take = (value?: string) => { if (value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) found.push(value); };
+    take(editor.page.background);
+    for (const el of editor.page.elements) {
+      if (isText(el)) take(el.color);
+      else if (isShape(el)) take(el.fill);
+    }
+    return found;
   }
 
   /* =======================================================
@@ -2605,9 +2661,12 @@ export function EditorLayout({
           <BrandKitPanel
             onApplyColor={handleApplyBrandColor}
             onApplyFont={handleApplyBrandFont}
-            onAddLogoToCanvas={handleAddImageToCanvas}
+            onAddLogoToCanvas={handleAddBrandLogo}
             onAddHeadingText={handleAddBrandHeadingText}
             onAddBodyText={handleAddBrandBodyText}
+            selection={editor.selectedElements.some(isText) ? "text" : editor.selectedElements[0] && isShape(editor.selectedElements[0]) ? "shape" : "none"}
+            pageColors={pageSolidColors()}
+            onApplyFontsToPage={handleApplyBrandFontsToPage}
           />
         )}
 
