@@ -1,8 +1,15 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Made on first use, not when the server loads: the client throws without a key, and a
+// server with no OPENAI_API_KEY must still start and serve everything else
+let openai: OpenAI | null = null;
+
+function client(): OpenAI {
+  const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set on this server.");
+  if (!openai) openai = new OpenAI({ apiKey });
+  return openai;
+}
 
 export interface FalconDesignBlueprint {
   type: string;
@@ -18,7 +25,7 @@ export interface FalconDesignBlueprint {
 export async function generateDesignBlueprint(
   prompt: string
 ): Promise<FalconDesignBlueprint> {
-  const response = await openai.responses.create({
+  const response = await client().responses.create({
     model: "gpt-5.6-luna",
 
     input: [
