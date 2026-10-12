@@ -1,9 +1,7 @@
 <!-- Header -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/header-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/header-light.svg">
-  <img alt="Falcon — Design with purpose. Create without limits." src="docs/assets/header-dark.svg" width="100%">
-</picture>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:000000,50:0070F3,100:00DFD8&text=FALCON&fontColor=ffffff&fontSize=80&fontAlignY=38&desc=Design%20with%20purpose.%20Create%20without%20limits.&descAlignY=60&descSize=18" alt="Falcon — Design with purpose. Create without limits." width="100%" />
+</p>
 
 <!-- Views -->
 <p align="right">
@@ -15,7 +13,7 @@
 <!-- Typing SVG -->
 <p align="center">
   <a href="https://falcon-six-nu.vercel.app">
-    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=22&duration=3500&pause=900&color=EDEDED&center=true&vCenter=true&multiline=false&repeat=true&random=false&width=720&height=50&lines=An+AI-assisted+design+platform;Editor+%C2%B7+Templates+%C2%B7+Email+designer+%C2%B7+AI+Studio;From+an+idea+to+a+finished+design" alt="An AI-assisted design platform" />
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=22&duration=3500&pause=900&color=0070F3&center=true&vCenter=true&multiline=false&repeat=true&random=false&width=720&height=50&lines=An+AI-assisted+design+platform;Editor+%C2%B7+Templates+%C2%B7+Email+designer+%C2%B7+AI+Studio;From+an+idea+to+a+finished+design" alt="An AI-assisted design platform" />
   </a>
 </p>
 
@@ -69,31 +67,6 @@ const falcon = {
 
 <br>
 
-<!-- Preview -->
-## `> preview`
-
-<p align="center">
-  <img src="docs/screenshots/home.jpg" alt="Home page" width="100%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/editor.jpg" alt="Design editor" width="49%" />
-  <img src="docs/screenshots/ai-studio.jpg" alt="AI Studio" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/library.jpg" alt="Design library" width="49%" />
-  <img src="docs/screenshots/email-templates.jpg" alt="Email templates" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/brand-kit.jpg" alt="Brand Kit" width="49%" />
-  <img src="docs/screenshots/qr-codes.jpg" alt="QR codes" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/email-designer.jpg" alt="Email designer" width="49%" />
-  <img src="docs/screenshots/login.jpg" alt="Sign in" width="49%" />
-</p>
-
-<br>
-
 <!-- Tech Stack -->
 ## `> tech_stack`
 
@@ -115,7 +88,7 @@ const editor = {
         templates: "start from, or switch to, a library design",
         elements: "shapes, lines, frames, stickers, charts and graphics",
         text: "headings, body text, pairings and styles, with Google Fonts",
-        uploads: "your own pictures, kept with your account",
+        uploads: "your own pictures, kept with your account on every device",
         photos: "stock photographs",
         portrait: "film looks, coloured light, sketches and lens effects for a photo",
         qrCode: "links, Wi-Fi, contacts and events, in a library of designs, with scan warnings",
@@ -282,7 +255,7 @@ POST   /api/auth/register        POST   /api/auth/login          POST   /api/aut
 POST   /api/auth/forgot-password POST   /api/auth/reset-password GET    /api/auth/me
 
 GET    /api/projects             POST   /api/projects            PATCH  /api/projects/:id
-POST   /api/uploads              GET    /api/uploads/:id/file    DELETE /api/uploads/:id
+GET    /api/uploads              POST   /api/uploads             DELETE /api/uploads/:id
 
 GET    /api/library              GET    /api/library/facets      POST   /api/library/:id/use
 GET    /api/email-templates      GET    /api/user/email-templates
@@ -312,6 +285,7 @@ npm run test:email      # email templates, rendering and search
 + design library, email templates and the email designer
 + AI Studio with reference pictures and prompt compilation
 + Portrait, QR Code and Brand Kit tools
++ uploads kept with the account on every device
 + light theme
 + PostgreSQL, deployed on Vercel and Neon
 
@@ -369,8 +343,6 @@ npm run test:email      # email templates, rendering and search
 <br>
 
 <!-- Footer -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/footer-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/footer-light.svg">
-  <img alt="AI should not replace the designer. It should make the designer better." src="docs/assets/footer-dark.svg" width="100%">
-</picture>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=120&color=0:00DFD8,50:0070F3,100:000000&section=footer" alt="" width="100%" />
+</p>
