@@ -279,22 +279,28 @@ npm run test:email      # email templates, rendering and search
 <!-- Roadmap -->
 ## `> roadmap`
 
-```diff
-+ accounts with email codes, password reset and sessions
-+ design editor with pages, resize and export
-+ design library, email templates and the email designer
-+ AI Studio with reference pictures and prompt compilation
-+ Portrait, QR Code and Brand Kit tools
-+ uploads kept with the account on every device
-+ light theme
-+ PostgreSQL, deployed on Vercel and Neon
+**Shipped**
 
-- picture generation for Portrait and AI Studio (needs a paid picture model)
-- Brand Kit saved to the account instead of the browser
-- lasting storage for AI pictures and thumbnails
-- design history and collaboration
-- end-to-end tests
-```
+| Area | What is in it |
+| :--- | :--- |
+| ✅ &nbsp;**Accounts** | Sign-up and login confirmed by an email code, password reset, sessions |
+| ✅ &nbsp;**Design editor** | Canvas, pages, layers, resize to any format, export to PNG, JPG, PDF and PowerPoint |
+| ✅ &nbsp;**Libraries** | Design library with full-text search, email templates, the email designer |
+| ✅ &nbsp;**AI Studio** | Reference pictures with roles, prompt compilation, one-detail fixes |
+| ✅ &nbsp;**Tools** | Portrait, QR Code and Brand Kit |
+| ✅ &nbsp;**Uploads** | Kept with the account, on every device, until deleted |
+| ✅ &nbsp;**Look** | Light theme and a phone layout |
+| ✅ &nbsp;**Platform** | PostgreSQL, deployed on Vercel and Neon |
+
+**Next**
+
+| Area | What is planned | Waiting on |
+| :--- | :--- | :--- |
+| 🔜 &nbsp;**Picture generation** | Generated styles in Portrait and artwork in AI Studio | A paid picture model |
+| 🔜 &nbsp;**Brand Kit** | Saved to the account instead of the browser | Backend storage for kits |
+| 🔜 &nbsp;**Storage** | Lasting storage for AI pictures and thumbnails | An object store |
+| 🔜 &nbsp;**Teamwork** | Design history and collaboration | Design work |
+| 🔜 &nbsp;**Quality** | End-to-end tests in the browser | Test setup |
 
 <br>
 
@@ -312,40 +318,84 @@ npm run test:email      # email templates, rendering and search
 <!-- Author -->
 ## `> author`
 
-```typescript
-const contributions = {
-    author: "Sumit Bhamu",
-    role: "design, frontend, backend, database and deployment",
-    code: {
-        typescript: "117,000+ lines in 275 files",
-        frontend: { pages: 17, components: 75 },
-        backend: { endpoints: 87, services: 21, databaseModels: 23 },
-        tests: "275 checks: sign-in, accounts, the design library and email"
-    },
-    built: [
-        "the design editor: canvas, pages, layers, resize and export",
-        "AI Studio: reference pictures, prompt compilation and one-detail fixes",
-        "the design library and its full-text search",
-        "the email designer, its templates and the HTML it sends",
-        "Portrait, QR Code and Brand Kit tools",
-        "accounts: one-time codes, password reset and sessions",
-        "uploads kept with the account on every device",
-        "the move from MySQL to PostgreSQL",
-        "hosting on Vercel and Neon"
-    ]
-};
-```
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk">
+    <img src="https://github.com/Sumit0802-afk.png?size=240" width="120" alt="Sumit Bhamu" />
+  </a>
+</p>
+
+<h3 align="center">Sumit Bhamu</h3>
 
 <p align="center">
-  <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=for-the-badge&label=Commits&labelColor=000000&color=0070F3" alt="Commits" />&nbsp;
-  <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=for-the-badge&label=Last_commit&labelColor=000000&color=0070F3" alt="Last commit" />&nbsp;
-  <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=for-the-badge&label=Code_size&labelColor=000000&color=0070F3" alt="Code size" />
+  Designed, built and deployed Falcon: the frontend, the backend, the database and the hosting.
 </p>
 
 <p align="center">
-  <a href="https://github.com/Sumit0802-afk/FALCON">
-    <img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Sumit0802-afk&langs_count=8&layout=compact&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false" alt="Most used languages" />
-  </a>
+  <img src="https://img.shields.io/badge/TypeScript-117K%2B_lines-0070F3?style=for-the-badge&labelColor=000000" alt="TypeScript: 117K+ lines" />&nbsp;
+  <img src="https://img.shields.io/badge/Components-75-0070F3?style=for-the-badge&labelColor=000000" alt="Components: 75" />&nbsp;
+  <img src="https://img.shields.io/badge/Pages-17-0070F3?style=for-the-badge&labelColor=000000" alt="Pages: 17" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/API_endpoints-87-0070F3?style=for-the-badge&labelColor=000000" alt="API endpoints: 87" />&nbsp;
+  <img src="https://img.shields.io/badge/Database_models-23-0070F3?style=for-the-badge&labelColor=000000" alt="Database models: 23" />&nbsp;
+  <img src="https://img.shields.io/badge/Tests-275-0070F3?style=for-the-badge&labelColor=000000" alt="Tests: 275" />
+</p>
+
+<br>
+
+<table align="center">
+  <tr>
+    <td width="33%" valign="top">
+      <b>Design editor</b><br>
+      <sub>Canvas, pages, layers, resize and export</sub>
+    </td>
+    <td width="33%" valign="top">
+      <b>AI Studio</b><br>
+      <sub>Reference pictures, prompt compilation and one-detail fixes</sub>
+    </td>
+    <td width="33%" valign="top">
+      <b>Design library</b><br>
+      <sub>Posters, presentations and certificates, with full-text search</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>Email designer</b><br>
+      <sub>Blocks, templates, previews and the HTML it sends</sub>
+    </td>
+    <td valign="top">
+      <b>Creative tools</b><br>
+      <sub>Portrait, QR Code and Brand Kit</sub>
+    </td>
+    <td valign="top">
+      <b>Accounts</b><br>
+      <sub>One-time codes, password reset and sessions</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>Uploads</b><br>
+      <sub>Kept with the account on every device</sub>
+    </td>
+    <td valign="top">
+      <b>Database</b><br>
+      <sub>Moved from MySQL to PostgreSQL</sub>
+    </td>
+    <td valign="top">
+      <b>Hosting</b><br>
+      <sub>Two Vercel projects and a Neon database</sub>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+<p align="center">
+  <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=flat-square&label=commits&labelColor=000000&color=0070F3" alt="Commits" />
+  <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=flat-square&label=last%20commit&labelColor=000000&color=0070F3" alt="Last commit" />
+  <img src="https://img.shields.io/github/languages/top/Sumit0802-afk/FALCON?style=flat-square&labelColor=000000&color=0070F3" alt="Top language" />
+  <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=flat-square&label=code%20size&labelColor=000000&color=0070F3" alt="Code size" />
 </p>
 
 <p align="center">
