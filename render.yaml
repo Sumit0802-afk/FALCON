@@ -7,14 +7,12 @@ services:
     runtime: node
     plan: free
     rootDir: falcon-backend/backend
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install
     startCommand: npx prisma migrate deploy && npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NODE_VERSION
-        value: "22"
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: JWT_SECRET

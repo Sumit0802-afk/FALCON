@@ -23,7 +23,8 @@
     "test:auth": "ts-node tests/auth.test.ts",
     "test:account": "ts-node tests/account.test.ts",
     "test:email": "ts-node --transpile-only tests/emailTemplates.test.ts",
-    "start:prod": "ts-node --transpile-only server.ts"
+    "start:prod": "node dist/server.js",
+    "postinstall": "node scripts/render-build.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -58,6 +59,6 @@
     "ts-node-dev": "2.0.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   }
 }
