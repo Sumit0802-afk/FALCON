@@ -508,20 +508,20 @@ npm run test:email      # email templates, rendering and search
 
 <table align="center">
   <tr>
-    <td align="center" width="25%">
+    <td align="center" width="210">
       <sub><b>COMMITS</b></sub><br><br>
       <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Commits" />
     </td>
-    <td align="center" width="25%">
-      <sub><b>LAST COMMIT</b></sub><br><br>
+    <td align="center" width="210">
+      <sub><b>LAST&nbsp;COMMIT</b></sub><br><br>
       <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Last commit" />
     </td>
-    <td align="center" width="25%">
-      <sub><b>TOP LANGUAGE</b></sub><br><br>
+    <td align="center" width="210">
+      <sub><b>TYPESCRIPT</b></sub><br><br>
       <img src="https://img.shields.io/github/languages/top/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Top language" />
     </td>
-    <td align="center" width="25%">
-      <sub><b>CODE SIZE</b></sub><br><br>
+    <td align="center" width="210">
+      <sub><b>CODE&nbsp;SIZE</b></sub><br><br>
       <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Code size" />
     </td>
   </tr>
