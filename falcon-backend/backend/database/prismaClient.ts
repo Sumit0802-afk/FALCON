@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 /**
  * A single shared Prisma client for the whole process. In dev, Next-style
- * hot-reload would create a new client per reload and exhaust MySQL's
+ * hot-reload would create a new client per reload and exhaust the database's
  * connection pool, so we cache it on `global` — harmless in production
  * where the module is only ever evaluated once anyway.
  */
@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== "production") {
 export async function connectDatabase(): Promise<void> {
   await prisma.$connect();
   // eslint-disable-next-line no-console
-  console.log("[database] MySQL connected via Prisma");
+  console.log("[database] PostgreSQL connected via Prisma");
 }
 
 export async function disconnectDatabase(): Promise<void> {

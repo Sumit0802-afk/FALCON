@@ -1,5 +1,9 @@
 # Falcon — Database
 
+> **Out of date.** Falcon now runs on PostgreSQL, with its tables made by the Prisma migrations in
+> `falcon-backend/backend/prisma/migrations`. Everything below describes the earlier MySQL setup and is
+> kept only for reference.
+
 Local MySQL setup for Falcon, plus raw SQL and backup/restore tooling. The
 source of truth for the schema is `falcon-backend/prisma/schema.prisma`
 (Prisma manages migrations from there) — `init/01_schema.sql` here is a

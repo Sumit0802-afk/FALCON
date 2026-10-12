@@ -110,7 +110,7 @@ Falcon is a frontend application and a backend service.
                               v         +-----+------+           v
                         Email (SMTP)          |          Text model, picture
                                               v          model, stock photos
-                                       MySQL (Prisma)
+                                    PostgreSQL (Prisma)
 ```
 
 The frontend is responsible for the user experience, both editors and every creative workflow. The backend handles authentication, projects, the template libraries, AI requests, image processing and email.
@@ -146,7 +146,7 @@ Sign up / Log in  (email code)
 
 **Frontend:** Next.js 15 (Pages Router), React 18, TypeScript, Tailwind CSS, lucide-react, three.js, jsPDF, PptxGenJS, qrcode-generator, in-browser background removal.
 
-**Backend:** Node.js, Express, TypeScript, Prisma, MySQL, Zod, JSON Web Tokens, bcrypt, Nodemailer, sharp, Puppeteer (for thumbnails and email snapshots).
+**Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL, Zod, JSON Web Tokens, bcrypt, Nodemailer, sharp, Puppeteer (for thumbnails and email snapshots).
 
 ## AI providers
 
@@ -214,7 +214,7 @@ Users can only read and change their own projects and templates.
 
 ## Database
 
-Falcon uses MySQL through Prisma. The main groups of tables are:
+Falcon uses PostgreSQL through Prisma. The main groups of tables are:
 
 * **Accounts** – users, sessions, one-time codes, password reset tokens
 * **Designs** – projects and their pages
@@ -280,7 +280,7 @@ The frontend reads `NEXT_PUBLIC_API_URL` (the backend's address) and, optionally
 ### Requirements
 
 * Node.js and npm
-* MySQL
+* PostgreSQL
 * Google Chrome (used by the backend to draw thumbnails)
 * A filled-in `.env` file
 

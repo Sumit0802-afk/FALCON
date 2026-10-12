@@ -1,10 +1,9 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["fullTextIndex", "fullTextSearch"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,7 +51,7 @@ model Page {
   height     Int
   presetName String
   background String   @default("#FFFFFF")
-  elements   String   @db.LongText
+  elements   String  
   order      Int      @default(0)
   projectId  String
   project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -195,14 +194,13 @@ model DesignTemplate {
   @@index([createdAt])
   @@index([publishedAt])
   @@index([featured])
-  @@fulltext([name, description, searchDocument])
   @@map("design_templates")
 }
 
 model TemplateDesign {
   templateId    String         @id
   template      DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  designData    String         @db.LongText
+  designData    String        
   schemaVersion Int            @default(1)
   assetRefs     String         @db.Text
 
@@ -245,7 +243,7 @@ model TemplateImportJob {
   imported    Int       @default(0)
   skipped     Int       @default(0)
   failed      Int       @default(0)
-  errorLog    String    @db.LongText
+  errorLog    String   
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -344,7 +342,6 @@ model EmailTemplate {
   @@index([status, isPremium, shuffleKey])
   @@index([categoryId, status, shuffleKey])
   @@index([subcategoryId, status, shuffleKey])
-  @@fulltext([title, description, keywords])
   @@map("email_templates")
 }
 
@@ -353,8 +350,8 @@ model EmailTemplate {
 model EmailTemplateContent {
   templateId   String        @id
   template     EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  templateData String        @db.LongText
-  html         String?       @db.LongText
+  templateData String       
+  html         String?      
 
   @@map("email_template_contents")
 }
@@ -391,9 +388,9 @@ model UserEmailTemplate {
   user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name             String
   sourceTemplateId String?
-  templateData     String  @db.LongText
-  html             String? @db.LongText
-  thumbnailSvg     String? @db.MediumText
+  templateData     String 
+  html             String?
+  thumbnailSvg     String?
   schemaVersion    Int     @default(1)
   width            Int     @default(600)
   height           Int     @default(0)
@@ -457,7 +454,6 @@ model LibraryTemplate {
   @@index([type, orientation, shuffleKey, id])
   @@index([type, usageCount, id])
   @@index([type, isFeatured, shuffleKey, id])
-  @@fulltext([title, keywords])
   @@map("library_templates")
 }
 

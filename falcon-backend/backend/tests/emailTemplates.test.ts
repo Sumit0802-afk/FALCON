@@ -193,7 +193,7 @@ function unitTests() {
   const art = renderArt(parseArtParams("orbs", "2451e6-6d8cf5-c9d6fd", "7", "120x80.png")!);
   assert(art.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) && art.readUInt32BE(16) === 120 && art.readUInt32BE(20) === 80, "Artwork is a valid PNG of the requested size");
   assert(parseArtParams("orbs", "2451e6-6d8cf5", "7", "9000x9000.png") === null && parseArtParams("nope", "2451e6-6d8cf5", "7", "10x10.png") === null, "Oversized or unknown artwork requests are refused");
-  assert(buildFulltextQuery("Restaurant promotion for the weekend!") === "+restaurant* +promotion* +weekend*", "Search drops stopwords and short words, and requires every remaining term");
+  assert(buildFulltextQuery("Restaurant promotion for the weekend!") === "restaurant:* & promotion:* & weekend:*", "Search drops stopwords and short words, and requires every remaining term");
 }
 
 async function apiTests() {

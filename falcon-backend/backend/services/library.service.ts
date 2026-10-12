@@ -55,7 +55,7 @@ const svgCache = new Map<string, string>();
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-/** Words MySQL's full-text index ignores; requiring one of them would match nothing */
+/** Words too common to search for (the list MySQL's full-text index ignored, kept so results stay the same); requiring one of them would match nothing */
 const STOPWORDS = new Set(["a", "about", "an", "and", "are", "as", "at", "be", "by", "com", "de", "en", "for", "from", "how", "i", "in", "is", "it", "la", "of", "on", "or", "that", "the", "this", "to", "was", "what", "when", "where", "who", "will", "with", "und", "www", "template", "templates", "design",
   // The kind of template is chosen with the tabs, so these words narrow nothing
   "poster", "posters", "presentation", "presentations", "deck", "decks", "slide", "slides", "ppt", "pptx", "certificate", "certificates"]);
@@ -108,23 +108,23 @@ function sqlFilters(query: LibraryQuery): Prisma.Sql[] {
   if (query.subcategory) parts.push(Prisma.sql`t.subcategory = ${query.subcategory}`);
   if (query.style) parts.push(Prisma.sql`t.style = ${query.style}`);
   if (query.industry) parts.push(Prisma.sql`t.industry = ${query.industry}`);
-  if (query.color) parts.push(Prisma.sql`t.colorFamily = ${query.color}`);
-  if (query.size) parts.push(Prisma.sql`t.sizeId = ${query.size}`);
+  if (query.color) parts.push(Prisma.sql`t."colorFamily" = ${query.color}`);
+  if (query.size) parts.push(Prisma.sql`t."sizeId" = ${query.size}`);
   if (query.orientation) parts.push(Prisma.sql`t.orientation = ${query.orientation}`);
   if (query.aspect) parts.push(Prisma.sql`t.aspect = ${query.aspect}`);
-  if (query.featured) parts.push(Prisma.sql`t.isFeatured = 1`);
+  if (query.featured) parts.push(Prisma.sql`t."isFeatured" = true`);
   if (query.slides) {
-    if (query.slides.endsWith("+")) parts.push(Prisma.sql`t.slideCount >= ${Number(query.slides.slice(0, -1)) || 25}`);
-    else if (Number(query.slides) > 0) parts.push(Prisma.sql`t.slideCount = ${Number(query.slides)}`);
+    if (query.slides.endsWith("+")) parts.push(Prisma.sql`t."slideCount" >= ${Number(query.slides.slice(0, -1)) || 25}`);
+    else if (Number(query.slides) > 0) parts.push(Prisma.sql`t."slideCount" = ${Number(query.slides)}`);
   }
   return parts;
 }
 
 /** A search word as a required term; plurals also match their singular, and the word being typed matches by prefix */
 function termExpression(term: string, last: boolean): string {
-  const forms = [last ? `${term}*` : term];
+  const forms = [last ? `${term}:*` : term];
   if (term.length > 4 && term.endsWith("s") && !term.endsWith("ss")) forms.push(term.slice(0, -1));
-  return forms.length > 1 ? `+(${forms.join(" ")})` : `+${forms[0]}`;
+  return forms.length > 1 ? `(${forms.join(" | ")})` : forms[0];
 }
 
 function toCard(row: CardRow, favorites: Set<string>) {
@@ -226,23 +226,26 @@ export const libraryService = {
     if (query.favorites && !userId) return { items: [], nextCursor: null, total: 0, totalCapped: false };
     const filters = sqlFilters(query);
     if (query.favorites) {
-      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM library_template_favorites f WHERE f.templateId = t.id AND f.userId = ${userId})`);
+      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM library_template_favorites f WHERE f."templateId" = t.id AND f."userId" = ${userId})`);
     }
     const where = Prisma.join(filters, " AND ");
 
     // No ORDER BY: every hit already contains all the words, and without sorting
-    // MySQL can stop as soon as it has a page of results
+    // the database can stop as soon as it has a page of results.
+    // The expression is the one the library_templates_search index is built on
     const run = async (expression: string) => {
       const rows = await prisma.$queryRaw<{ id: string }[]>(
-        Prisma.sql`SELECT t.id FROM library_templates t WHERE ${where} AND MATCH(t.title, t.keywords) AGAINST (${expression} IN BOOLEAN MODE) LIMIT ${limit + 1} OFFSET ${offset}`
+        Prisma.sql`SELECT t.id FROM library_templates t WHERE ${where} AND to_tsvector('simple', t.title || ' ' || t.keywords) @@ to_tsquery('simple', ${expression}) LIMIT ${limit + 1} OFFSET ${offset}`
       );
       return rows.map((r) => r.id);
     };
-    const expressionFor = (list: string[]) => list.map((t, i) => termExpression(t, i === list.length - 1)).join(" ");
+    const expressionFor = (list: string[]) => list.map((t, i) => termExpression(t, i === list.length - 1)).join(" & ");
 
-    let expression = cursor?.e && cursor.e.length < 300 ? cursor.e : expressionFor(terms);
+    // The expression in a cursor came back from the browser, so only one made of search words and operators is trusted
+    const carried = cursor?.e && cursor.e.length < 300 && /^[a-z0-9 &|():*]+$/.test(cursor.e) ? cursor.e : "";
+    let expression = carried || expressionFor(terms);
     let ids = await run(expression);
-    if (!ids.length && offset === 0 && !cursor?.e && terms.length > 1) {
+    if (!ids.length && offset === 0 && !carried && terms.length > 1) {
       const attempts = [
         ...terms.map((_, drop) => terms.filter((__, i) => i !== terms.length - 1 - drop)),
         ...terms.map((t) => [t]),
@@ -264,7 +267,7 @@ export const libraryService = {
     const counted = pageIds.length
       ? await cached(`search:${JSON.stringify([query, expression, query.favorites ? userId : ""])}`, 5 * 60 * 1000, async () => {
           const result = await prisma.$queryRaw<{ n: bigint }[]>(
-            Prisma.sql`SELECT COUNT(*) AS n FROM (SELECT 1 FROM library_templates t WHERE ${where} AND MATCH(t.title, t.keywords) AGAINST (${expression} IN BOOLEAN MODE) LIMIT ${COUNT_CAP + 1}) AS hits`
+            Prisma.sql`SELECT COUNT(*) AS n FROM (SELECT 1 FROM library_templates t WHERE ${where} AND to_tsvector('simple', t.title || ' ' || t.keywords) @@ to_tsquery('simple', ${expression}) LIMIT ${COUNT_CAP + 1}) AS hits`
           );
           return Number(result[0]?.n ?? 0);
         })

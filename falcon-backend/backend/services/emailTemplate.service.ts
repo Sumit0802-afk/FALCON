@@ -61,7 +61,7 @@ const TAXONOMY_TTL = 10 * 60 * 1000;
 const COUNT_TTL = 60 * 1000;
 const PREVIEW_RATIO = 1.45;
 
-// Words MySQL's InnoDB full-text index ignores; requiring one would match nothing
+// Words too common to search for (the list MySQL's full-text index ignored, kept so results stay the same); requiring one would match nothing
 const STOPWORDS = new Set(
   "a about an are as at be by com de en for from how i in is it la of on or that the this to was what when where who will with und www".split(" ")
 );
@@ -102,7 +102,8 @@ export function buildFulltextQuery(q: string): string {
     .split(/\s+/)
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
     .slice(0, 8);
-  return words.map((w) => `+${w}*`).join(" ");
+  // Every word is required, and each also matches as the start of a longer word
+  return words.map((w) => `${w}:*`).join(" & ");
 }
 
 // Keyset pagination: "sort key first, id as tie-break", both in the same direction so one index serves it
@@ -268,8 +269,7 @@ export const emailTemplateService = {
   async refreshTagCounts(): Promise<void> {
     await prisma.$executeRaw(Prisma.sql`
       UPDATE email_template_tags g
-      LEFT JOIN (SELECT tagId, COUNT(*) AS uses FROM email_template_tag_links GROUP BY tagId) c ON c.tagId = g.id
-      SET g.templateCount = COALESCE(c.uses, 0)`);
+      SET "templateCount" = (SELECT COUNT(*) FROM email_template_tag_links l WHERE l."tagId" = g.id)`);
     cacheInvalidate("email:");
   },
 
@@ -360,22 +360,24 @@ export const emailTemplateService = {
     if (offset >= MAX_SEARCH_DEPTH) return { items: [], nextCursor: null, total: 0 };
 
     const filters: Prisma.Sql[] = [Prisma.sql`t.status = 'published'`];
-    if (typeof where.categoryId === "string") filters.push(Prisma.sql`t.categoryId = ${where.categoryId}`);
-    if (typeof where.subcategoryId === "string") filters.push(Prisma.sql`t.subcategoryId = ${where.subcategoryId}`);
-    if (where.isFeatured === true) filters.push(Prisma.sql`t.isFeatured = 1`);
-    if (typeof where.isPremium === "boolean") filters.push(Prisma.sql`t.isPremium = ${where.isPremium ? 1 : 0}`);
+    if (typeof where.categoryId === "string") filters.push(Prisma.sql`t."categoryId" = ${where.categoryId}`);
+    if (typeof where.subcategoryId === "string") filters.push(Prisma.sql`t."subcategoryId" = ${where.subcategoryId}`);
+    if (where.isFeatured === true) filters.push(Prisma.sql`t."isFeatured" = true`);
+    if (typeof where.isPremium === "boolean") filters.push(Prisma.sql`t."isPremium" = ${where.isPremium}`);
     if (query.tag) {
-      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM email_template_tag_links l JOIN email_template_tags g ON g.id = l.tagId WHERE l.templateId = t.id AND g.slug = ${query.tag})`);
+      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM email_template_tag_links l JOIN email_template_tags g ON g.id = l."tagId" WHERE l."templateId" = t.id AND g.slug = ${query.tag})`);
     }
     if (query.favoritesOnly && userId) {
-      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM email_template_favorites f WHERE f.templateId = t.id AND f.userId = ${userId})`);
+      filters.push(Prisma.sql`EXISTS (SELECT 1 FROM email_template_favorites f WHERE f."templateId" = t.id AND f."userId" = ${userId})`);
     }
-    const match = Prisma.sql`MATCH(t.title, t.description, t.keywords) AGAINST (${fulltext} IN BOOLEAN MODE)`;
-    const condition = Prisma.sql`${match} AND ${Prisma.join(filters, " AND ")}`;
+    // The same expression as the email_templates_search index, so the index is used
+    const document = Prisma.sql`to_tsvector('simple', t.title || ' ' || t.description || ' ' || t.keywords)`;
+    const wanted = Prisma.sql`to_tsquery('simple', ${fulltext})`;
+    const condition = Prisma.sql`${document} @@ ${wanted} AND ${Prisma.join(filters, " AND ")}`;
 
     const [hits, counted] = await Promise.all([
       prisma.$queryRaw<{ id: string }[]>(
-        Prisma.sql`SELECT t.id FROM email_templates t WHERE ${condition} ORDER BY ${match} DESC, t.usageCount DESC, t.shuffleKey ASC LIMIT ${limit + 1} OFFSET ${offset}`
+        Prisma.sql`SELECT t.id FROM email_templates t WHERE ${condition} ORDER BY ts_rank(${document}, ${wanted}) DESC, t."usageCount" DESC, t."shuffleKey" ASC LIMIT ${limit + 1} OFFSET ${offset}`
       ),
       prisma.$queryRaw<{ total: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS total FROM email_templates t WHERE ${condition}`),
     ]);

@@ -330,7 +330,7 @@ export const templateService = {
     if (query.orientation) where.orientation = query.orientation;
     if (query.audience) where.audience = query.audience;
     if (query.colorFamily) where.colorFamily = query.colorFamily;
-    if (query.theme) where.theme = { contains: query.theme };
+    if (query.theme) where.theme = { contains: query.theme, mode: "insensitive" };
     if (query.language) where.language = query.language;
     if (query.featured) where.featured = true;
     if (query.tag) {
@@ -343,10 +343,10 @@ export const templateService = {
     const leftover = interpreted?.leftover || [];
     if (leftover.length) {
       where.AND = leftover.map((token) => ({
-        searchDocument: { contains: token },
+        searchDocument: { contains: token, mode: "insensitive" },
       }));
     } else if (query.q && !interpreted?.facets.style && !interpreted?.facets.industry && !interpreted?.facets.subcategorySlug) {
-      where.searchDocument = { contains: query.q.toLowerCase() };
+      where.searchDocument = { contains: query.q.toLowerCase(), mode: "insensitive" };
     }
 
     const cursorFilter = cursorWhere(sort, cursor);

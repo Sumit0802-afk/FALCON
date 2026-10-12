@@ -55,7 +55,7 @@ async function main() {
   }
   // Bulk inserts leave the search index in many small pieces; merging them is what makes search fast
   console.log("[library] optimising the search index (about a minute)...");
-  await prisma.$queryRawUnsafe("OPTIMIZE TABLE library_templates");
+  await prisma.$executeRawUnsafe("ANALYZE library_templates");
 
   const counts = await Promise.all(LIBRARY_TYPES.map((type) => prisma.libraryTemplate.count({ where: { type } })));
   console.log(`[library] database now holds ${LIBRARY_TYPES.map((type, i) => `${counts[i]} ${type}s`).join(", ")} (${counts.reduce((a, b) => a + b, 0)} templates)`);

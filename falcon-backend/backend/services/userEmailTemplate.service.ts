@@ -92,7 +92,7 @@ export const userEmailTemplateService = {
     const limit = Math.min(60, Math.max(1, Math.floor(options.limit || 24)));
     const q = (options.q || "").trim().slice(0, 120);
     const rows = await prisma.userEmailTemplate.findMany({
-      where: { userId, ...(q ? { name: { contains: q } } : {}) },
+      where: { userId, ...(q ? { name: { contains: q, mode: "insensitive" } } : {}) },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       take: limit + 1,
       ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),

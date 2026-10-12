@@ -1,6 +1,6 @@
 # Falcon — Backend API
 
-Express + TypeScript + Prisma (MySQL) API for the Falcon design app, with
+Express + TypeScript + Prisma (PostgreSQL) API for the Falcon design app, with
 JWT email/password auth. Matches the frontend's `CanvasElement` /
 `DesignProject` / `DesignPage` shapes so the editor's autosave can PATCH a
 page's `elements` directly.
@@ -26,7 +26,7 @@ models/        TypeScript DTOs/types — element.model.ts mirrors the frontend's
 routes/        Route definitions, grouped by resource, mounted under /api
 services/      Business logic + Prisma queries — the only layer that touches the DB
 database/      Prisma client singleton (prismaClient.ts) + a dev seed script
-prisma/        schema.prisma — the MySQL schema (User, Project, Page)
+prisma/        schema.prisma — the PostgreSQL schema (User, Project, Page)
 utils/         AppError (typed HTTP errors), asyncHandler (catches async route errors)
 app.ts         Express app: middleware + routes wiring (no listen — easy to test)
 server.ts      Entry point: loads .env, connects the DB, starts listening
@@ -34,7 +34,7 @@ server.ts      Entry point: loads .env, connects the DB, starts listening
 
 ## Setup
 
-1. Have a MySQL server running (locally, Docker, or a hosted instance).
+1. Have a PostgreSQL server running (locally, Docker, or a hosted instance).
 2. `cp .env.example .env` and fill in `DATABASE_URL` and `JWT_SECRET`.
 3. Install deps and generate the Prisma client:
    ```bash
