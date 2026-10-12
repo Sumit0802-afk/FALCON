@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node -e \"console.log('nothing to build: the function is compiled by Vercel')\"",
+  "outputDirectory": "public",
   "rewrites": [
     {
       "source": "/(.*)",
