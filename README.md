@@ -506,36 +506,39 @@ npm run test:email      # email templates, rendering and search
 
 <br>
 
+<table align="center">
+  <tr>
+    <td align="center" width="25%">
+      <sub><b>COMMITS</b></sub><br><br>
+      <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Commits" />
+    </td>
+    <td align="center" width="25%">
+      <sub><b>LAST COMMIT</b></sub><br><br>
+      <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Last commit" />
+    </td>
+    <td align="center" width="25%">
+      <sub><b>TOP LANGUAGE</b></sub><br><br>
+      <img src="https://img.shields.io/github/languages/top/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Top language" />
+    </td>
+    <td align="center" width="25%">
+      <sub><b>CODE SIZE</b></sub><br><br>
+      <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=for-the-badge&label=&labelColor=000000&color=0070F3" alt="Code size" />
+    </td>
+  </tr>
+</table>
+
 <p align="center">
-  <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=flat-square&label=commits&labelColor=000000&color=0070F3" alt="Commits" />
-  <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=flat-square&label=last%20commit&labelColor=000000&color=0070F3" alt="Last commit" />
-  <img src="https://img.shields.io/github/languages/top/Sumit0802-afk/FALCON?style=flat-square&labelColor=000000&color=0070F3" alt="Top language" />
-  <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=flat-square&label=code%20size&labelColor=000000&color=0070F3" alt="Code size" />
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
 </p>
 
 <p align="center">
-  Built by <a href="https://github.com/Sumit0802-afk"><b>Sumit Bhamu</b></a>
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&duration=3000&pause=1200&color=0070F3&center=true&vCenter=true&width=700&height=45&lines=Designed+and+built+by+Sumit+Bhamu;Thanks+for+stopping+by;If+Falcon+is+useful+to+you%2C+leave+a+star" alt="Designed and built by Sumit Bhamu. Thanks for stopping by. If Falcon is useful to you, leave a star" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/Sumit0802-afk" target="_blank">
-    <img src="https://img.shields.io/badge/GitHub-000000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
-  </a>&nbsp;
-  <a href="https://falcon-six-nu.vercel.app" target="_blank">
-    <img src="https://img.shields.io/badge/Try_Falcon-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Try Falcon" />
-  </a>
-</p>
-
-<br>
-
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=18&duration=3000&pause=1200&color=0070F3&center=true&vCenter=true&width=600&height=40&lines=Thanks+for+stopping+by;If+Falcon+is+useful+to+you%2C+leave+a+star" alt="Thanks for stopping by. If Falcon is useful to you, leave a star" />
-</p>
-
-<p align="center">
-  <a href="https://github.com/Sumit0802-afk/FALCON/stargazers">
-    <img src="https://img.shields.io/github/stars/Sumit0802-afk/FALCON?style=for-the-badge&logo=github&label=Star&labelColor=000000&color=0070F3" alt="Star this repository" />
-  </a>
+  <a href="https://falcon-six-nu.vercel.app"><img src="https://img.shields.io/badge/Try_Falcon-0070F3?style=for-the-badge&logo=vercel&logoColor=white" alt="Try Falcon" /></a>
+  <a href="https://github.com/Sumit0802-afk"><img src="https://img.shields.io/badge/Sumit_Bhamu-000000?style=for-the-badge&logo=github&logoColor=white" alt="Sumit Bhamu on GitHub" /></a>
+  <a href="https://github.com/Sumit0802-afk/FALCON/stargazers"><img src="https://img.shields.io/github/stars/Sumit0802-afk/FALCON?style=for-the-badge&logo=github&label=Star&labelColor=000000&color=0070F3" alt="Star this repository" /></a>
 </p>
 
 <!-- Footer -->
