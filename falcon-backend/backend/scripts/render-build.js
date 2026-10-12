@@ -1,11 +1,18 @@
-// Runs after `npm install`. On Render it compiles the server to plain JavaScript, so the
-// running service does not have to carry the TypeScript compiler in memory: the free
-// instance has 512 MB, and running the sources directly took most of it.
+// Runs after `npm install`.
+// On Vercel it generates the database client, which the function needs and which is
+// not kept in the repository.
+// On Render it also compiles the server to plain JavaScript, so the running service does
+// not have to carry the TypeScript compiler in memory: the free instance has 512 MB, and
+// running the sources directly took most of it.
 // Anywhere else it does nothing; development runs the sources with ts-node-dev.
-if (!process.env.RENDER) process.exit(0);
-
 const fs = require("fs");
 const { execSync } = require("child_process");
+
+if (process.env.VERCEL) {
+  execSync("npx prisma generate", { stdio: "inherit" });
+  process.exit(0);
+}
+if (!process.env.RENDER) process.exit(0);
 
 execSync("npx prisma generate", { stdio: "inherit" });
 

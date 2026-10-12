@@ -27,6 +27,7 @@ import net from "net";
 import type { Browser, Page } from "puppeteer-core";
 import { stripActiveHtml } from "../templates/email/core/renderHtml";
 import { inlineEmailStyles } from "./emailInliner";
+import { STORAGE_ROOT } from "../utils/storageDir";
 
 // The measuring function below runs inside the page, where these exist
 declare const document: any;
@@ -52,7 +53,7 @@ const SCALE = 2;
 /** More pictures than this and the email stops being mostly text */
 const MAX_PICTURES = 6;
 /** Where pictures are kept when they are served from this server */
-export const EMAIL_ASSET_DIR = path.join(__dirname, "..", "storage", "email-assets");
+export const EMAIL_ASSET_DIR = path.join(STORAGE_ROOT, "email-assets");
 
 function findBrowser(): string | null {
   const candidates = [

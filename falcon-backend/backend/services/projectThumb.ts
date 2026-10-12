@@ -14,8 +14,9 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import { AppError } from "../utils/AppError";
+import { STORAGE_ROOT } from "../utils/storageDir";
 
-export const PROJECT_THUMB_DIR = path.join(__dirname, "..", "storage", "project-thumbs");
+export const PROJECT_THUMB_DIR = path.join(STORAGE_ROOT, "project-thumbs");
 
 const PREFIX = "/project-thumbs/";
 const MAX_SIDE = 560;

@@ -20,9 +20,10 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import { isPublicUrl } from "./emailSnapshot";
+import { STORAGE_ROOT } from "../utils/storageDir";
 
 /** Where found and generated pictures are kept; served from /ai-assets */
-export const AI_ASSET_DIR = path.join(__dirname, "..", "storage", "ai-images");
+export const AI_ASSET_DIR = path.join(STORAGE_ROOT, "ai-images");
 
 const MAX_DOWNLOAD = 15 * 1024 * 1024;
 const USER_AGENT = "FalconDesignStudio/1.0";
