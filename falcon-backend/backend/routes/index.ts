@@ -7,6 +7,7 @@ import templateRoutes from "./template.routes";
 import adminTemplateRoutes from "./adminTemplate.routes";
 import emailTemplateRoutes, { emailAssetRoutes, userEmailTemplateRoutes } from "./emailTemplate.routes";
 import libraryRoutes from "./library.routes";
+import uploadRoutes from "./upload.routes";
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.use("/email-templates", emailTemplateRoutes);
 router.use("/user/email-templates", userEmailTemplateRoutes);
 router.use("/email-assets", emailAssetRoutes);
 router.use("/library", libraryRoutes);
+router.use("/uploads", uploadRoutes);
 
 export default router;

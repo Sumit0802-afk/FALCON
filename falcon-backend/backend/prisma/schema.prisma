@@ -28,6 +28,7 @@ model User {
   emailTemplateFavorites EmailTemplateFavorite[]
   userEmailTemplates  UserEmailTemplate[]
   libraryFavorites    LibraryTemplateFavorite[]
+  uploads             Upload[]
 
   @@map("users")
 }
@@ -470,4 +471,19 @@ model LibraryTemplateFavorite {
   @@id([userId, templateId])
   @@index([userId, createdAt])
   @@map("library_template_favorites")
+}
+
+// A picture uploaded in the editor. Kept in the database so it survives on hosts with no lasting disk
+model Upload {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(200)
+  mimeType  String   @db.VarChar(60)
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+  @@map("uploads")
 }

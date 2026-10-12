@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { Asset, AssetFolder } from "@/types/asset";
 import { assetService } from "@/services/assetService";
+import { apiFetch } from "@/services/api";
+import { fitImageForUpload } from "@/utils/fitImageForUpload";
 import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface UploadItemProgress {
@@ -183,26 +185,44 @@ export function UploadsPanel({
           )
         );
 
-        const response = await fetch("/api/uploads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            base64Data,
-            folderId: selectedFolderId,
-          }),
-          signal: abortCtrl.signal,
-        });
+        let createdAsset: Asset;
+        if (file.type.toLowerCase().startsWith("image/")) {
+          // Pictures are kept by the backend, in the database, so they are there on any host.
+          // A large photo is made smaller first
+          const fitted = await fitImageForUpload(file);
+          const data = await apiFetch<{ asset: Asset }>("/uploads", {
+            method: "POST",
+            body: JSON.stringify({ fileName: fitted.name, fileType: fitted.type, base64Data: fitted.dataUrl, folderId: selectedFolderId }),
+            signal: abortCtrl.signal,
+          });
+          createdAsset = data.asset;
+        } else {
+          // Video, audio and documents are too large for that and are written to this site's own disk
+          const response = await fetch("/api/uploads", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+              base64Data,
+              folderId: selectedFolderId,
+            }),
+            signal: abortCtrl.signal,
+          });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "Upload failed");
+          if (!response.ok) {
+            // A host with no disk to write to (or a request limit) cannot take these files
+            if (response.status === 413 || response.status >= 500) {
+              throw new Error("Video, audio and PDF files cannot be uploaded on this site. Pictures can.");
+            }
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || "Upload failed");
+          }
+
+          const data = await response.json();
+          createdAsset = data.asset as Asset;
         }
-
-        const data = await response.json();
-        const createdAsset = data.asset as Asset;
 
         // Persist to local asset service
         assetService.addUpload(createdAsset);
@@ -285,6 +305,10 @@ export function UploadsPanel({
   };
 
   const handleDeleteAsset = (id: string) => {
+    // A picture kept by the backend is removed there too, so it stops counting against the account.
+    // A design that already uses it keeps showing its own copy of the address until it is reloaded
+    const stored = uploads.find((a) => a.id === id)?.fileUrl.match(/\/api\/uploads\/([0-9a-f-]{36})\/file$/);
+    if (stored) void apiFetch(`/uploads/${stored[1]}`, { method: "DELETE" }).catch(() => undefined);
     assetService.deleteAsset(id);
     refreshData();
     setActiveMenuAssetId(null);
