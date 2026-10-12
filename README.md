@@ -312,18 +312,39 @@ npm run test:email      # email templates, rendering and search
 <!-- Author -->
 ## `> author`
 
+```typescript
+const contributions = {
+    author: "Sumit Bhamu",
+    role: "design, frontend, backend, database and deployment",
+    code: {
+        typescript: "117,000+ lines in 275 files",
+        frontend: { pages: 17, components: 75 },
+        backend: { endpoints: 87, services: 21, databaseModels: 23 },
+        tests: "275 checks: sign-in, accounts, the design library and email"
+    },
+    built: [
+        "the design editor: canvas, pages, layers, resize and export",
+        "AI Studio: reference pictures, prompt compilation and one-detail fixes",
+        "the design library and its full-text search",
+        "the email designer, its templates and the HTML it sends",
+        "Portrait, QR Code and Brand Kit tools",
+        "accounts: one-time codes, password reset and sessions",
+        "uploads kept with the account on every device",
+        "the move from MySQL to PostgreSQL",
+        "hosting on Vercel and Neon"
+    ]
+};
+```
+
 <p align="center">
-  <a href="https://github.com/Sumit0802-afk">
-    <img height="180em" src="https://github-readme-stats.vercel.app/api?username=Sumit0802-afk&show_icons=true&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false&ring_color=0070F3" alt="Sumit Bhamu's GitHub stats" />
-  </a>&nbsp;&nbsp;
-  <a href="https://github.com/Sumit0802-afk">
-    <img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Sumit0802-afk&langs_count=8&layout=compact&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false" alt="Top languages" />
-  </a>
+  <img src="https://img.shields.io/github/commit-activity/t/Sumit0802-afk/FALCON?style=for-the-badge&label=Commits&labelColor=000000&color=0070F3" alt="Commits" />&nbsp;
+  <img src="https://img.shields.io/github/last-commit/Sumit0802-afk/FALCON?style=for-the-badge&label=Last_commit&labelColor=000000&color=0070F3" alt="Last commit" />&nbsp;
+  <img src="https://img.shields.io/github/languages/code-size/Sumit0802-afk/FALCON?style=for-the-badge&label=Code_size&labelColor=000000&color=0070F3" alt="Code size" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/Sumit0802-afk">
-    <img src="https://streak-stats.demolab.com/?user=Sumit0802-afk&background=000000&border=333333&stroke=333333&ring=0070F3&fire=0070F3&currStreakNum=FFFFFF&sideNums=FFFFFF&currStreakLabel=0070F3&sideLabels=888888&dates=555555" alt="GitHub streak" />
+  <a href="https://github.com/Sumit0802-afk/FALCON">
+    <img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Sumit0802-afk&langs_count=8&layout=compact&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false" alt="Most used languages" />
   </a>
 </p>
 
