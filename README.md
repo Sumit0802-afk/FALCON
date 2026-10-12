@@ -1,6 +1,6 @@
 <!-- Header -->
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:000000,50:0070F3,100:00DFD8&text=FALCON&fontColor=ffffff&fontSize=80&fontAlignY=38&desc=Design%20with%20purpose.%20Create%20without%20limits.&descAlignY=60&descSize=18" alt="Falcon — Design with purpose. Create without limits." width="100%" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:000000,50:0070F3,100:00DFD8&text=FALCON&fontColor=ffffff&fontSize=80&fontAlignY=38&desc=Design%20with%20purpose.%20Create%20without%20limits.&descAlignY=60&descSize=18&animation=fadeIn" alt="Falcon — Design with purpose. Create without limits." width="100%" />
 </p>
 
 <!-- Views -->
@@ -45,6 +45,50 @@
 
 <br>
 
+<!-- At a glance -->
+<table align="center">
+  <tr>
+    <td align="center" width="25%" valign="top">
+      <h3>🎨</h3>
+      <b>Design editor</b><br>
+      <sub>A full canvas with pages, layers, resize to any format and export</sub>
+    </td>
+    <td align="center" width="25%" valign="top">
+      <h3>✨</h3>
+      <b>AI Studio</b><br>
+      <sub>One sentence and a few reference pictures become a finished design</sub>
+    </td>
+    <td align="center" width="25%" valign="top">
+      <h3>📚</h3>
+      <b>Template library</b><br>
+      <sub>Posters, presentations and certificates, every one editable</sub>
+    </td>
+    <td align="center" width="25%" valign="top">
+      <h3>✉️</h3>
+      <b>Email designer</b><br>
+      <sub>Build an email block by block and get clean HTML</sub>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+<blockquote align="center">
+  <b>AI should not replace the designer. It should make the designer better.</b>
+</blockquote>
+
+<!-- From idea to design -->
+```mermaid
+flowchart LR
+    A([💡 Your idea]) --> B[🖼️ Reference pictures]
+    B --> C[🧠 Compiled prompt<br/>you can edit]
+    C --> D[🎨 One finished design]
+    D --> E[✏️ Edit on the canvas]
+    E --> F([📤 PNG · JPG · PDF · PowerPoint])
+```
+
+<br>
+
 <!-- About -->
 ## `> about.ts`
 
@@ -65,7 +109,9 @@ const falcon = {
 };
 ```
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Tech Stack -->
 ## `> tech_stack`
@@ -76,10 +122,61 @@ const falcon = {
   </a>
 </p>
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Features -->
 ## `> features`
+
+<table align="center">
+  <tr>
+    <td width="33%" valign="top">
+      🧩 &nbsp;<b>Templates</b><br>
+      <sub>Start from a library design, or switch to one</sub>
+    </td>
+    <td width="33%" valign="top">
+      🔷 &nbsp;<b>Elements</b><br>
+      <sub>Shapes, lines, frames, stickers and charts</sub>
+    </td>
+    <td width="33%" valign="top">
+      🔤 &nbsp;<b>Text</b><br>
+      <sub>Headings, pairings and styles with Google Fonts</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      📁 &nbsp;<b>Uploads</b><br>
+      <sub>Your pictures, kept with your account</sub>
+    </td>
+    <td width="33%" valign="top">
+      📷 &nbsp;<b>Photos</b><br>
+      <sub>Stock photographs, ready to place</sub>
+    </td>
+    <td width="33%" valign="top">
+      🧑‍🎨 &nbsp;<b>Portrait</b><br>
+      <sub>Film looks, coloured light and lens effects</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      🔳 &nbsp;<b>QR Code</b><br>
+      <sub>Links, Wi-Fi, contacts and events, in many designs</sub>
+    </td>
+    <td width="33%" valign="top">
+      🎯 &nbsp;<b>Brand Kit</b><br>
+      <sub>Your colours, fonts and logos in one place</sub>
+    </td>
+    <td width="33%" valign="top">
+      🤖 &nbsp;<b>AI Tools</b><br>
+      <sub>AI Coach, AI Write and Background Remover</sub>
+    </td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Every feature, in detail</b></summary>
+<br>
 
 ```typescript
 const editor = {
@@ -122,7 +219,11 @@ const accounts = {
 };
 ```
 
-<br>
+</details>
+
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Quick Start -->
 ## `> quick_start`
@@ -151,7 +252,9 @@ npm run dev
 
 Both seed scripts take `--count`, which keeps a small database small: `npm run library:seed -- --count 5000`.
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Config -->
 ## `> config.env`
@@ -180,7 +283,9 @@ PEXELS_API_KEY=                # stock photographs
 The frontend reads `NEXT_PUBLIC_API_URL` (the backend's address ending in `/api`) from `frontend/.env.local`.
 `.env` files stay on your machine and are ignored by Git.
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Architecture -->
 ## `> architecture`
@@ -210,7 +315,9 @@ Falcon/
     └── prisma/                schema and migrations
 ```
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Deploy -->
 ## `> deploy`
@@ -245,7 +352,9 @@ limitsOnFreeTiers:
 
 A `render.yaml` blueprint is included for running the backend on a host with a disk.
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- API -->
 ## `> api`
@@ -274,7 +383,9 @@ npm run test:library    # the design library and its search
 npm run test:email      # email templates, rendering and search
 ```
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Roadmap -->
 ## `> roadmap`
@@ -302,7 +413,9 @@ npm run test:email      # email templates, rendering and search
 | 🔜 &nbsp;**Teamwork** | Design history and collaboration | Design work |
 | 🔜 &nbsp;**Quality** | End-to-end tests in the browser | Test setup |
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Repository -->
 ## `> repository`
@@ -313,7 +426,9 @@ npm run test:email      # email templates, rendering and search
   </a>
 </p>
 
-<br>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=0:000000,50:0070F3,100:00DFD8" alt="" width="100%" />
+</p>
 
 <!-- Author -->
 ## `> author`
@@ -412,6 +527,16 @@ npm run test:email      # email templates, rendering and search
 </p>
 
 <br>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=18&duration=3000&pause=1200&color=0070F3&center=true&vCenter=true&width=600&height=40&lines=Thanks+for+stopping+by;If+Falcon+is+useful+to+you%2C+leave+a+star" alt="Thanks for stopping by. If Falcon is useful to you, leave a star" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk/FALCON/stargazers">
+    <img src="https://img.shields.io/github/stars/Sumit0802-afk/FALCON?style=for-the-badge&logo=github&label=Star&labelColor=000000&color=0070F3" alt="Star this repository" />
+  </a>
+</p>
 
 <!-- Footer -->
 <p align="center">
