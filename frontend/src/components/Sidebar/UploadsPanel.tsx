@@ -74,6 +74,19 @@ export function UploadsPanel({
 
   useEffect(() => {
     refreshData();
+    // The account's uploads are read from the server, so they are here on any device and after
+    // the browser's own storage is cleared. Signed out or offline, the browser's list is shown as it is
+    let alive = true;
+    apiFetch<{ assets: Asset[] }>("/uploads")
+      .then((data) => {
+        if (!alive || !Array.isArray(data?.assets)) return;
+        assetService.syncAccountUploads(data.assets);
+        refreshData();
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Filtered assets based on tab, folder, and search

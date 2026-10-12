@@ -44,7 +44,49 @@ function userId(req: Request): string {
   return req.userId;
 }
 
+/** An upload as the editor's Uploads panel shows it */
+function describe(req: Request, row: { id: string; ownerId: string; name: string; mimeType: string; size: number; createdAt: Date }, folderId: string | null = null) {
+  const kind = KINDS[row.mimeType] || "image";
+  const fileUrl = `${req.protocol}://${req.get("host")}/api/uploads/${row.id}/file`;
+  return {
+    id: `asset-${row.id}`,
+    type: kind,
+    name: row.name,
+    fileUrl,
+    thumbnailUrl: fileUrl,
+    source: "User Upload",
+    author: "You",
+    license: "Proprietary / User Content",
+    attributionRequired: false,
+    tags: [],
+    category: kind,
+    ownerId: row.ownerId,
+    visibility: "private",
+    folderId,
+    fileSize: row.size,
+    mimeType: row.mimeType,
+    status: "active",
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.createdAt.toISOString(),
+  };
+}
+
 const router = Router();
+
+// Everything this account has uploaded, newest first. This is what makes an upload stay in the
+// panel on any device until its owner deletes it. The pictures themselves are not sent here
+router.get(
+  "/",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const rows = await prisma.upload.findMany({
+      where: { ownerId: userId(req) },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, ownerId: true, name: true, mimeType: true, size: true, createdAt: true },
+    });
+    res.status(200).json({ assets: rows.map((row) => describe(req, row)) });
+  })
+);
 
 // Anyone with the address may load the picture: a design shows it to whoever the design is
 // shared with, and the address is a random id that cannot be guessed
@@ -86,33 +128,10 @@ router.post(
 
     const saved = await prisma.upload.create({
       data: { ownerId: owner, name: fileName, mimeType: fileType === "image/jpg" ? "image/jpeg" : fileType, size: data.length, data },
-      select: { id: true, createdAt: true },
+      select: { id: true, ownerId: true, name: true, mimeType: true, size: true, createdAt: true },
     });
 
-    const fileUrl = `${req.protocol}://${req.get("host")}/api/uploads/${saved.id}/file`;
-    res.status(201).json({
-      asset: {
-        id: `asset-${saved.id}`,
-        type: kind,
-        name: fileName,
-        fileUrl,
-        thumbnailUrl: fileUrl,
-        source: "User Upload",
-        author: "You",
-        license: "Proprietary / User Content",
-        attributionRequired: false,
-        tags: [],
-        category: kind,
-        ownerId: owner,
-        visibility: "private",
-        folderId: folderId || null,
-        fileSize: data.length,
-        mimeType: fileType,
-        status: "active",
-        createdAt: saved.createdAt.toISOString(),
-        updatedAt: saved.createdAt.toISOString(),
-      },
-    });
+    res.status(201).json({ asset: describe(req, saved, folderId || null) });
   })
 );
 

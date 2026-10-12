@@ -62,6 +62,28 @@ export const assetService = {
     storageService.set(UPLOADS_KEY, uploads);
   },
 
+  /**
+   * Brings the browser's list into line with what the account has on the server.
+   *
+   * Pictures kept by the server are the account's: ones the browser did not know
+   * about are added, and ones the server no longer has (deleted on another device,
+   * or left by a different account on this browser) are dropped. What was set here
+   * for a picture, such as its folder, name or favourite mark, is kept. Files that
+   * were never on the server (videos, older uploads) are left as they are.
+   */
+  syncAccountUploads(server: Asset[]): void {
+    const keyOf = (url: string) => (url || "").match(/\/api\/uploads\/([0-9a-f-]{36})\/file$/)?.[1] || "";
+    const local = this.getUploads();
+    const known = new Map(local.filter((a) => keyOf(a.fileUrl)).map((a) => [keyOf(a.fileUrl), a]));
+    const account = server.map((asset) => {
+      const mine = known.get(keyOf(asset.fileUrl));
+      return mine ? { ...mine, fileUrl: asset.fileUrl, thumbnailUrl: asset.thumbnailUrl } : { ...asset, id: `up-${keyOf(asset.fileUrl)}` };
+    });
+    const elsewhere = local.filter((a) => !keyOf(a.fileUrl));
+    const merged = [...account, ...elsewhere].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    this.saveUploads(merged);
+  },
+
   addUpload(asset: Omit<Asset, "id" | "createdAt" | "updatedAt">): Asset {
     const uploads = this.getUploads();
     const newAsset: Asset = {
