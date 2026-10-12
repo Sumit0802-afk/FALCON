@@ -1,393 +1,376 @@
-# Falcon
+<!-- Header -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/header-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/header-light.svg">
+  <img alt="Falcon — Design with purpose. Create without limits." src="docs/assets/header-dark.svg" width="100%">
+</picture>
 
-**Design With Purpose. Create Without Limits.**
+<!-- Views -->
+<p align="right">
+  <a href="https://github.com/Sumit0802-afk/FALCON">
+    <img src="https://komarev.com/ghpvc/?username=Sumit0802-afk-FALCON&label=Repo%20Views&color=0070F3&style=flat" alt="Repo views" />
+  </a>
+</p>
 
-Falcon is an AI-assisted design platform that takes a creative idea from concept to finished design. It combines a visual editor, a template library, an email designer, AI generation, design analysis and campaign creation in one workflow.
+<!-- Typing SVG -->
+<p align="center">
+  <a href="https://falcon-six-nu.vercel.app">
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=22&duration=3500&pause=900&color=EDEDED&center=true&vCenter=true&multiline=false&repeat=true&random=false&width=720&height=50&lines=An+AI-assisted+design+platform;Editor+%C2%B7+Templates+%C2%B7+Email+designer+%C2%B7+AI+Studio;From+an+idea+to+a+finished+design" alt="An AI-assisted design platform" />
+  </a>
+</p>
 
-The goal is simple: make professional design faster without hiding the creative process behind complicated tools.
+<!-- Links -->
+<p align="center">
+  <a href="https://falcon-six-nu.vercel.app" target="_blank">
+    <img src="https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live demo" />
+  </a>&nbsp;
+  <a href="https://github.com/Sumit0802-afk/FALCON" target="_blank">
+    <img src="https://img.shields.io/badge/Repository-000000?style=for-the-badge&logo=github&logoColor=white" alt="Repository" />
+  </a>&nbsp;
+  <a href="#-quick_start">
+    <img src="https://img.shields.io/badge/Quick_Start-000000?style=for-the-badge&logo=gnubash&logoColor=white" alt="Quick start" />
+  </a>&nbsp;
+  <a href="#-deploy">
+    <img src="https://img.shields.io/badge/Deploy-000000?style=for-the-badge&logo=rocket&logoColor=white" alt="Deploy" />
+  </a>
+</p>
 
-## Why
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js_15-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js 15" />
+  <img src="https://img.shields.io/badge/React_18-000000?style=flat-square&logo=react&logoColor=61DAFB" alt="React 18" />
+  <img src="https://img.shields.io/badge/TypeScript-000000?style=flat-square&logo=typescript&logoColor=3178C6" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Express-000000?style=flat-square&logo=express&logoColor=white" alt="Express" />
+  <img src="https://img.shields.io/badge/Prisma-000000?style=flat-square&logo=prisma&logoColor=white" alt="Prisma" />
+  <img src="https://img.shields.io/badge/PostgreSQL-000000?style=flat-square&logo=postgresql&logoColor=4169E1" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-000000?style=flat-square&logo=tailwindcss&logoColor=38BDF8" alt="Tailwind CSS" />
+</p>
 
-Most design platforms give you powerful tools, but the creative workflow is still largely manual. You create a canvas, choose elements, adjust layouts, find images, write copy, fix spacing, export the design, and then repeat the same process for every variation or campaign.
+<br>
 
-Falcon is built around the design workflow itself instead of treating AI as a separate chatbot or a generate button. It helps with:
+<!-- About -->
+## `> about.ts`
 
-* creating designs from ideas
-* editing layouts and creative elements
-* generating a design from a brief and a reference picture
-* improving existing designs
-* understanding why a design works or doesn't
-* keeping a consistent visual identity
-* remixing existing creative into new variations
-* turning a single concept into a complete campaign
-
-## What is in Falcon today
-
-### The site
-
-| Page | What it is for |
-| --- | --- |
-| Home | The product tour. Its feature cards open the tool they describe, and "Watch demo" plays a two-minute recorded tour. |
-| Templates | The poster and social template library, with search, categories and favourites. |
-| Library | Every format in one place: posters, presentations and more. |
-| Email Templates | Ready-made emails, opened in the email designer. |
-| AI Studio | Describe a design, optionally add a reference picture, and get one finished design. |
-| My Projects | Your saved designs: open, duplicate, delete. |
-| Account, Settings, Help | Profile, password, signed-in sessions, theme and support. |
-
-The site has a dark theme and a light theme. The two editors always use the dark theme, and your design's own colours are never changed by the theme.
-
-### Design editor
-
-The editor is the foundation of the creative workflow. It gives direct control over the design, with AI tools that assist rather than take over.
-
-The tool rail on the left opens one panel at a time:
-
-* **Templates** – start from, or switch to, a library design
-* **Elements** – shapes, lines, frames, stickers and graphics, by category
-* **Text** – headings, body text, font pairings and text styles, with Google Fonts
-* **Uploads** – your own pictures
-* **Photos** – stock photographs
-* **Portrait** – restyle a photo: film looks, coloured light, sketches and lens effects are drawn on the server; styles that change what is in the photo need a picture model (see *AI providers*)
-* **QR Code** – a QR code for a link, text, email, phone, WhatsApp, Wi-Fi, contact card or event, in a library of designs grouped by use (business, events, food, social, shop, celebrations, tech, learning, travel, wellness), with scanning warnings
-* **Background** – colours, gradients and pictures
-* **Brand Kit** – your brand's colours, fonts and logos; apply a colour to the selection, set a page in your brand fonts in one click, and place a logo
-* **Layers** – order, lock, hide and rename
-* **AI Tools** – AI Coach, AI Write, Background Remover and a way into AI Studio
-
-On the canvas you can move, resize, rotate, crop, layer, group, duplicate and align anything. Designs can have several pages, are saved as you work, and can be resized to another format. Export is to PNG, JPG, PDF and PowerPoint.
-
-The editor also carries the design-intelligence tools: Design Coach and Design Score for feedback on hierarchy, contrast, spacing and alignment, Design DNA for keeping a consistent look, Smart Remix for new directions from an existing design, and the Campaign Generator for turning one design into a family of formats.
-
-### AI Studio
-
-AI Studio is built on three roles: the **reference** is the visual blueprint, the **prompt** is the creative instruction, and the **AI** carries it out.
-
-1. **Reference** – upload up to four pictures and say what each one is for (layout, colour, typography and so on). Falcon reads them and extracts their Design DNA.
-2. **Prompt** – write what the design should say and show. There is no length limit worth worrying about. "Enhance prompt" shows the full compiled prompt, which you can edit before generating.
-3. **Controls** – format, reference strength, what the reference controls, visual density and advanced options.
-4. **Generate** – one finished design per request. The steps shown are the ones the server is really doing.
-5. **Result** – download, open in the editor, regenerate, ask for variations, use the result as the next reference, or fix one detail.
-
-Falcon never invents facts: dates, prices, names, venues, logos and claims come only from what you wrote.
-
-When a picture model is available, AI Studio makes finished artwork and checks it against the reference with a fidelity score. When one is not, it says so and sets the content out as a fully editable design with Falcon's own layout engine.
-
-### Email
-
-* A library of email templates by category
-* A block-based email designer: text, headings, images, buttons, dividers, spacers, social links, hero, product and call-to-action blocks, each with its own settings, including the link a button opens
-* Design by HTML, with a code editor and live preview
-* Preview for desktop and mobile, export to HTML, and send a test email
-
-### Accounts
-
-* Sign up and log in with email and password, confirmed by a one-time code sent by email
-* Forgot password and password reset
-* Change password, see signed-in sessions and sign out of the others
-* JWT sessions
-
-One-time codes are never returned by the API, written to logs or shown in the browser.
-
-## Architecture
-
-Falcon is a frontend application and a backend service.
-
-```
-                          Falcon
-                             |
-            +----------------+----------------+
-            |                                 |
-            v                                 v
-   Frontend (Next.js)                 Backend API (Express)
-            |                                 |
-   +--------+---------+        +--------+-----+------+-----------+
-   |        |         |        |        |            |           |
-   v        v         v        v        v            v           v
- Site    Design     Email    Auth    Projects    Templates      AI
- pages   editor    designer   |      and pages   and library     |
-                              |         |            |           |
-                              v         +-----+------+           v
-                        Email (SMTP)          |          Text model, picture
-                                              v          model, stock photos
-                                    PostgreSQL (Prisma)
+```typescript
+const falcon = {
+    tagline: "Design with purpose. Create without limits.",
+    what: "An AI-assisted design platform, from one sentence to a finished, editable design",
+    liveDemo: "https://falcon-six-nu.vercel.app",
+    parts: ["Design editor", "Template library", "Email designer", "AI Studio"],
+    stack: {
+        frontend: ["Next.js 15", "React 18", "TypeScript", "Tailwind CSS"],
+        backend: ["Node.js 22", "Express", "Prisma", "Zod"],
+        database: ["PostgreSQL", "full-text search"],
+        hosting: ["Vercel", "Neon"]
+    },
+    exports: ["PNG", "JPG", "PDF", "PowerPoint"],
+    belief: "AI should not replace the designer. It should make the designer better."
+};
 ```
 
-The frontend is responsible for the user experience, both editors and every creative workflow. The backend handles authentication, projects, the template libraries, AI requests, image processing and email.
+<br>
 
-### Application flow
+<!-- Preview -->
+## `> preview`
 
+<p align="center">
+  <img src="docs/screenshots/home.jpg" alt="Home page" width="100%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/editor.jpg" alt="Design editor" width="49%" />
+  <img src="docs/screenshots/ai-studio.jpg" alt="AI Studio" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/library.jpg" alt="Design library" width="49%" />
+  <img src="docs/screenshots/email-templates.jpg" alt="Email templates" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/brand-kit.jpg" alt="Brand Kit" width="49%" />
+  <img src="docs/screenshots/qr-codes.jpg" alt="QR codes" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/email-designer.jpg" alt="Email designer" width="49%" />
+  <img src="docs/screenshots/login.jpg" alt="Sign in" width="49%" />
+</p>
+
+<br>
+
+<!-- Tech Stack -->
+## `> tech_stack`
+
+<p align="center">
+  <a href="https://skillicons.dev">
+    <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,threejs,nodejs,express,prisma,postgres,vercel,git,github&theme=dark&perline=12" alt="Next.js, React, TypeScript, Tailwind CSS, three.js, Node.js, Express, Prisma, PostgreSQL, Vercel, Git, GitHub" />
+  </a>
+</p>
+
+<br>
+
+<!-- Features -->
+## `> features`
+
+```typescript
+const editor = {
+    canvas: "move, resize, rotate, crop, layer, group, align; pages; autosave; resize to any format",
+    tools: {
+        templates: "start from, or switch to, a library design",
+        elements: "shapes, lines, frames, stickers, charts and graphics",
+        text: "headings, body text, pairings and styles, with Google Fonts",
+        uploads: "your own pictures, kept with your account",
+        photos: "stock photographs",
+        portrait: "film looks, coloured light, sketches and lens effects for a photo",
+        qrCode: "links, Wi-Fi, contacts and events, in a library of designs, with scan warnings",
+        brandKit: "your colours, fonts and logos, plus palettes, pairings and marks to start from",
+        aiTools: ["AI Coach", "AI Write", "Background Remover"]
+    }
+};
+
+const aiStudio = {
+    reference: "the visual blueprint: up to four pictures, each with a role",
+    prompt: "the creative instruction, compiled into a full prompt you can edit",
+    result: "ONE finished design, then regenerate, vary, or fix a single detail",
+    rule: "never invents facts: dates, prices, names and venues come only from you"
+};
+
+const libraries = {
+    designs: ["posters", "presentations", "certificates"],   // searchable, every one editable
+    emails: "newsletters, offers, confirmations and more, by category and tag"
+};
+
+const emailDesigner = {
+    build: "block by block, or paste HTML and edit it visually",
+    check: ["desktop preview", "mobile preview", "send a test"],
+    output: "clean HTML"
+};
+
+const accounts = {
+    signIn: "email + password, confirmed by a one-time code",
+    also: ["password reset", "change password", "end other sessions"],
+    promise: "codes never appear in responses, logs or the browser"
+};
 ```
-Sign up / Log in  (email code)
-        |
-        v
- Home / My Projects
-        |
-        +-----------------+------------------+------------------+
-        |                 |                  |                  |
-        v                 v                  v                  v
-  Blank design      From a template      AI Studio        Email template
-        |                 |                  |                  |
-        +-----------------+------------------+                  v
-                          |                              Email designer
-                          v                                     |
-                    Design editor                               v
-     (elements, text, photos, portrait, QR,            Preview / HTML / send
-      background, brand kit, layers, AI tools)
-                          |
-                          v
-          Coach / Score / DNA / Remix / Campaign
-                          |
-                          v
-              Save / Resize / Export
+
+<br>
+
+<!-- Quick Start -->
+## `> quick_start`
+
+**You need:** Node.js 22, npm and PostgreSQL 14 or newer.
+
+```bash
+# 1. clone
+git clone https://github.com/Sumit0802-afk/FALCON.git
+cd FALCON
+
+# 2. backend  ->  http://localhost:4000
+cd falcon-backend/backend
+npm install
+cp .env.example .env          # then fill it in, see > config.env
+npx prisma migrate deploy     # creates the tables
+npm run library:seed          # posters, presentations, certificates
+npm run email:seed            # email templates
+npm run dev
+
+# 3. frontend  ->  http://localhost:3000   (in a second terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
-## Tech stack
+Both seed scripts take `--count`, which keeps a small database small: `npm run library:seed -- --count 5000`.
 
-**Frontend:** Next.js 15 (Pages Router), React 18, TypeScript, Tailwind CSS, lucide-react, three.js, jsPDF, PptxGenJS, qrcode-generator, in-browser background removal.
+<br>
 
-**Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL, Zod, JSON Web Tokens, bcrypt, Nodemailer, sharp, Puppeteer (for thumbnails and email snapshots).
+<!-- Config -->
+## `> config.env`
 
-## AI providers
+```bash
+# required
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/falcon
+JWT_SECRET=                    # the server will not start in production without it
 
-Falcon's AI is configured entirely through environment variables; no provider is hard-coded.
+# when hosted
+CORS_ORIGIN=                   # the frontend's address
+PUBLIC_API_URL=                # the backend's own address
 
-| Job | How it is configured |
-| --- | --- |
-| Text and reading pictures (copy, analysis, coaching) | Any service that speaks the OpenAI protocol: `AI_BASE_URL`, `AI_API_KEY`, `AI_TEXT_MODEL`. Gemini, Groq and OpenRouter work. |
-| Pictures (Portrait's generative styles, AI Studio artwork) | Either a Gemini picture model (`PORTRAIT_IMAGE_MODEL`, `AI_ARTWORK_MODEL`) or fal.ai (`IMAGE_PROVIDER=fal`, `FAL_API_KEY`). |
-| Stock photographs | `PEXELS_API_KEY` |
+# email: one of the two
+SMTP_HOST=  SMTP_PORT=  SMTP_SECURE=  SMTP_USER=  SMTP_PASSWORD=  SMTP_FROM=
+BREVO_API_KEY=  EMAIL_FROM=    # over HTTPS, for hosts that close the SMTP ports
 
-Without a picture provider Falcon still works: the Portrait styles that need one are shown as unavailable, and AI Studio produces an editable layout instead of artwork.
+# AI: any OpenAI-compatible text model (Gemini, Groq, OpenRouter)
+AI_BASE_URL=  AI_API_KEY=  AI_TEXT_MODEL=
 
-## Project structure
+# optional
+IMAGE_PROVIDER=  FAL_API_KEY=  # pictures for Portrait and AI Studio
+PEXELS_API_KEY=                # stock photographs
+```
+
+The frontend reads `NEXT_PUBLIC_API_URL` (the backend's address ending in `/api`) from `frontend/.env.local`.
+`.env` files stay on your machine and are ignored by Git.
+
+<br>
+
+<!-- Architecture -->
+## `> architecture`
+
+```mermaid
+flowchart LR
+    U([Browser]) --> F[Frontend<br/>Next.js on Vercel]
+    F -- REST /api --> B[Backend<br/>Express on Vercel]
+    B --> D[(PostgreSQL<br/>Neon)]
+    B --> M[Email<br/>SMTP or Brevo]
+    B --> A[AI<br/>text and picture models]
+    B --> P[Stock photos<br/>Pexels]
+```
 
 ```
 Falcon/
-|
-+-- frontend/
-|   +-- public/                 static files, the demo video
-|   +-- src/
-|       +-- pages/              site pages, /editor/[projectId], /email-designer
-|       +-- components/
-|       |   +-- Editor/         the editor shell
-|       |   +-- Canvas/         the page and its elements
-|       |   +-- Sidebar/        one panel per tool
-|       |   +-- Toolbar/        the tool rail
-|       |   +-- TopBar/         file, resize, share, download
-|       |   +-- AiStudio/       the AI Studio workspace
-|       |   +-- EmailDesigner/  blocks, settings, HTML, preview, send
-|       |   +-- common/         shared pieces
-|       +-- services/           calls to the backend
-|       +-- utils/, data/, types/, styles/
-|
-+-- falcon-backend/
-|   +-- backend/
-|       +-- server.ts, app.ts
-|       +-- routes/             auth, projects, ai, templates, library,
-|       |                       email-templates, stickers, admin
-|       +-- controllers/, middleware/
-|       +-- services/           auth, otp, email, projects, templates,
-|       |                       aiDesign, aiStudio, portrait, falPicture ...
-|       +-- templates/          the template and email layout engines
-|       +-- prisma/             schema and migrations
-|       +-- scripts/            seeding and import
-|       +-- tests/
-|
-+-- database/
+├── frontend/src/
+│   ├── pages/                 site pages, /editor/[projectId], /email-designer
+│   ├── components/            Editor · Canvas · Sidebar · AiStudio · EmailDesigner
+│   └── services/              calls to the backend
+└── falcon-backend/backend/
+    ├── server.ts              the API on a machine with a disk
+    ├── api/index.ts           the same API as a Vercel function
+    ├── routes/                auth · projects · ai · uploads · library · email
+    ├── services/              the logic behind each route
+    ├── templates/             the design and email layout engines
+    └── prisma/                schema and migrations
 ```
 
-## Backend API
+<br>
 
-All routes are under `/api`.
+<!-- Deploy -->
+## `> deploy`
 
-| Area | Routes |
-| --- | --- |
-| Auth | `/auth/register`, `/auth/login`, `/auth/verify-otp`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/change-password`, `/auth/me`, `/auth/sessions`, `/auth/logout`, `/auth/logout-others`, `/auth/support` |
-| Projects | `/projects`, `/projects/:id`, `/projects/:id/duplicate`, `/projects/:id/thumbnail`, `/projects/:id/pages` |
-| Templates | `/templates`, `/library`, `/email-templates`, `/user/email-templates`, `/admin/templates` |
-| AI design | `/ai/sizes`, `/ai/designs`, `/ai/designs/variations`, `/ai/designs/resize`, `/ai/designs/use`, `/ai/photos` |
-| AI Studio | `/ai/studio/status`, `/ai/studio/analyze`, `/ai/studio/compile`, `/ai/studio/artwork`, `/ai/studio/evaluate`, `/ai/studio/layout`, `/ai/studio/open` |
-| Portrait | `/ai/portrait/styles`, `/ai/portrait/previews`, `/ai/portrait`, `/ai/portrait/blend` |
+The live demo runs on free tiers: two Vercel projects from this one repository, and a Neon database.
 
-Users can only read and change their own projects and templates.
+```yaml
+frontend:
+  host: Vercel
+  rootDirectory: frontend
+  env: { NEXT_PUBLIC_API_URL: "https://<backend>/api" }
 
-## Database
+backend:
+  host: Vercel
+  rootDirectory: falcon-backend/backend
+  frameworkPreset: Other
+  env: [DATABASE_URL, JWT_SECRET, CORS_ORIGIN, SMTP_*, AI_*]
 
-Falcon uses PostgreSQL through Prisma. The main groups of tables are:
+database:
+  host: Neon
+  setup: |
+    DATABASE_URL="<neon string>" npx prisma migrate deploy
+    DATABASE_URL="<neon string>" npm run library:seed -- --count 50000
+    DATABASE_URL="<neon string>" npm run email:seed -- --count 15000
 
-* **Accounts** – users, sessions, one-time codes, password reset tokens
-* **Designs** – projects and their pages
-* **Poster templates** – templates, designs, categories, tags, favourites, import jobs
-* **Library** – library templates and favourites
-* **Email** – email templates, their content, categories, tags, favourites, and each user's own email templates
-
-The Brand Kit is currently kept in the browser, not in the account.
-
-## Email
-
-Sign-in codes, password resets and test emails from the email designer are sent over SMTP with Nodemailer. Any SMTP provider works; the credentials live only in environment variables.
-
-## Environment configuration
-
-Sensitive configuration is loaded from environment variables. `falcon-backend/backend/.env.example` lists every name with placeholder values.
-
-```
-# Server
-PORT
-NODE_ENV
-DATABASE_URL
-CORS_ORIGIN
-PUBLIC_API_URL
-JWT_SECRET
-JWT_EXPIRES_IN
-
-# Email
-SMTP_HOST
-SMTP_PORT
-SMTP_SECURE
-SMTP_USER
-SMTP_PASSWORD
-SMTP_FROM
-SUPPORT_EMAIL
-EMAIL_ASSET_BASE_URL
-
-# AI: text
-AI_BASE_URL
-AI_API_KEY
-AI_TEXT_MODEL
-
-# AI: pictures (one of the two groups)
-AI_IMAGE_MODEL
-PORTRAIT_IMAGE_MODEL
-AI_ARTWORK_MODEL
-
-IMAGE_PROVIDER
-FAL_API_KEY
-FAL_IMAGE_MODEL
-
-# Other
-PEXELS_API_KEY
-CHROME_PATH
+limitsOnFreeTiers:
+  - files do not last, so uploaded pictures live in the database (3 MB each, 60 MB per account)
+  - video, audio and PDF uploads need a host with a disk
+  - requests are capped at 4.5 MB and 60 seconds
+  - the hosted demo carries part of the library, not all of it
 ```
 
-The frontend reads `NEXT_PUBLIC_API_URL` (the backend's address) and, optionally, `NEXT_PUBLIC_GOOGLE_FONTS_API_KEY` from `frontend/.env.local`.
+A `render.yaml` blueprint is included for running the backend on a host with a disk.
 
-`.env` files hold secrets. They stay on your machine and are ignored by Git.
+<br>
 
-## Build and run
+<!-- API -->
+## `> api`
 
-### Requirements
+```http
+POST   /api/auth/register        POST   /api/auth/login          POST   /api/auth/verify-otp
+POST   /api/auth/forgot-password POST   /api/auth/reset-password GET    /api/auth/me
 
-* Node.js and npm
-* PostgreSQL
-* Google Chrome (used by the backend to draw thumbnails)
-* A filled-in `.env` file
+GET    /api/projects             POST   /api/projects            PATCH  /api/projects/:id
+POST   /api/uploads              GET    /api/uploads/:id/file    DELETE /api/uploads/:id
 
-### Backend
+GET    /api/library              GET    /api/library/facets      POST   /api/library/:id/use
+GET    /api/email-templates      GET    /api/user/email-templates
 
+POST   /api/ai/studio/analyze    POST   /api/ai/studio/compile   POST   /api/ai/studio/layout
+GET    /api/ai/portrait/styles   POST   /api/ai/portrait         GET    /api/health
 ```
+
+People can only read and change their own projects, uploads and templates.
+
+```bash
 cd falcon-backend/backend
-npm install
-npx prisma migrate dev
-npm run dev
+npm run test:auth       # sign-up, login, one-time codes, password reset
+npm run test:account    # profile, password change, sessions
+npm run test:library    # the design library and its search
+npm run test:email      # email templates, rendering and search
 ```
 
-The backend runs on `http://localhost:4000`.
+<br>
 
-To fill the template libraries:
+<!-- Roadmap -->
+## `> roadmap`
 
-```
-npm run templates:seed
-npm run library:seed
-npm run email:seed
-```
+```diff
++ accounts with email codes, password reset and sessions
++ design editor with pages, resize and export
++ design library, email templates and the email designer
++ AI Studio with reference pictures and prompt compilation
++ Portrait, QR Code and Brand Kit tools
++ light theme
++ PostgreSQL, deployed on Vercel and Neon
 
-### Frontend
-
-```
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend runs on `http://localhost:3000`.
-
-Run each command inside its own folder. `npm run dev` in the top folder fails, because the top folder has no `dev` script; from there use `npm run dev:backend` and `npm run dev:frontend` instead.
-
-## Testing
-
-```
-cd falcon-backend/backend
-npm run typecheck
-npm run test:auth
-npm run test:account
-npm run test:library
-npm run test:email
+- picture generation for Portrait and AI Studio (needs a paid picture model)
+- Brand Kit saved to the account instead of the browser
+- lasting storage for AI pictures and thumbnails
+- design history and collaboration
+- end-to-end tests
 ```
 
-```
-cd frontend
-npm run typecheck
-npm run lint
-```
+<br>
 
-The backend tests cover sign-up, login, one-time codes, password reset, account changes, the library and email templates. The editors and AI workflows are checked in the browser; automated end-to-end tests will grow with the platform.
+<!-- Repository -->
+## `> repository`
 
-## Security
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk/FALCON">
+    <img src="https://github-readme-stats.vercel.app/api/pin/?username=Sumit0802-afk&repo=FALCON&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false" alt="FALCON repository" />
+  </a>
+</p>
 
-Sensitive values such as API keys, JWT secrets, database credentials and SMTP passwords are stored in environment variables and never committed.
+<br>
 
-For production:
+<!-- Author -->
+## `> author`
 
-* use production-specific secrets
-* enable HTTPS
-* set `CORS_ORIGIN` to the production site
-* use a database user with only the rights it needs
-* rotate any credential that has been shared, pasted or shown in a screenshot
-* never expose backend secrets to the frontend
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk">
+    <img height="180em" src="https://github-readme-stats.vercel.app/api?username=Sumit0802-afk&show_icons=true&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false&ring_color=0070F3" alt="Sumit Bhamu's GitHub stats" />
+  </a>&nbsp;&nbsp;
+  <a href="https://github.com/Sumit0802-afk">
+    <img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Sumit0802-afk&langs_count=8&layout=compact&bg_color=000000&title_color=FFFFFF&text_color=888888&icon_color=0070F3&border_color=333333&hide_border=false" alt="Top languages" />
+  </a>
+</p>
 
-## Roadmap
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk">
+    <img src="https://streak-stats.demolab.com/?user=Sumit0802-afk&background=000000&border=333333&stroke=333333&ring=0070F3&fire=0070F3&currStreakNum=FFFFFF&sideNums=FFFFFF&currStreakLabel=0070F3&sideLabels=888888&dates=555555" alt="GitHub streak" />
+  </a>
+</p>
 
-**Done**
+<p align="center">
+  Built by <a href="https://github.com/Sumit0802-afk"><b>Sumit Bhamu</b></a>
+</p>
 
-* Project structure, frontend and backend foundations
-* Authentication with email codes, password reset and sessions
-* Design editor: text, images, shapes, frames, stickers, layers, pages, resize, export
-* Template library, format library and email templates
-* Email designer with HTML editing, preview and sending
-* AI Studio with reference pictures, prompt compilation and result actions
-* Portrait, QR Code and Brand Kit tools
-* Light theme
-* Demo video
+<p align="center">
+  <a href="https://github.com/Sumit0802-afk" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub-000000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
+  </a>&nbsp;
+  <a href="https://falcon-six-nu.vercel.app" target="_blank">
+    <img src="https://img.shields.io/badge/Try_Falcon-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Try Falcon" />
+  </a>
+</p>
 
-**In progress**
+<br>
 
-* Picture generation for Portrait and AI Studio, which needs a paid picture provider
-* Deeper Design Coach, Design Score, Design DNA, Smart Remix and Campaign workflows
-
-**Planned**
-
-* Brand Kit saved to the account
-* Design history
-* Collaboration
-* Light theme for the editors
-* Automated end-to-end tests
-
-## Project status
-
-Falcon is under active development. Features, APIs, internal architecture and UI patterns may change.
-
-## Vision
-
-Falcon is built around one idea:
-
-**AI should not replace the designer. It should make the designer better.**
-
-The goal is a platform where you can start with an idea, turn it into a design, understand what can be improved, generate variations, keep a consistent look, and produce an entire campaign, without switching between tools.
-
-Design With Purpose. Create Without Limits.
-
-## License
-
-This project is under active development. A license and contribution guidelines will be added as it moves toward a public release.
+<!-- Footer -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/footer-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/footer-light.svg">
+  <img alt="AI should not replace the designer. It should make the designer better." src="docs/assets/footer-dark.svg" width="100%">
+</picture>

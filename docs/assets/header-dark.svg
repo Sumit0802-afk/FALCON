@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" width="1280" height="340" role="img" aria-label="Falcon. Design with purpose. Create without limits.">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0" stop-color="#0070F3" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#0070F3" stop-opacity="0.099"/>
+      <stop offset="1" stop-color="#0070F3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#3B9EFF"/>
+      <stop offset="1" stop-color="#00DFD8"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="340" fill="#000000"/>
+  <g stroke="#ffffff" stroke-opacity="0.045" stroke-width="1" fill="none"><path d="M0 0V340"/><path d="M40 0V340"/><path d="M80 0V340"/><path d="M120 0V340"/><path d="M160 0V340"/><path d="M200 0V340"/><path d="M240 0V340"/><path d="M280 0V340"/><path d="M320 0V340"/><path d="M360 0V340"/><path d="M400 0V340"/><path d="M440 0V340"/><path d="M480 0V340"/><path d="M520 0V340"/><path d="M560 0V340"/><path d="M600 0V340"/><path d="M640 0V340"/><path d="M680 0V340"/><path d="M720 0V340"/><path d="M760 0V340"/><path d="M800 0V340"/><path d="M840 0V340"/><path d="M880 0V340"/><path d="M920 0V340"/><path d="M960 0V340"/><path d="M1000 0V340"/><path d="M1040 0V340"/><path d="M1080 0V340"/><path d="M1120 0V340"/><path d="M1160 0V340"/><path d="M1200 0V340"/><path d="M1240 0V340"/><path d="M1280 0V340"/><path d="M0 0H1280"/><path d="M0 40H1280"/><path d="M0 80H1280"/><path d="M0 120H1280"/><path d="M0 160H1280"/><path d="M0 200H1280"/><path d="M0 240H1280"/><path d="M0 280H1280"/><path d="M0 320H1280"/></g>
+  <rect width="1280" height="340" fill="url(#glow)"/>
+  <rect y="240" width="1280" height="100" fill="url(#fade)"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace" font-size="14" fill="#888888" letter-spacing="2">
+    <text x="64" y="62">~/falcon</text>
+    <text x="1216" y="62" text-anchor="end">v1 · intelligent design system</text>
+  </g>
+  <g fill="none" stroke="#333333" stroke-width="1">
+    <path d="M64 84H1216"/>
+  </g>
+
+  <text x="640" y="196" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="14" fill="url(#word)">FALCON</text>
+  <text x="640" y="246" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace" font-size="20" fill="#ffffff" fill-opacity="0.86" letter-spacing="1">Design with purpose. Create without limits.</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace" font-size="14" letter-spacing="1.5">
+    <text x="64" y="304" fill="#888888"><tspan fill="#0070F3">$</tspan> editor · templates · email designer · ai studio</text>
+    <text x="1216" y="304" text-anchor="end" fill="#888888">next.js · express · postgresql</text>
+  </g>
+</svg>
