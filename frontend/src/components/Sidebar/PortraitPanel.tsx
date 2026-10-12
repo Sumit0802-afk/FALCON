@@ -181,14 +181,21 @@ export function PortraitPanel({ target, onApply, onAddNew, onUpload }: PortraitP
     }
   };
 
+  // Only the styles this server can make are offered; a type with none left is not listed at all
+  const offered = useMemo(
+    () => (catalogue ? catalogue.groups.map((group) => ({ ...group, styles: group.styles.filter((s) => s.available) })).filter((group) => group.styles.length) : []),
+    [catalogue]
+  );
+  // The chosen type, or the first one when the choice is no longer offered
+  const currentGroup = offered.some((group) => group.name === groupName) ? groupName : offered[0]?.name || "";
+
   const groups = useMemo(() => {
-    if (!catalogue) return [];
     const q = query.trim().toLowerCase();
-    if (!q) return catalogue.groups.filter((group) => group.name === (groupName || catalogue.groups[0]?.name));
-    return catalogue.groups
+    if (!q) return offered.filter((group) => group.name === currentGroup);
+    return offered
       .map((group) => ({ ...group, styles: group.styles.filter((s) => s.name.toLowerCase().includes(q) || group.name.toLowerCase().includes(q)) }))
       .filter((group) => group.styles.length);
-  }, [catalogue, query, groupName]);
+  }, [offered, query, currentGroup]);
 
   const describe = () => {
     const text = description.trim();
@@ -390,11 +397,11 @@ export function PortraitPanel({ target, onApply, onAddNew, onUpload }: PortraitP
               <label htmlFor="portrait-group" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Portrait type</label>
               <select
                 id="portrait-group"
-                value={groupName || catalogue.groups[0]?.name || ""}
+                value={currentGroup}
                 onChange={(e) => setGroupName(e.target.value)}
                 className="w-full rounded-lg border border-white/[0.08] bg-[#14151a] px-2.5 py-2 text-[12px] text-white outline-none focus:border-cyan-500/40"
               >
-                {catalogue.groups.map((group) => (
+                {offered.map((group) => (
                   <option key={group.name} value={group.name}>{group.name}</option>
                 ))}
               </select>
