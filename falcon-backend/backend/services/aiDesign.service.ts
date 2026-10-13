@@ -228,6 +228,62 @@ function variationInstructions(count: number, sizeName: string): string {
 
 // ─── Talking to the model ─────────────────────────────────────────────────────
 
+/** The longest one model is waited on. A model that has not answered by then is passed over for the next */
+const MODEL_TIMEOUT = 32_000;
+/**
+ * The longest a piece of work may spend going through the models. Hosts that run
+ * the API as functions end a request after a minute, and the person is then shown
+ * nothing useful; stopping first lets Falcon say what happened.
+ */
+const WORK_BUDGET = 52_000;
+/** How long a model that was busy or silent is kept at the back of the queue */
+const REST = 90_000;
+
+const resting = new Map<string, number>();
+
+/** The text models to try, those that answered last time first */
+export function modelsInOrder(): string[] {
+  const listed = provider().textModels;
+  const models = listed.length ? listed : ["gpt-5.4-mini"];
+  const now = Date.now();
+  const tired = (model: string) => (resting.get(model) || 0) > now;
+  return [...models.filter((m) => !tired(m)), ...models.filter(tired)];
+}
+
+/**
+ * Does a piece of work with the first model that manages it. A model that is
+ * overloaded, rate limited, withdrawn or slow is passed over for the next and
+ * kept at the back for a while, so the requests that follow do not wait on it
+ * again. A bad key or an empty account fails the same way on every model, so
+ * those stop at once. The whole of it stays inside WORK_BUDGET.
+ */
+export async function withModels<T>(what: string, work: (model: string, timeout: number) => Promise<T>): Promise<T> {
+  const started = Date.now();
+  const left = () => WORK_BUDGET - (Date.now() - started);
+  let failure: any;
+  for (let round = 0; round < 2; round++) {
+    // A service that is busy or over its per-minute allowance often answers a few seconds later
+    if (round) {
+      if (left() < 12_000) break;
+      await new Promise((done) => setTimeout(done, 3000));
+    }
+    for (const model of modelsInOrder()) {
+      if (failure && left() < 6000) break;
+      try {
+        return await work(model, Math.max(6000, Math.min(MODEL_TIMEOUT, left())));
+      } catch (err: any) {
+        failure = err;
+        const status = Number(err?.status) || 0;
+        const outOfCredit = /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`);
+        console.error(`[ai] model ${model} did not ${what} (status: ${status || "n/a"})`);
+        if (outOfCredit || (status && ![404, 408, 429, 500, 502, 503, 504, 529].includes(status))) throw err;
+        resting.set(model, Date.now() + REST);
+      }
+    }
+  }
+  throw failure;
+}
+
 let client: OpenAI | null = null;
 let clientFor = "";
 
@@ -238,7 +294,7 @@ export function ai(): OpenAI {
   if (!client || clientFor !== wanted) {
     // No retries by the client itself: it waits as long as a busy service asks it to, which left
     // people watching "Designing…" for minutes. The list of models below is the retry instead
-    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: 75_000, maxRetries: 0 });
+    client = new OpenAI({ apiKey, baseURL: baseURL || undefined, timeout: MODEL_TIMEOUT, maxRetries: 0 });
     clientFor = wanted;
   }
   return client;
@@ -254,7 +310,8 @@ export function aiError(err: any, what: string): AppError {
   if (err instanceof AppError) return err;
   const status = Number(err?.status) || 0;
   console.error(`[ai] ${what} failed (status: ${status || "n/a"}, code: ${err?.code || err?.name || "unknown"})`);
-  if (!status && /timed out|connection|ECONN|ENOTFOUND|fetch failed/i.test(`${err?.name} ${err?.message} ${err?.code}`)) return new AppError("Falcon could not reach the AI service. Check the internet connection and try again.", 502, "AI_UNREACHABLE");
+  if (!status && /timed? ?out/i.test(`${err?.name} ${err?.message}`)) return new AppError("The AI service is taking too long to answer right now. Please try again in a moment.", 502, "AI_BUSY");
+  if (!status && /connection|ECONN|ENOTFOUND|fetch failed/i.test(`${err?.name} ${err?.message} ${err?.code}`)) return new AppError("Falcon could not reach the AI service. Check the internet connection and try again.", 502, "AI_UNREACHABLE");
   if (status === 401 || status === 403) return new AppError("The AI service refused Falcon's key. Check the AI key in the backend's .env file.", 502, "AI_KEY_REJECTED");
   if (status === 503 || status === 529) return new AppError("The AI service is very busy right now. Please try again in a moment.", 502, "AI_BUSY");
   if (status === 404) return new AppError("The AI service does not know the model Falcon asked for. Check AI_TEXT_MODEL and AI_BASE_URL in the backend's .env file.", 502, "AI_MODEL_UNKNOWN");
@@ -279,10 +336,8 @@ export function readJson(content: string): any {
 }
 
 export async function askForSpecs(system: string, prompt: string, count: number): Promise<unknown[]> {
-  const models = provider().textModels;
-  if (!models.length) models.push("gpt-5.4-mini");
   const schema = specJsonSchema(count);
-  const ask = (model: string, format: any, extra = "") =>
+  const ask = (model: string, timeout: number, format: any, extra = "") =>
     ai().chat.completions.create({
       model,
       messages: [
@@ -290,42 +345,19 @@ export async function askForSpecs(system: string, prompt: string, count: number)
         { role: "user", content: prompt },
       ],
       response_format: format,
-    });
+    }, { timeout });
 
-  const askModel = async (model: string) => {
+  const response = await withModels("design that", async (model, timeout) => {
+    const started = Date.now();
     try {
-      return await ask(model, { type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema } });
+      return await ask(model, timeout, { type: "json_schema", json_schema: { name: "falcon_designs", strict: true, schema } });
     } catch (err: any) {
       // Some services do not take a schema. They are given it in words and asked for plain JSON instead;
       // every design is checked against the same rules afterwards either way
       if (Number(err?.status) !== 400) throw err;
-      return ask(model, { type: "json_object" }, `\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema exactly:\n${JSON.stringify(schema)}`);
+      return ask(model, Math.max(6000, timeout - (Date.now() - started)), { type: "json_object" }, `\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema exactly:\n${JSON.stringify(schema)}`);
     }
-  };
-
-  let response: Awaited<ReturnType<typeof askModel>> | undefined;
-  let failure: any;
-  // The models are gone through twice. A service that is busy or over its per-minute
-  // allowance often answers a few seconds later, so the second round follows a short pause
-  rounds: for (let round = 0; round < 2; round++) {
-    if (round) await new Promise((done) => setTimeout(done, 5000));
-    for (const model of models) {
-      try {
-        response = await askModel(model);
-        break rounds;
-      } catch (err: any) {
-        failure = err;
-        // A model that is overloaded, rate limited, withdrawn or slow is passed over for the next one.
-        // A bad key or an empty account would fail the same way on every model, so those stop here
-        const status = Number(err?.status) || 0;
-        const outOfCredit = /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`);
-        const worthAnother = !outOfCredit && (!status || [404, 408, 429, 500, 502, 503, 504, 529].includes(status));
-        console.error(`[ai] model ${model} did not answer (status: ${status || "n/a"})`);
-        if (!worthAnother) break rounds;
-      }
-    }
-  }
-  if (!response) throw failure;
+  });
   const choice = response.choices[0]?.message;
   if (choice?.refusal) throw new AppError("The AI service would not make that. Try describing it differently.", 400, "AI_REFUSED");
   const parsed = readJson(choice?.content || "{}");
@@ -390,33 +422,18 @@ export function readSlides(raw: unknown): DesignSpec["slides"] {
 
 /** Writes the slides of a presentation on what the person asked for */
 export async function askForSlides(prompt: string, wording: unknown = null): Promise<DesignSpec["slides"]> {
-  const models = provider().textModels;
-  if (!models.length) models.push("gpt-5.4-mini");
   const system = slideInstructions(wording);
-  let failure: any;
-  // As with the designs: each model is tried, and a busy service is given a moment before a second round
-  for (let round = 0; round < 2; round++) {
-    if (round) await new Promise((done) => setTimeout(done, 4000));
-    for (const model of models) {
-      try {
-        const response = await ai().chat.completions.create({
-          model,
-          messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-        });
-        const slides = readSlides(readJson(response.choices[0]?.message?.content || "{}").slides);
-        // Two slides or fewer is not a presentation; the next model is asked instead
-        if (slides.length >= 3) return slides;
-        failure = new Error("The model wrote too few slides");
-      } catch (err: any) {
-        failure = err;
-        const status = Number(err?.status) || 0;
-        console.error(`[ai] model ${model} did not write the slides (status: ${status || "n/a"})`);
-        if (status === 401 || status === 403 || /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) throw err;
-      }
-    }
-  }
-  throw failure;
+  return withModels("write the slides", async (model, timeout) => {
+    const response = await ai().chat.completions.create({
+      model,
+      messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    }, { timeout });
+    const slides = readSlides(readJson(response.choices[0]?.message?.content || "{}").slides);
+    // Two slides or fewer is not a presentation; the next model is asked instead
+    if (slides.length < 3) throw new Error("The model wrote too few slides");
+    return slides;
+  });
 }
 
 /** Makes one picture and keeps it, returning the id it is known by */
@@ -530,7 +547,8 @@ async function buildDeck(spec: DesignSpec, size: { name: string; width: number; 
   const u = H / 100;
   const style = STYLE_BY_ID[spec.style];
   const palette = paletteOf(spec);
-  const h = hashString(`${spec.name}|${spec.title}|${spec.style}|deck`);
+  // The layout is not drawn in a deck, but versions of one design each have their own, so it sets them apart
+  const h = hashString(`${spec.name}|${spec.title}|${spec.style}|${spec.layout}|deck`);
   const bg = makeBackground(pick(style.backgrounds, h >>> 6), palette, h >>> 9);
   const stock = CATEGORY_PHOTOS[spec.subject] || CATEGORY_PHOTOS.events || [];
   const own = spec.photos.filter(hasSource);

@@ -125,7 +125,7 @@ export interface StudioFidelity {
 }
 
 /** Whether a finished artwork can be made on this server right now */
-export function getStudioStatus(): Promise<{ artwork: boolean; configured: boolean }> {
+export function getStudioStatus(): Promise<{ artwork: boolean; configured: boolean; reason?: string }> {
   return apiFetch("/ai/studio/status");
 }
 

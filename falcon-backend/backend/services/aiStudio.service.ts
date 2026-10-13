@@ -33,7 +33,7 @@ import { AppError } from "../utils/AppError";
 import { FONT_PAIRS, STYLES, contrastRatio, onColor } from "../templates/library/core";
 import {
   COPY_RULES, DesignSpec, GeneratedDesign, PHOTO_LAYOUT_IDS, SIZE_BY_ID,
-  DECK_SIZE, ai, aiError, askForSlides, askForSpecs, buildPages, checkSpecs, choosePhotos, present, provider, readJson,
+  DECK_SIZE, ai, aiError, askForSlides, askForSpecs, buildPages, checkSpecs, choosePhotos, present, provider, readJson, withModels,
 } from "./aiDesign.service";
 import { AI_ASSET_DIR } from "./aiImages";
 import { FalError, falPicture } from "./falPicture";
@@ -147,29 +147,15 @@ const ROLE_WORDS: Record<(typeof ROLES)[number], string> = {
 
 /** Asks the language model a question that is answered in JSON, with pictures if any are given */
 async function askJson(system: string, user: string, pictures: string[] = []): Promise<any> {
-  const models = provider().textModels;
-  if (!models.length) models.push("gpt-5.4-mini");
   const content: any[] = [{ type: "text", text: user }, ...pictures.map((data) => ({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${data}` } }))];
-  let failure: any;
-  for (let round = 0; round < 2; round++) {
-    if (round) await new Promise((done) => setTimeout(done, 4000));
-    for (const model of models) {
-      try {
-        const response = await ai().chat.completions.create({
-          model,
-          messages: [{ role: "system", content: `${system}\n\nAnswer with one JSON object and nothing else.` }, { role: "user", content: pictures.length ? content : user }],
-          response_format: { type: "json_object" },
-        } as any);
-        return readJson(response.choices[0]?.message?.content || "{}");
-      } catch (err: any) {
-        failure = err;
-        const status = Number(err?.status) || 0;
-        console.error(`[studio] model ${model} did not answer (status: ${status || "n/a"})`);
-        if (status && ![404, 408, 429, 500, 502, 503, 504, 529].includes(status)) throw err;
-      }
-    }
-  }
-  throw failure;
+  return withModels("answer the studio", async (model, timeout) => {
+    const response = await ai().chat.completions.create({
+      model,
+      messages: [{ role: "system", content: `${system}\n\nAnswer with one JSON object and nothing else.` }, { role: "user", content: pictures.length ? content : user }],
+      response_format: { type: "json_object" },
+    } as any, { timeout });
+    return readJson(response.choices[0]?.message?.content || "{}");
+  });
 }
 
 // ─── 1. Looking at the reference ──────────────────────────────────────────────
@@ -431,6 +417,7 @@ function artworkConfigured(): boolean {
   return falPicture.chosen() ? falPicture.hasKey() : artworkModel() !== "";
 }
 
+const NO_MODEL = "No picture model is set up on this server, so a finished artwork cannot be made.";
 const NO_ALLOWANCE = "The picture model has no allowance on this server's AI account, so a finished artwork cannot be made. Billing has to be enabled for the account whose key is in the backend's .env file.";
 const NO_BALANCE = "The picture service's account has no balance, or its key is not accepted, so a finished artwork cannot be made. Check the key and the balance of the account named in the backend's .env file.";
 
@@ -577,7 +564,10 @@ const PARTS = ["composition", "typography", "color", "density", "placement", "ba
 export const aiStudioService = {
   /** Whether a finished artwork can be made right now, or only an editable layout */
   status() {
-    return { artwork: canMakeArtwork(), configured: artworkConfigured() };
+    const artwork = canMakeArtwork();
+    const configured = artworkConfigured();
+    const reason = artwork ? "" : !configured ? NO_MODEL : falPicture.chosen() ? NO_BALANCE : NO_ALLOWANCE;
+    return { artwork, configured, reason };
   },
 
   /** Looks at the reference pictures and says what they are made of */
@@ -632,7 +622,7 @@ export const aiStudioService = {
    * for a variation or for a fix, so the design stays the same design.
    */
   async artwork(input: { compiled: string; sizeId: string; references: Reference[]; base?: string; instruction?: string; baseUrl: string }): Promise<{ url: string; width: number; height: number }> {
-    if (!artworkConfigured()) throw new AppError("No picture model is set up on this server, so a finished artwork cannot be made.", 503, "ARTWORK_UNAVAILABLE");
+    if (!artworkConfigured()) throw new AppError(NO_MODEL, 503, "ARTWORK_UNAVAILABLE");
     if (!canMakeArtwork()) throw new AppError(falPicture.chosen() ? NO_BALANCE : NO_ALLOWANCE, 503, "ARTWORK_UNAVAILABLE");
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
     const pictures: { label: string; data: string }[] = [];

@@ -8,7 +8,7 @@ import { isAuthenticated } from "@/services/authService";
 import {
   AI_SIZES, AiDesign, STUDIO_DEFAULTS, StudioAnalysis, StudioArtwork, StudioContent, StudioDensity, StudioDna, StudioFidelity, StudioLevel,
   StudioReference, StudioRole, StudioSettings, StudioStrength, StudioUsage,
-  analyzeReferences, compileStudioPrompt, evaluateStudioArtwork, makeStudioArtwork, makeStudioLayout, openAiDesign, openStudioArtwork,
+  analyzeReferences, compileStudioPrompt, evaluateStudioArtwork, getStudioStatus, makeStudioArtwork, makeStudioLayout, openAiDesign, openStudioArtwork,
 } from "@/services/aiService";
 
 /* ─── Choices ─────────────────────────────────────────────────────────────── */
@@ -81,6 +81,8 @@ function failureMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401) return "Please sign in to use AI Studio.";
     if (err.status === 429) return "You've asked for a lot of designs in a short time. Please wait a few minutes and try again.";
+    // The host ended the request before Falcon could answer; what it sends back is not written for people
+    if (err.status === 504 || (err.status >= 500 && !err.code)) return "AI Studio took too long to answer, usually because the AI service is busy. Please try again in a moment.";
     if (err.message) return err.message.replace(/^[a-z.0-9]+: /i, "");
   }
   return "Falcon couldn't reach AI Studio. Check your connection and try again.";
@@ -189,6 +191,13 @@ export default function StudioWorkspace() {
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  /** Whether this server can make a finished artwork, and why not when it cannot. Unknown until asked */
+  const artworkStatus = useRef<{ artwork: boolean; reason?: string } | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    getStudioStatus().then((status) => { artworkStatus.current = status; }).catch(() => undefined);
+  }, []);
 
   const set = <K extends keyof StudioSettings>(key: K, value: StudioSettings[K]) => {
     touched.current.add(key);
@@ -326,6 +335,9 @@ export default function StudioWorkspace() {
       const ready = await prepare(true);
       try {
         mark("artwork", "working");
+        // A server known to have no picture model is not asked for a picture
+        const known = artworkStatus.current;
+        if (known && !known.artwork && known.reason) throw new ApiError(known.reason, 503, "ARTWORK_UNAVAILABLE");
         let artwork = await makeStudioArtwork({ compiled: ready.compiled, size, references });
         mark("artwork", "done");
 
