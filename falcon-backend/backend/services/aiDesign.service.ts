@@ -24,6 +24,7 @@ import {
   backgroundCss, contrastRatio, decorate, hashString, makeBackground, onColor, pick, rngFrom,
 } from "../templates/library/core";
 import { POSTER_LAYOUTS, PosterCtx } from "../templates/library/posterLayouts";
+import { DeckTheme, MOTIFS, OutlineSlide, drawOutlineSlide, drawTitleSlide } from "../templates/library/deckSlides";
 import { POSTER_SIZES } from "../templates/library/posterCatalog";
 import { renderPageSvg } from "../templates/library/thumbnail";
 import { CATEGORY_PHOTOS, photoUrl } from "../templates/email/photos";
@@ -80,6 +81,21 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const hex = z.string().regex(HEX);
 const line = (max: number) => z.string().trim().max(max);
 
+const SLIDE_KINDS = ["points", "list", "steps", "focus", "compare", "statement", "section", "closing"] as const;
+
+/** One slide of a presentation: what kind it is and the words on it */
+const slideSchema = z.object({
+  kind: z.enum(SLIDE_KINDS),
+  title: line(80).min(1),
+  body: line(360).default(""),
+  points: z.array(z.object({ head: line(70), body: line(180).default("") })).max(5).default([]),
+});
+
+/** The id of the format that is a deck of slides */
+export const DECK_SIZE = "presentation";
+/** The most slides written for one deck, the opening slide aside */
+const MAX_SLIDES = 12;
+
 /** One design as the model describes it. Also what the browser sends back to open a design. */
 export const designSpecSchema = z.object({
   name: line(80).min(1),
@@ -101,6 +117,8 @@ export const designSpecSchema = z.object({
   imagePrompt: line(600),
   /** The pictures chosen for this design, by the id they are kept under on this server */
   photos: z.array(z.string().regex(/^[0-9a-f]{32}$/)).max(4).default([]),
+  /** A presentation's slides after the opening one. Empty for a design of one page */
+  slides: z.array(slideSchema).max(MAX_SLIDES).default([]),
 });
 
 export type DesignSpec = z.infer<typeof designSpecSchema>;
@@ -314,6 +332,93 @@ export async function askForSpecs(system: string, prompt: string, count: number)
   return Array.isArray(parsed.designs) ? parsed.designs : [];
 }
 
+// ─── A presentation's slides ──────────────────────────────────────────────────
+
+function slideInstructions(wording: unknown): string {
+  return [
+    "You are writing a presentation inside Falcon, a design tool. A person describes the presentation they need. Falcon makes the opening slide itself; you write every slide after it.",
+    "Write 6 to 9 slides and then one closing slide, so the deck tells its subject from start to finish. If the person asks for a number of slides, write that many less one (the opening slide is already made), but never more than 11.",
+    "Each slide has a kind, chosen to suit what it says:",
+    "- \"points\": 2 to 4 ideas of equal weight, shown as cards. Each has a head and a body.",
+    "- \"list\": 3 to 5 short points down the slide, beside a picture. Each has a head and may have a body.",
+    "- \"steps\": 3 to 5 stages in order, as a timeline. Each has a head and a body.",
+    "- \"focus\": one idea explained in the slide's body, beside a picture, with up to 3 points that have a head only.",
+    "- \"compare\": exactly 2 things set side by side. Each has a head and a body.",
+    "- \"statement\": one sentence worth a slide of its own, in the slide's body. No points.",
+    "- \"section\": a divider that opens a new part of the deck. A title only. Use it only in decks of 9 slides or more.",
+    "- \"closing\": the last slide. Its title is a short sign-off such as \"Thank You\", and its body is one closing sentence.",
+    "Use several different kinds, and never the same kind on two slides in a row. The last slide is always \"closing\" and no other slide is.",
+    "Keep the words short enough to be read from the back of a room: a slide title of at most 6 words, a head of at most 6 words, a point's body of at most 16 words, a slide's body of at most 36 words.",
+    "Write in the language of the request. Use any names, dates, places, prices or wording the person gave, exactly.",
+    "Never invent facts. Do not make up statistics, figures, percentages, dates, prices, quotations, people, companies or results. Explain the subject in general terms that are true of it; where a fact only the person can know is needed, write a short placeholder they will replace, such as \"Add your figure\" or \"Add date\".",
+    wording ? `Wording the person gave, to be used exactly where it belongs: ${JSON.stringify(wording)}` : "",
+    'Answer with one JSON object and nothing else, in this shape: { "slides": [ { "kind": string, "title": string, "body": string, "points": [ { "head": string, "body": string } ] } ] }',
+  ].filter(Boolean).join("\n");
+}
+
+const cut = (value: unknown, max: number) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+
+/** The model's slides, each made fit to draw: enough points for its kind, nothing too long, a closing slide last */
+export function readSlides(raw: unknown): DesignSpec["slides"] {
+  const slides: DesignSpec["slides"] = [];
+  let closing: DesignSpec["slides"][number] | null = null;
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const title = cut(item?.title, 80);
+    if (!title) continue;
+    const body = cut(item?.body, 360);
+    const points = (Array.isArray(item?.points) ? item.points : [])
+      .map((p: any) => ({ head: cut(typeof p === "string" ? p : p?.head, 70), body: cut(typeof p === "string" ? "" : p?.body, 180) }))
+      .filter((p: { head: string }) => p.head)
+      .slice(0, 5);
+    let kind = (SLIDE_KINDS as readonly string[]).includes(item?.kind) ? (item.kind as (typeof SLIDE_KINDS)[number]) : "list";
+    if (kind === "closing") {
+      closing = { kind, title, body, points: [] };
+      continue;
+    }
+    // A slide that has not the points its kind is drawn with is drawn as a kind it does have them for
+    if (kind === "points" && points.length > 4) kind = "list";
+    if (kind === "steps" && points.length < 3) kind = "points";
+    if ((kind === "points" || kind === "compare" || kind === "list") && points.length < 2) kind = body || points.length ? "focus" : "statement";
+    if (kind === "focus" && !body && !points.length) kind = "statement";
+    if (kind === "section") slides.push({ kind, title, body: "", points: [] });
+    else slides.push({ kind, title, body, points });
+  }
+  const kept = slides.slice(0, MAX_SLIDES - 1);
+  if (!kept.length) return [];
+  return [...kept, closing || { kind: "closing", title: "Thank You", body: "", points: [] }];
+}
+
+/** Writes the slides of a presentation on what the person asked for */
+export async function askForSlides(prompt: string, wording: unknown = null): Promise<DesignSpec["slides"]> {
+  const models = provider().textModels;
+  if (!models.length) models.push("gpt-5.4-mini");
+  const system = slideInstructions(wording);
+  let failure: any;
+  // As with the designs: each model is tried, and a busy service is given a moment before a second round
+  for (let round = 0; round < 2; round++) {
+    if (round) await new Promise((done) => setTimeout(done, 4000));
+    for (const model of models) {
+      try {
+        const response = await ai().chat.completions.create({
+          model,
+          messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+        });
+        const slides = readSlides(readJson(response.choices[0]?.message?.content || "{}").slides);
+        // Two slides or fewer is not a presentation; the next model is asked instead
+        if (slides.length >= 3) return slides;
+        failure = new Error("The model wrote too few slides");
+      } catch (err: any) {
+        failure = err;
+        const status = Number(err?.status) || 0;
+        console.error(`[ai] model ${model} did not write the slides (status: ${status || "n/a"})`);
+        if (status === 401 || status === 403 || /credit_balance_exhausted|insufficient_quota|billing/i.test(`${err?.code} ${err?.type}`)) throw err;
+      }
+    }
+  }
+  throw failure;
+}
+
 /** Makes one picture and keeps it, returning the id it is known by */
 async function makeImage(prompt: string, width: number, height: number): Promise<string> {
   const size = width > height * 1.2 ? "1536x1024" : height > width * 1.2 ? "1024x1536" : "1024x1024";
@@ -415,6 +520,71 @@ export async function buildDesign(spec: DesignSpec, sizeId: string, baseUrl: str
   return draw((w, hh, n = 0) => cut.get(key(w, hh, n)) || stockPhoto(w, hh, n));
 }
 
+/**
+ * Sets a presentation out as its slides: the opening slide from the design's
+ * own title and tagline, then one page for each slide that was written. Every
+ * slide shares the design's colours, type and motif, so the deck reads as one.
+ */
+async function buildDeck(spec: DesignSpec, size: { name: string; width: number; height: number }, baseUrl: string): Promise<LibPage[]> {
+  const { width: W, height: H } = size;
+  const u = H / 100;
+  const style = STYLE_BY_ID[spec.style];
+  const palette = paletteOf(spec);
+  const h = hashString(`${spec.name}|${spec.title}|${spec.style}|deck`);
+  const bg = makeBackground(pick(style.backgrounds, h >>> 6), palette, h >>> 9);
+  const stock = CATEGORY_PHOTOS[spec.subject] || CATEGORY_PHOTOS.events || [];
+  const own = spec.photos.filter(hasSource);
+  const closing = spec.slides.find((slide) => slide.kind === "closing");
+  const notes = spec.details.filter((d) => d.label && d.value).map((d) => `${d.label}: ${d.value}`).slice(0, 3);
+  const theme: Omit<DeckTheme, "photo"> = {
+    W, H, u, m: W * 0.06, pal: palette, fonts: FONT_BY_ID[spec.font] || FONT_BY_ID[style.fonts[0]], style,
+    motif: pick(MOTIFS, h >>> 3), titleAlign: (h >>> 5) % 2 ? "center" : "left",
+    deckTitle: spec.title, org: spec.brand,
+    sub: { group: "ai", slug: "ai", name: spec.kicker || spec.brand || spec.name, industry: "", topic: spec.title, titles: [spec.title], subtitle: spec.tagline, points: [], stats: [], steps: [], photos: "" },
+    variant: h % 97,
+    byline: spec.brand.toUpperCase(),
+    closing: { title: closing?.title || "Thank You", text: closing?.body || "", notes: notes.length ? notes : spec.brand ? [spec.brand] : [] },
+  };
+
+  const draw = (photo: DeckTheme["photo"]): LibPage[] => {
+    const slides = spec.slides as OutlineSlide[];
+    const total = slides.length + 1;
+    let sections = 0;
+    return [null, ...slides].map((slide, index) => {
+      const sheet = new Sheet(`ai${(h >>> 0).toString(36)}s${index + 1}`);
+      const ctx = { ...theme, photo, sheet, index, total, rng: rngFrom(h + index * 7919) };
+      if (!slide) drawTitleSlide(ctx);
+      else drawOutlineSlide(ctx, slide, slide.kind === "section" ? sections++ : 0);
+      return { name: `${index + 1}. ${slide ? slide.title : spec.title}`.slice(0, 120), width: W, height: H, background: backgroundCss(bg), backgroundSpec: bg, elements: sheet.elements };
+    });
+  };
+
+  const stockPhoto: DeckTheme["photo"] = (w, hh, n = 0) => photoUrl(pick(stock, (h >>> 4) + n), Math.min(1600, w), Math.min(1600, w) * (hh / w));
+  if (!own.length) return draw(stockPhoto);
+
+  // As for a single page: the slides are drawn once to learn which pictures are wanted and how
+  // large, each is cut to its box, and the slides are drawn again with the results
+  const wanted = new Map<string, { id: string; w: number; h: number; backdrop: boolean }>();
+  const key = (w: number, hh: number, n: number) => `${Math.round(w)}x${Math.round(hh)}#${n}`;
+  draw((w, hh, n = 0) => {
+    wanted.set(key(w, hh, n), { id: own[n % own.length], w, h: hh, backdrop: w * hh >= W * H * 0.85 });
+    return "";
+  });
+  const cutTo = new Map<string, string>();
+  await Promise.all([...wanted].map(async ([k, box]) => {
+    const name = await cropSource(box.id, box.w, box.h, box.backdrop);
+    if (name) cutTo.set(k, assetUrl(baseUrl, name));
+  }));
+  return draw((w, hh, n = 0) => cutTo.get(key(w, hh, n)) || stockPhoto(w, hh, n));
+}
+
+/** Every page of a design: the slides of a presentation, or the one page of anything else */
+export async function buildPages(spec: DesignSpec, sizeId: string, baseUrl: string): Promise<LibPage[]> {
+  const size = SIZE_BY_ID[sizeId] || SIZE_BY_ID["portrait-4x5"];
+  if (size.id === DECK_SIZE && spec.slides.length) return buildDeck(spec, size, baseUrl);
+  return [await buildChecked(spec, sizeId, baseUrl)];
+}
+
 /** Whether a page shows at least one picture */
 function hasPicture(page: LibPage): boolean {
   return page.elements.some((el: any) => (el.type === "image" && el.src) || (el.type === "frame" && el.imageSrc));
@@ -447,7 +617,7 @@ function spreadLayouts(specs: DesignSpec[]): void {
 }
 
 /** Finds each option a photograph of its own on the subject, and keeps it on this server */
-export async function choosePhotos(specs: DesignSpec[], prompt: string): Promise<void> {
+export async function choosePhotos(specs: DesignSpec[], prompt: string, each = 2): Promise<void> {
   const used = new Set<string>();
   await Promise.all(specs.map(async (spec, index) => {
     const found = await findPhotos(spec.imageQueries.length ? spec.imageQueries : [prompt.slice(0, 80)]);
@@ -455,7 +625,7 @@ export async function choosePhotos(specs: DesignSpec[], prompt: string): Promise
     const order = found.map((_, i) => found[(i + index * 2) % found.length]);
     const ids: string[] = [];
     for (const photo of order) {
-      if (ids.length >= 2) break;
+      if (ids.length >= each) break;
       if (used.has(photo.url)) continue;
       const id = await fetchSource(photo);
       if (id) {
@@ -467,8 +637,13 @@ export async function choosePhotos(specs: DesignSpec[], prompt: string): Promise
   }));
 }
 
-export function present(spec: DesignSpec, page: LibPage): GeneratedDesign {
-  return { spec, name: spec.name, direction: spec.direction, width: page.width, height: page.height, preview: renderPageSvg(page) };
+export function present(spec: DesignSpec, pages: LibPage[]): GeneratedDesign {
+  const [page] = pages;
+  return {
+    spec, name: spec.name, direction: spec.direction, width: page.width, height: page.height, preview: renderPageSvg(page),
+    // A presentation is shown slide by slide; the first is the preview above
+    slides: pages.length > 1 ? pages.slice(1).map((slide) => ({ name: slide.name, preview: renderPageSvg(slide) })) : [],
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -482,6 +657,8 @@ export interface GeneratedDesign {
   height: number;
   /** A preview of the page as SVG markup */
   preview: string;
+  /** The pages after the first, for a design of several: a presentation's slides */
+  slides: { name: string; preview: string }[];
 }
 
 export function checkSpecs(raw: unknown[]): DesignSpec[] {
@@ -498,15 +675,22 @@ export const aiDesignService = {
   /** Reads the request and returns design options, each ready to open in the editor */
   async generate(input: { prompt: string; sizeId: string; count: number; withImage: boolean; baseUrl: string }): Promise<{ designs: GeneratedDesign[]; imageMade: boolean }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
+    const deck = size.id === DECK_SIZE;
     let raw: unknown[];
+    let slides: DesignSpec["slides"] = [];
     try {
-      raw = await askForSpecs(instructions(input.count, size.name), input.prompt, input.count);
+      // The look and the slides are asked for together, so a presentation takes no longer than a poster
+      [raw, slides] = await Promise.all([
+        askForSpecs(instructions(input.count, size.name), input.prompt, input.count),
+        deck ? askForSlides(input.prompt) : Promise.resolve([]),
+      ]);
     } catch (err) {
       throw aiError(err, "design that");
     }
 
     const specs = checkSpecs(raw);
-    specs.forEach((spec, i) => { spec.direction = DIRECTIONS[i % DIRECTIONS.length]; });
+    // Every option is the same presentation, designed differently
+    specs.forEach((spec, i) => { spec.direction = DIRECTIONS[i % DIRECTIONS.length]; spec.slides = slides; });
     spreadLayouts(specs);
 
     // A picture made for the request is shared by the options, which keeps a request quick and its cost low
@@ -521,9 +705,9 @@ export const aiDesignService = {
         aiError(err, "make a picture");
       }
     }
-    if (!imageMade) await choosePhotos(specs, input.prompt);
+    if (!imageMade) await choosePhotos(specs, input.prompt, deck ? 4 : 2);
 
-    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildPages(spec, size.id, input.baseUrl))));
     return { designs, imageMade };
   },
 
@@ -531,7 +715,7 @@ export const aiDesignService = {
   async variations(input: { spec: DesignSpec; sizeId: string; count: number; baseUrl: string }): Promise<{ designs: GeneratedDesign[] }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
     const original = input.spec;
-    const { photos, ...shown } = original;
+    const { photos, slides, ...shown } = original;
     let raw: unknown[];
     try {
       raw = await askForSpecs(variationInstructions(input.count, size.name), JSON.stringify(shown), input.count);
@@ -545,39 +729,39 @@ export const aiDesignService = {
       Object.assign(spec, {
         direction: original.direction, kicker: original.kicker, title: original.title, tagline: original.tagline, cta: original.cta,
         details: original.details, brand: original.brand, subject: original.subject, imageQueries: original.imageQueries,
-        imagePrompt: original.imagePrompt, photos: photos.filter(hasSource),
+        imagePrompt: original.imagePrompt, photos: photos.filter(hasSource), slides,
       });
     }
     spreadLayouts(specs);
-    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildPages(spec, size.id, input.baseUrl))));
     return { designs };
   },
 
   /** The same designs set out again for another format. Nothing is stretched: each layout is run afresh at the new size */
   async resize(input: { specs: DesignSpec[]; sizeId: string; baseUrl: string }): Promise<{ designs: GeneratedDesign[] }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
-    const designs = await Promise.all(input.specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    const designs = await Promise.all(input.specs.map(async (spec) => present(spec, await buildPages(spec, size.id, input.baseUrl))));
     return { designs };
   },
 
   /** Saves a chosen design as a project of the signed-in user */
   async use(userId: string, input: { spec: DesignSpec; sizeId: string; baseUrl: string }): Promise<{ projectId: string }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
-    const page = await buildChecked(input.spec, size.id, input.baseUrl);
+    const pages = await buildPages(input.spec, size.id, input.baseUrl);
     const project = await prisma.project.create({
       data: {
         title: (input.spec.title || input.spec.name).slice(0, 190),
         ownerId: userId,
         pages: {
-          create: [{
+          create: pages.map((page, order) => ({
             name: page.name,
             width: page.width,
             height: page.height,
             presetName: size.name,
             background: page.background,
             elements: JSON.stringify(page.elements),
-            order: 0,
-          }],
+            order,
+          })),
         },
       },
       select: { id: true },

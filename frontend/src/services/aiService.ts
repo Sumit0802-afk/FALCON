@@ -12,6 +12,8 @@ export interface AiDesign {
   height: number;
   /** A preview of the page as SVG markup, made by Falcon's own server */
   preview: string;
+  /** The pages after the first, for a design of several: a presentation's slides */
+  slides?: { name: string; preview: string }[];
 }
 
 export interface AiDesignSize {

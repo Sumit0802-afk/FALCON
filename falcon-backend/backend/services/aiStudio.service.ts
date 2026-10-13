@@ -33,7 +33,7 @@ import { AppError } from "../utils/AppError";
 import { FONT_PAIRS, STYLES, contrastRatio, onColor } from "../templates/library/core";
 import {
   COPY_RULES, DesignSpec, GeneratedDesign, PHOTO_LAYOUT_IDS, SIZE_BY_ID,
-  ai, aiError, askForSpecs, buildChecked, checkSpecs, choosePhotos, present, provider, readJson,
+  DECK_SIZE, ai, aiError, askForSlides, askForSpecs, buildPages, checkSpecs, choosePhotos, present, provider, readJson,
 } from "./aiDesign.service";
 import { AI_ASSET_DIR } from "./aiImages";
 import { FalError, falPicture } from "./falPicture";
@@ -694,13 +694,20 @@ export const aiStudioService = {
    */
   async layout(input: { prompt: string; sizeId: string; content: StudioContent; analysis: Analysis | null; settings: StudioSettings; count: number; keep?: DesignSpec; baseUrl: string }): Promise<{ designs: GeneratedDesign[] }> {
     const size = SIZE_BY_ID[input.sizeId] || SIZE_BY_ID["portrait-4x5"];
+    // A presentation is a deck: its slides are written alongside its look. Versions of a design keep its slides
+    const deck = size.id === DECK_SIZE;
     let raw: unknown[];
+    let slides: DesignSpec["slides"] = input.keep?.slides || [];
     try {
-      raw = await askForSpecs(layoutInstructions(input.count, size.name, input.analysis, input.content, input.settings, input.keep), input.keep ? JSON.stringify({ ...input.keep, photos: undefined }) : input.prompt, input.count);
+      [raw, slides] = await Promise.all([
+        askForSpecs(layoutInstructions(input.count, size.name, input.analysis, input.content, input.settings, input.keep), input.keep ? JSON.stringify({ ...input.keep, photos: undefined, slides: undefined }) : input.prompt, input.count),
+        deck && !slides.length ? askForSlides(input.prompt, contentLines(input.content)) : Promise.resolve(slides),
+      ]);
     } catch (err) {
       throw aiError(err, "design that");
     }
     const specs = checkSpecs(raw);
+    for (const spec of specs) spec.slides = slides;
     const taken = new Set<string>(input.keep ? [input.keep.layout] : []);
     for (const spec of specs) {
       if (input.keep) {
@@ -716,8 +723,8 @@ export const aiStudioService = {
       if (taken.has(spec.layout) || !PHOTO_LAYOUT_IDS.includes(spec.layout)) spec.layout = PHOTO_LAYOUT_IDS.find((id) => !taken.has(id)) || spec.layout;
       taken.add(spec.layout);
     }
-    if (!input.keep) await choosePhotos(specs, input.content.subject || input.prompt);
-    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildChecked(spec, size.id, input.baseUrl))));
+    if (!input.keep) await choosePhotos(specs, input.content.subject || input.prompt, deck ? 4 : 2);
+    const designs = await Promise.all(specs.map(async (spec) => present(spec, await buildPages(spec, size.id, input.baseUrl))));
     return { designs };
   },
 

@@ -28,6 +28,10 @@ export interface DeckTheme {
   sub: DeckSubcategory;
   photo: (w: number, h: number, n: number) => string;
   variant: number;
+  /** The line under the title. Without it, the organisation and the year are shown */
+  byline?: string;
+  /** The words of the last slide. Without them, a thank-you and sample contact lines are shown */
+  closing?: { title: string; text: string; notes: string[] };
 }
 
 export interface SlideCtx extends DeckTheme {
@@ -78,6 +82,8 @@ function radius(s: SlideCtx, scale = 1): number {
 }
 
 const line = (s: SlideCtx) => Math.max(2, Math.round(s.u * 0.28));
+
+const byline = (s: SlideCtx) => s.byline ?? `${s.org.toUpperCase()}   ·   2026`;
 
 // ─── Recurring chrome ─────────────────────────────────────────────────────────
 
@@ -141,7 +147,7 @@ function photoTitleSlide(s: SlideCtx): void {
   s.sheet.text(x, y, w, title.lines, title.size, { family: s.fonts.heading, weight: s.fonts.weight, color: pal.text, lineHeight: lh });
   y += titleH + u * 3;
   put(s, x, y, w, s.sub.subtitle, { size: u * 2.9, color: pal.muted, maxLines: 3 });
-  s.sheet.text(x, H - u * 9, w, `${s.org.toUpperCase()}   ·   2026`, u * 1.7, { family: s.fonts.body, weight: 600, color: pal.muted, spacing: u * 1.7 * 0.2 });
+  s.sheet.text(x, H - u * 9, w, byline(s), u * 1.7, { family: s.fonts.body, weight: 600, color: pal.muted, spacing: u * 1.7 * 0.2 });
 }
 
 /** Title slide set over a full-bleed photograph */
@@ -161,7 +167,7 @@ function coverTitleSlide(s: SlideCtx): void {
   y += titleH + u * 2.4;
   s.sheet.rect(align === "center" ? W / 2 - u * 6 : m, y, u * 12, line(s) * 1.5, accent);
   put(s, m, y + u * 2.6, w, s.sub.subtitle, { size: u * 3, color: "#FFFFFF", align, maxLines: 2, opacity: 0.86 });
-  s.sheet.text(m, H - u * 9, W - m * 2, `${s.org.toUpperCase()}   ·   2026`, u * 1.7, { family: s.fonts.body, weight: 600, color: "#FFFFFF", align, spacing: u * 1.7 * 0.2, opacity: 0.8 });
+  s.sheet.text(m, H - u * 9, W - m * 2, byline(s), u * 1.7, { family: s.fonts.body, weight: 600, color: "#FFFFFF", align, spacing: u * 1.7 * 0.2, opacity: 0.8 });
 }
 
 function titleSlide(s: SlideCtx): void {
@@ -192,7 +198,7 @@ function titleSlide(s: SlideCtx): void {
   y += titleH + u * 3;
   put(s, m, y, w, s.sub.subtitle, { size: u * 3, color: pal.muted, align, maxLines: 2 });
   const fy = H - u * 9;
-  s.sheet.text(m, fy, w, `${s.org.toUpperCase()}   ·   2026`, u * 1.7, { family: s.fonts.body, weight: 600, color: pal.muted, align, spacing: u * 1.7 * 0.2 });
+  s.sheet.text(m, fy, w, byline(s), u * 1.7, { family: s.fonts.body, weight: 600, color: pal.muted, align, spacing: u * 1.7 * 0.2 });
 }
 
 function agendaSlide(s: SlideCtx, spec: SlideSpec, entries: string[]): void {
@@ -254,9 +260,12 @@ function bulletsSlide(s: SlideCtx, spec: SlideSpec): void {
 }
 
 function cardsSlide(s: SlideCtx, spec: SlideSpec): void {
+  cards(s, spec.title, spec.arg % 2 === 0 ? s.sub.points : s.sub.steps);
+}
+
+function cards(s: SlideCtx, title: string, items: [string, string][]): void {
   chrome(s);
-  const items = spec.arg % 2 === 0 ? s.sub.points : s.sub.steps;
-  const top = heading(s, spec.title, s.sub.name);
+  const top = heading(s, title, s.sub.name);
   const { W, m, u, pal } = s;
   const gap = u * 3;
   const cardW = (W - m * 2 - gap * (items.length - 1)) / items.length;
@@ -322,10 +331,13 @@ function imageTextSlide(s: SlideCtx, spec: SlideSpec): void {
 }
 
 function timelineSlide(s: SlideCtx, spec: SlideSpec): void {
+  timeline(s, spec.title, s.sub.steps);
+}
+
+function timeline(s: SlideCtx, title: string, steps: [string, string][]): void {
   chrome(s);
-  const top = heading(s, spec.title, s.sub.name);
+  const top = heading(s, title, s.sub.name);
   const { W, m, u, pal } = s;
-  const steps = s.sub.steps;
   const colW = (W - m * 2) / steps.length;
   const railY = top + Math.max(u * 4, (bottom(s) - top - u * 28) / 2);
   s.sheet.rect(m, railY, W - m * 2, line(s), pal.text, { opacity: 0.25 });
@@ -511,14 +523,123 @@ function closingSlide(s: SlideCtx): void {
   const align = s.titleAlign;
   const y = H * 0.22;
   label(s, m, y, w, s.deckTitle, pal.accent, align);
-  put(s, m, y + u * 5, w, titleCase("Thank You", s.style.caps), { size: u * 14, color: pal.text, family: s.fonts.heading, weight: s.fonts.weight, align, maxLines: 1, lineHeight: 1.05 });
-  put(s, center ? m + w * 0.15 : m, y + u * 23, w * 0.7, "Questions and feedback are welcome.", { size: u * 3.2, color: pal.muted, align, maxLines: 2 });
+  put(s, m, y + u * 5, w, titleCase(s.closing?.title || "Thank You", s.style.caps), { size: u * 14, color: pal.text, family: s.fonts.heading, weight: s.fonts.weight, align, maxLines: 1, lineHeight: 1.05 });
+  put(s, center ? m + w * 0.15 : m, y + u * 23, w * 0.7, s.closing?.text ?? "Questions and feedback are welcome.", { size: u * 3.2, color: pal.muted, align, maxLines: 2 });
   const on = onColor(pal.surface);
-  const contacts = ["hello@yourcompany.com", "www.yourcompany.com", "+91 00000 00000"];
-  const colW = w / contacts.length;
+  const contacts = s.closing?.notes ?? ["hello@yourcompany.com", "www.yourcompany.com", "+91 00000 00000"];
+  const colW = w / Math.max(1, contacts.length);
   contacts.forEach((contact, i) => {
     s.sheet.text(m + i * colW, H - u * 12.5, colW, contact, u * 2.4, { family: s.fonts.body, weight: 600, color: on, align: center ? "center" : "left" });
   });
+}
+
+// ─── Slides with their own wording ────────────────────────────────────────────
+
+/** A slide whose words are given, not taken from a subject's stock wording */
+export interface OutlineSlide {
+  kind: "points" | "list" | "steps" | "focus" | "compare" | "statement" | "section" | "closing";
+  title: string;
+  body: string;
+  points: { head: string; body: string }[];
+}
+
+const pairsOf = (slide: OutlineSlide, most: number) => slide.points.slice(0, most).map((p) => [p.head, p.body] as [string, string]);
+
+/** A list down the left with a picture beside it */
+function listSlide(s: SlideCtx, slide: OutlineSlide): void {
+  chrome(s);
+  const top = heading(s, slide.title, s.sub.name);
+  const { W, m, u, pal } = s;
+  const items = slide.points.slice(0, 5);
+  const panelW = (W - m * 2) * 0.34;
+  const listW = W - m * 2 - panelW - u * 6;
+  const rowH = (bottom(s) - top) / Math.max(3, items.length);
+  const tight = items.length > 4;
+  items.forEach((item, i) => {
+    const y = top + i * rowH;
+    s.sheet.ellipse(m, y + u * 1.1, u * 1.6, u * 1.6, pal.accent);
+    const used = put(s, m + u * 4, y, listW - u * 4, item.head, { size: u * 3.1, color: pal.text, weight: 600, maxLines: item.body ? 1 : 2, lineHeight: 1.25 });
+    if (item.body) put(s, m + u * 4, y + used + u * 0.8, listW - u * 4, item.body, { size: u * 2.2, color: pal.muted, maxLines: tight ? 1 : 2, lineHeight: 1.4 });
+  });
+  const px = W - m - panelW;
+  const ph = bottom(s) - top;
+  s.sheet.rect(px - u * 1.4, top + u * 1.4, panelW, ph, pal.accent, { radius: Math.min(panelW, ph) * 0.08 });
+  s.sheet.frame(px, top, panelW, ph, "rounded-rect", s.photo(panelW, ph, s.index));
+}
+
+/** A picture on one side, a short passage and up to three points on the other */
+function focusSlide(s: SlideCtx, slide: OutlineSlide): void {
+  const { W, H, u, m, pal } = s;
+  const left = s.index % 2 === 0;
+  const pw = W * 0.44;
+  s.sheet.image(left ? 0 : W - pw, 0, pw, H, s.photo(pw, H, s.index));
+  s.sheet.rect(left ? pw - u * 0.5 : W - pw - u * 0.5, 0, u, H, pal.accent);
+  const x = left ? pw + u * 7 : m;
+  const w = W - pw - u * 7 - m;
+  let y = u * 14;
+  if (s.sub.name) y += label(s, x, y, w, s.sub.name, pal.accent) + u * 1.5;
+  y += put(s, x, y, w, titleCase(slide.title, s.style.caps), { size: u * 5.4, color: pal.text, family: s.fonts.heading, weight: s.fonts.weight, maxLines: 2, lineHeight: 1.12 }) + u * 3;
+  if (slide.body) y += put(s, x, y, w, slide.body, { size: u * 2.8, color: pal.muted, maxLines: 5, lineHeight: 1.5 }) + u * 3.5;
+  slide.points.slice(0, 3).forEach((item) => {
+    s.sheet.rect(x, y + u * 1.3, u * 2.4, line(s), pal.accent);
+    y += put(s, x + u * 4.5, y, w - u * 4.5, item.head, { size: u * 2.7, color: pal.text, weight: 600, maxLines: 2, lineHeight: 1.3 }) + u * 1.8;
+  });
+  const size = u * 1.5;
+  s.sheet.text(x, H - u * 5, w, `${String(s.index + 1).padStart(2, "0")} / ${String(s.total).padStart(2, "0")}`, size, { family: s.fonts.body, weight: 600, color: pal.muted, align: left ? "right" : "left" });
+}
+
+/** Two things set side by side */
+function compareSlide(s: SlideCtx, slide: OutlineSlide): void {
+  chrome(s);
+  const top = heading(s, slide.title, s.sub.name);
+  const { W, m, u, pal } = s;
+  const gap = u * 4;
+  const colW = (W - m * 2 - gap) / 2;
+  // Two short passages do not need the whole height of the slide
+  const h = Math.min(bottom(s) - top, u * 46);
+  slide.points.slice(0, 2).forEach((item, i) => {
+    const x = m + i * (colW + gap);
+    const fill = i ? pal.accent : pal.surface;
+    const on = onColor(fill);
+    s.sheet.rect(x, top, colW, h, fill, { radius: radius(s, 1.2) });
+    const pad = u * 4.5;
+    const used = put(s, x + pad, top + pad, colW - pad * 2, item.head, { size: u * 4, color: on, family: s.fonts.heading, weight: s.fonts.weight, maxLines: 2, lineHeight: 1.15 });
+    s.sheet.rect(x + pad, top + pad + used + u * 2, u * 8, line(s), on, { opacity: 0.6 });
+    put(s, x + pad, top + pad + used + u * 4.6, colW - pad * 2, item.body, { size: u * 2.7, color: on, maxLines: 7, lineHeight: 1.5, opacity: 0.86 });
+  });
+}
+
+/** One sentence, set large */
+function statementSlide(s: SlideCtx, slide: OutlineSlide): void {
+  chrome(s);
+  const { W, H, u, m, pal } = s;
+  const w = W - m * 2 - u * 16;
+  const x = (W - w) / 2;
+  const fit = fitText(slide.body || slide.title, w, s.fonts.heading, s.fonts.weight, { max: u * 6.4, min: u * 3.4, maxLines: 5 });
+  const th = fit.lines.length * fit.size * 1.22;
+  const y = (H - th) / 2;
+  if (slide.body) label(s, x, y - u * 6, w, slide.title, pal.accent);
+  s.sheet.rect(x - u * 4, y, u * 0.9, th, pal.accent);
+  s.sheet.text(x, y, w, fit.lines, fit.size, { family: s.fonts.heading, weight: s.fonts.weight, color: pal.text, lineHeight: 1.22 });
+}
+
+/** Draws a slide from its own wording. `section` counts the section slides so far */
+export function drawOutlineSlide(s: SlideCtx, slide: OutlineSlide, section = 0): void {
+  switch (slide.kind) {
+    case "points": return cards(s, slide.title, pairsOf(slide, 4));
+    case "steps": return timeline(s, slide.title, pairsOf(slide, 5));
+    case "list": return listSlide(s, slide);
+    case "focus": return focusSlide(s, slide);
+    case "compare": return compareSlide(s, slide);
+    case "section": return sectionSlide(s, { kind: "section", title: slide.title, arg: section });
+    case "closing": return closingSlide(s);
+    default: return statementSlide(s, slide);
+  }
+}
+
+/** The opening slide of a deck: its title, the line beneath it and, on most decks, a photograph */
+export function drawTitleSlide(s: SlideCtx): void {
+  titleSlide(s);
 }
 
 // ─── Sequencing ───────────────────────────────────────────────────────────────

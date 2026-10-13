@@ -678,6 +678,20 @@ export default function StudioWorkspace() {
                   : <div className="w-full" dangerouslySetInnerHTML={{ __html: outcome.design?.preview || "" }} />}
               </div>
 
+              {/* A presentation is a deck: the slides after the first */}
+              {!outcome.artwork && !!outcome.design?.slides?.length && (
+                <div className="mt-3">
+                  <span className={LABEL}>The rest of the slides</span>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {outcome.design.slides.map((slide, index) => (
+                      <div key={index} title={slide.name} data-theme-keep="" className="falcon-studio-thumb overflow-hidden rounded-lg border border-white/[0.1] bg-black/40">
+                        <span className="block" dangerouslySetInnerHTML={{ __html: slide.preview }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {outcome.versions.length > 0 && (
                 <div className="mt-3">
                   <span className={LABEL}>{outcome.versions[0].label === "Before" ? "Earlier versions" : "Variations of this design"}</span>
