@@ -105,6 +105,17 @@ export async function verifyOtp(email: string, otp: string): Promise<AuthResult>
   return result;
 }
 
+/** Continue with Google: the token from Google's button is exchanged for a Falcon session */
+export async function googleSignIn(credential: string): Promise<AuthResult> {
+  const result = await apiFetch<AuthResult>("/auth/google", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify({ credential }),
+  });
+  if (result.token) saveToken(result.token);
+  return result;
+}
+
 /** Sign up. The new account is emailed a one-time code at once; verifyOtp with it signs the person in. */
 export async function register(
   name: string,

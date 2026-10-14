@@ -60,6 +60,15 @@ export const authController = {
     });
   }),
 
+  /** Continue with Google: a token from Google's button becomes a session */
+  google: asyncHandler(async (req: Request, res: Response) => {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+    const result = await authService.googleSignIn(req.body.credential, { ipAddress, userAgent });
+    setSessionCookie(res, result.token);
+    res.status(200).json({ success: true, user: result.user, token: result.token, message: "Authentication successful." });
+  }),
+
   /** Request password reset email */
   forgotPassword: asyncHandler(async (req: Request, res: Response) => {
     const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : undefined);

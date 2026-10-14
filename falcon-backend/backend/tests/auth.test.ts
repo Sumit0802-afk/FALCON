@@ -278,6 +278,19 @@ async function runTests() {
     const taken = await signUp();
     assert(taken.status === 409, "A confirmed address cannot be signed up for again");
 
+    console.log(`\n--- Test 14c: Continue with Google ---`);
+    const savedClientId = process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_ID;
+    const unset = await request("/auth/google", { method: "POST", body: { credential: "x".repeat(40) }, ip: "10.0.0.21" });
+    assert(unset.status === 503 && unset.body?.code === "GOOGLE_NOT_CONFIGURED", "Without a client id, Google sign-in says it is not set up");
+    process.env.GOOGLE_CLIENT_ID = "test-client.apps.googleusercontent.com";
+    const forged = await request("/auth/google", { method: "POST", body: { credential: "eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6ImF0dGFja2VyQGV4YW1wbGUuY29tIn0.c2lnbmF0dXJl" }, ip: "10.0.0.21" });
+    assert(forged.status === 401 || forged.status === 502, "A made-up Google token does not sign anyone in");
+    assert(!forged.body?.token, "No session is issued for a made-up token");
+    const noToken = await request("/auth/google", { method: "POST", body: {}, ip: "10.0.0.21" });
+    assert(noToken.status === 400, "A request without a Google token is refused");
+    if (savedClientId === undefined) delete process.env.GOOGLE_CLIENT_ID; else process.env.GOOGLE_CLIENT_ID = savedClientId;
+
     console.log(`\n--- Test 15: Nothing sensitive was logged ---`);
     const leaked = issuedCodes.filter((code) => capturedOutput.includes(code));
     assert(issuedCodes.length >= 6, `Checked ${issuedCodes.length} issued codes against all process output`);

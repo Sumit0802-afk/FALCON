@@ -2,7 +2,7 @@ import { ClipboardEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useRe
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { isAuthenticated, login, register, verifyOtp } from "@/services/authService";
+import { googleSignIn, isAuthenticated, login, register, verifyOtp } from "@/services/authService";
 import { ApiError } from "@/services/api";
 
 /**
@@ -156,6 +156,63 @@ function OtpInput({ value, onChange, disabled, hasError }: { value: string; onCh
       ))}
     </div>
   );
+}
+
+// ─── Continue with Google ─────────────────────────────────────────────────────
+
+/** The Client ID of Falcon's Google sign-in. Without it the button is not shown */
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() || "";
+
+declare global {
+  interface Window {
+    google?: { accounts: { id: { initialize: (o: Record<string, unknown>) => void; renderButton: (el: HTMLElement, o: Record<string, unknown>) => void } } };
+  }
+}
+
+let googleScript: Promise<void> | null = null;
+/** Google's sign-in library, loaded once and only when the button is shown */
+function loadGoogle(): Promise<void> {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  googleScript ??= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => { googleScript = null; reject(new Error("Google's sign-in could not be loaded")); };
+    document.head.appendChild(script);
+  });
+  return googleScript;
+}
+
+/** Whichever form's button was pressed last receives Google's answer */
+let googleReceiver: ((credential: string) => void) | null = null;
+let googleReady = false;
+
+/** Google's own "Continue with Google" button, as Google requires it to be drawn */
+function GoogleButton({ onCredential, onUnavailable }: { onCredential: (credential: string) => void; onUnavailable: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const receive = useRef(onCredential);
+  receive.current = onCredential;
+
+  useEffect(() => {
+    let live = true;
+    loadGoogle()
+      .then(() => {
+        const google = window.google;
+        if (!live || !box.current || !google) return;
+        if (!googleReady) {
+          google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r: { credential?: string }) => r.credential && googleReceiver?.(r.credential), ux_mode: "popup" });
+          googleReady = true;
+        }
+        google.accounts.id.renderButton(box.current, { theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "center", width: Math.min(400, Math.max(200, box.current.clientWidth)) });
+      })
+      .catch(() => live && onUnavailable());
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pressing anywhere in this button makes this form the one Google answers
+  return <div ref={box} className="fa-google" onPointerDownCapture={() => { googleReceiver = (c) => receive.current(c); }} />;
 }
 
 // ─── Countdown ────────────────────────────────────────────────────────────────
@@ -352,6 +409,21 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
     }
   }
 
+  // ── Continue with Google ──────────────────────────────────
+  const [googleLoading, setGoogleLoading] = useState(false);
+  async function handleGoogle(credential: string, show: (m: { text: string; ok?: boolean } | null) => void) {
+    show(null);
+    setGoogleLoading(true);
+    try {
+      await googleSignIn(credential);
+      router.push(safeRedirect(router.query.redirect));
+    } catch (err) {
+      show({ text: err instanceof ApiError && err.message ? err.message : "We couldn't reach Falcon. Check your connection and try again." });
+      setGoogleLoading(false);
+    }
+  }
+  const googleOff = () => {};
+
   // ── Sign up ───────────────────────────────────────────────
   async function handleSignup(e: FormEvent) {
     e.preventDefault();
@@ -409,7 +481,7 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
       {/* The light theme recolours whole pages. This one carries its own colours for both themes */}
       <div className="fa-page" data-theme-keep="">
-        <div className={`fa-card${registering ? " register" : ""}`} role="main">
+        <div className={`fa-card${registering ? " register" : ""}${GOOGLE_CLIENT_ID ? " with-google" : ""}`} role="main" aria-busy={googleLoading}>
           <div className="fa-card-bg" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/falcon-logo-white.png" alt="" />
@@ -463,7 +535,13 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               <span>I agree to the Terms and Privacy Policy</span>
             </label>
 
-            <button type="submit" className="fa-submit" disabled={signupLoading}>{signupLoading ? "Creating account…" : "Sign up"}</button>
+            <button type="submit" className="fa-submit" disabled={signupLoading || googleLoading}>{signupLoading ? "Creating account…" : "Sign up"}</button>
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <div className="fa-or" aria-hidden="true"><span>or</span></div>
+                <GoogleButton onCredential={(c) => handleGoogle(c, setSignupMessage)} onUnavailable={googleOff} />
+              </>
+            )}
             <div className={`fa-msg${signupMessage?.ok ? " ok" : ""}`} role={signupMessage && !signupMessage.ok ? "alert" : undefined} aria-live="polite">{signupMessage?.text}</div>
           </form>
 
@@ -500,8 +578,15 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
               <Link href="/forgot-password" className="fa-link">Forgot your password?</Link>
 
-              <button id="login-submit" type="submit" className="fa-submit" disabled={sendLoading}>{sendLoading ? "Sending code…" : "Login"}</button>
-              <p className="fa-note">We&apos;ll email you a one-time code to finish signing in.</p>
+              <button id="login-submit" type="submit" className="fa-submit" disabled={sendLoading || googleLoading}>{sendLoading ? "Sending code…" : "Login"}</button>
+              {GOOGLE_CLIENT_ID ? (
+                <>
+                  <div className="fa-or" aria-hidden="true"><span>or</span></div>
+                  <GoogleButton onCredential={(c) => handleGoogle(c, setLoginMessage)} onUnavailable={googleOff} />
+                </>
+              ) : (
+                <p className="fa-note">We&apos;ll email you a one-time code to finish signing in.</p>
+              )}
               <div className={`fa-msg${loginMessage?.ok ? " ok" : ""}`} role={loginMessage && !loginMessage.ok ? "alert" : undefined} aria-live="polite">{loginMessage?.text}</div>
             </form>
           ) : (
@@ -636,6 +721,12 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
 .fa-submit:focus-visible{outline:2px solid var(--fa-accent);outline-offset:2px}
 .fa-submit:disabled{opacity:.55;cursor:not-allowed}
 .fa-msg{font-size:12px;line-height:1.35;min-height:16px;color:#c9353a}
+
+/* ---------- Continue with Google ---------- */
+.fa-card.with-google{height:580px}
+.fa-or{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--fa-muted);text-transform:uppercase;letter-spacing:.08em}
+.fa-or::before,.fa-or::after{content:"";flex:1;height:1px;background:var(--fa-field)}
+.fa-google{display:flex;justify-content:center;min-height:40px;color-scheme:light}
 .fa-msg.ok{color:#1c8a4b}
 
 /* ---------- Code step ---------- */
@@ -658,6 +749,7 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
 /* ---------- Phones: the dark panel sits on top, the form below it ---------- */
 @media (max-width:560px){
   .fa-card{height:640px}
+  .fa-card.with-google{height:720px}
   .fa-card-bg{width:100%;height:150px;bottom:auto;translate:none !important}
   .fa-hero{left:0 !important;width:100%;height:150px;translate:none !important;gap:8px;padding:0 16px;transition:opacity .4s ease, visibility .4s}
   .fa-hero h2{font-size:20px}

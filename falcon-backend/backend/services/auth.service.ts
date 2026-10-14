@@ -60,7 +60,86 @@ async function dispatchLoginOtp(user: { id: string; email: string; name: string 
   };
 }
 
+/** Starts a signed-in session for the user, as after a correct code */
+async function startSession(
+  userId: string,
+  meta?: { ipAddress?: string; userAgent?: string }
+): Promise<AuthResult> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { isVerified: true, lastLogin: new Date() },
+  });
+  // sessionId keeps tokens unique even when two sign-ins land in the same second
+  const token = tokenService.sign({ userId: user.id, role: user.role, sessionId: crypto.randomUUID() });
+  await prisma.session.create({
+    data: {
+      userId: user.id,
+      sessionTokenHash: hashSecret(token),
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    },
+  });
+  return { user: toPublicUser(user), token };
+}
+
+/** What Google says about the person behind a sign-in, once Google has checked the token */
+interface GoogleIdentity {
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+/**
+ * Asks Google whether a sign-in token is genuine, and for this app. Google
+ * checks the signature and expiry; the audience, issuer and a confirmed email
+ * are checked here. Nothing from the token is trusted until then.
+ */
+async function checkGoogleToken(credential: string, clientId: string): Promise<GoogleIdentity> {
+  let res: Response;
+  try {
+    res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`, { signal: AbortSignal.timeout(10_000) });
+  } catch {
+    throw new AppError("Falcon couldn't reach Google. Check your connection and try again.", 502, "GOOGLE_UNREACHABLE");
+  }
+  const refused = () => new AppError("Google sign-in didn't work. Please try again.", 401, "GOOGLE_TOKEN_INVALID");
+  if (!res.ok) throw refused();
+  const info: any = await res.json().catch(() => ({}));
+  const issuer = String(info.iss || "");
+  if (info.aud !== clientId || !["accounts.google.com", "https://accounts.google.com"].includes(issuer)) throw refused();
+  if (Number(info.exp) * 1000 < Date.now()) throw refused();
+  const email = normalizeEmail(String(info.email || ""));
+  if (!email || !(info.email_verified === true || info.email_verified === "true")) {
+    throw new AppError("Your Google account's email is not confirmed, so it can't be used to sign in.", 401, "GOOGLE_EMAIL_UNVERIFIED");
+  }
+  return { email, name: String(info.name || email.split("@")[0]).slice(0, 100), picture: typeof info.picture === "string" ? info.picture : undefined };
+}
+
 export const authService = {
+  /**
+   * Continue with Google. Google has confirmed the email, so no code is sent:
+   * an account with that email is signed in, and one is made if there is none.
+   * An account made this way has no password; one can be set with "Forgot
+   * password" to sign in with email and password as well.
+   */
+  async googleSignIn(credential: string, meta?: { ipAddress?: string; userAgent?: string }): Promise<AuthResult> {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) throw new AppError("Google sign-in is not set up on this server yet.", 503, "GOOGLE_NOT_CONFIGURED");
+    const google = await checkGoogleToken(credential, clientId);
+
+    const existing = await prisma.user.findUnique({ where: { email: google.email } });
+    const user = existing ?? await prisma.user.create({
+      data: {
+        name: google.name,
+        email: google.email,
+        // No password: a random one nobody knows, so only Google (or a reset) opens the account
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), SALT_ROUNDS),
+        profileImage: google.picture,
+      },
+    });
+    return startSession(user.id, meta);
+  },
+
   /**
    * Sign up. The account is made and a one-time code is emailed to its address
    * at once; entering the code (verifyOtp) confirms the address and signs the
@@ -124,38 +203,7 @@ export const authService = {
     // Throws unless the code is correct; a correct code is consumed here
     await otpService.verify(user.id, input.otp.trim());
 
-    // Update user status
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        isVerified: true,
-        lastLogin: new Date(),
-      },
-    });
-
-    // Create session in database
-    // sessionId keeps tokens unique even when two sign-ins land in the same second
-    const sessionToken = tokenService.sign({
-      userId: updatedUser.id,
-      role: updatedUser.role,
-      sessionId: crypto.randomUUID(),
-    });
-    const sessionTokenHash = hashSecret(sessionToken);
-
-    await prisma.session.create({
-      data: {
-        userId: updatedUser.id,
-        sessionTokenHash,
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      },
-    });
-
-    return {
-      user: toPublicUser(updatedUser),
-      token: sessionToken,
-    };
+    return startSession(user.id, meta);
   },
 
   /** Invalidate session on server-side */

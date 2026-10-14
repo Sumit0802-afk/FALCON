@@ -38,6 +38,10 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required").max(200),
 });
 
+const googleSchema = z.object({
+  credential: z.string().min(20).max(4096),
+});
+
 const verifyOtpSchema = z.object({
   email: emailField,
   otp: z
@@ -103,6 +107,8 @@ router.post(
   validateBody(verifyOtpSchema),
   authController.verifyOtp
 );
+
+router.post("/google", otpVerifyRateLimit, validateBody(googleSchema), authController.google);
 
 router.post(
   "/forgot-password",
