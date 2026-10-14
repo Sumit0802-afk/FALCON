@@ -38,6 +38,8 @@ import SendEmailModal from "@/components/EmailDesigner/SendEmailModal";
 const STORAGE_KEY = "falcon_email_design";
 const DRAFT_PREFIX = "falcon_email_draft:";
 const MAX_HISTORY = 50;
+/** Edits to the same block closer together than this are one step in the history */
+const TYPING_PAUSE = 1000;
 const LOCAL_SAVE_DELAY = 500;
 const SERVER_SAVE_DELAY = 2000;
 
@@ -48,15 +50,27 @@ function useHistory(initial: EmailSection[]) {
   const [present, setPresent] = useState<EmailSection[]>(initial);
   const [future, setFuture] = useState<EmailSection[][]>([]);
 
-  const push = useCallback((next: EmailSection[]) => {
+  /** What the last change was made to, and when, so that typing can be kept as one step */
+  const last = useRef<{ key: string; at: number } | null>(null);
+
+  /**
+   * Records a change. Changes that share a `key` (the same block being typed
+   * into) and follow each other closely replace the newest step instead of
+   * adding one, so one undo takes back a whole word or sentence.
+   */
+  const push = useCallback((next: EmailSection[], key?: string) => {
     if (next === present) return;
-    setPast((p) => [...p.slice(-MAX_HISTORY), present]);
+    const now = Date.now();
+    const sameRun = !!key && last.current?.key === key && now - last.current.at < TYPING_PAUSE;
+    last.current = key ? { key, at: now } : null;
+    if (!sameRun) setPast((p) => [...p.slice(-MAX_HISTORY), present]);
     setPresent(next);
     setFuture([]);
   }, [present]);
 
   const undo = useCallback(() => {
     if (!past.length) return;
+    last.current = null;
     const prev = past[past.length - 1];
     setPast((p) => p.slice(0, -1));
     setFuture((f) => [present, ...f]);
@@ -65,6 +79,7 @@ function useHistory(initial: EmailSection[]) {
 
   const redo = useCallback(() => {
     if (!future.length) return;
+    last.current = null;
     const next = future[0];
     setFuture((f) => f.slice(1));
     setPast((p) => [...p, present]);
@@ -72,6 +87,7 @@ function useHistory(initial: EmailSection[]) {
   }, [future, present]);
 
   const reset = useCallback((sections: EmailSection[]) => {
+    last.current = null;
     setPast([]);
     setFuture([]);
     setPresent(sections);
@@ -433,7 +449,7 @@ function EmailDesignerPage() {
   }, [sections, push]);
 
   const handleUpdateBlock = useCallback((updated: EmailBlock) => {
-    push(updateBlock(sections, updated));
+    push(updateBlock(sections, updated), `block:${updated.id}`);
   }, [sections, push]);
 
   // An email imported as written is one HTML block holding the author's whole document
@@ -536,6 +552,9 @@ function EmailDesignerPage() {
   useEffect(() => onHtmlPick(() => setPanel("right")), []);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // While a dialog covers the email, or the email is shown as code, its keys belong to that view:
+  // Delete or Ctrl+D there must not change blocks the person cannot see
+  const editorCovered = showPreview || showExport || showDesignByHtmlModal || showSendModal || activeView === "html";
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
@@ -546,7 +565,7 @@ function EmailDesignerPage() {
         active.isContentEditable
       );
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); handleSave(); return; }
-      if (isEditing) return;
+      if (isEditing || editorCovered) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
@@ -564,7 +583,7 @@ function EmailDesignerPage() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo, selection, handleSave, handleDeleteBlock, handleDeleteSection, handleDuplicateBlock, handleDuplicateSection]);
+  }, [undo, redo, selection, handleSave, handleDeleteBlock, handleDeleteSection, handleDuplicateBlock, handleDuplicateSection, editorCovered]);
 
   const blockCount = countAllBlocks(sections);
   const viewportLabel = previewMode === "mobile" ? "375px mobile" : previewMode === "tablet" ? "768px tablet" : `${design.settings.emailWidth}px desktop`;
