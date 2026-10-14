@@ -12,7 +12,8 @@ import { emailService, DesignSendResult, EmailDeliveryError, EmailFailureReason 
 const MAX_PER_USER = 500;
 const MAX_DOCUMENT_BYTES = 1_500_000;
 const PREVIEW_RATIO = 1.45;
-const MAX_RECIPIENTS = 25;
+/** The most people one send reaches. Each gets a copy of their own, so this is also the most copies */
+const MAX_RECIPIENTS = 100;
 
 const LIST_SELECT = {
   id: true, name: true, sourceTemplateId: true, width: true, height: true, thumbnailSvg: true, createdAt: true,
@@ -168,16 +169,15 @@ export const userEmailTemplateService = {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
     if (!user) throw AppError.unauthorized("Authentication required");
 
-    const recipients = input.to.length + (input.cc?.length || 0) + (input.bcc?.length || 0);
-    if (recipients > MAX_RECIPIENTS) {
-      throw AppError.badRequest(`You can send to at most ${MAX_RECIPIENTS} recipients at a time.`);
+    // Everyone in To, Cc and Bcc gets a copy of their own, once, however often they were typed
+    const everyone = [...new Set([...input.to, ...(input.cc || []), ...(input.bcc || [])].map((a) => a.trim().toLowerCase()))];
+    if (everyone.length > MAX_RECIPIENTS) {
+      throw AppError.badRequest(`You can send to at most ${MAX_RECIPIENTS} people at a time. Split the list and send the rest separately.`);
     }
-    let result: DesignSendResult;
+    let result: Awaited<ReturnType<typeof emailService.sendDesignToEach>>;
     try {
-      result = await emailService.sendDesignEmail({
-        to: input.to,
-        cc: input.cc,
-        bcc: input.bcc,
+      result = await emailService.sendDesignToEach({
+        recipients: everyone,
         subject: input.subject,
         html: input.html,
         fromName: cleanName(input.fromName, user.name),
@@ -187,7 +187,19 @@ export const userEmailTemplateService = {
     } catch (err) {
       throw deliveryError(err, "email");
     }
-    return { success: true, recipients, exact: result.effects === "drawn", message: `Email sent to ${recipients} recipient${recipients === 1 ? "" : "s"}.${sendNotes(result, !!input.exact)}` };
+    // Nothing went out: the reason the first copy failed is the reason given
+    if (!result.sent.length) throw deliveryError(new EmailDeliveryError(result.failed[0]?.reason || "unknown"), "email");
+    const sent = result.sent.length;
+    const missed = result.failed.length
+      ? ` It could not be delivered to ${result.failed.map((f) => f.address).join(", ")}: ${DELIVERY_MESSAGES[result.failed[0].reason].replace(/ Check the addresses and try again\.$/, "")} Check ${result.failed.length === 1 ? "that address" : "those addresses"} and send to ${result.failed.length === 1 ? "it" : "them"} again.`
+      : "";
+    return {
+      success: true,
+      recipients: sent,
+      failed: result.failed.map((f) => f.address),
+      exact: result.effects === "drawn",
+      message: `Email sent to ${sent} ${sent === 1 ? "person" : "people"}${result.failed.length ? ` of ${everyone.length}` : ""}, each with a copy of their own.${missed}${sendNotes(result, !!input.exact)}`,
+    };
   },
 
   /**

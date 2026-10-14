@@ -174,7 +174,7 @@ export interface SendEmailInput {
 }
 
 /** Sends a finished design to the given recipients through Falcon's mail server. */
-export function sendDesignEmail(input: SendEmailInput): Promise<{ success: boolean; recipients: number; message: string }> {
+export function sendDesignEmail(input: SendEmailInput): Promise<{ success: boolean; recipients: number; failed?: string[]; message: string }> {
   return apiFetch("/user/email-templates/send", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -195,7 +195,10 @@ export function getCompatibilityVersion(html: string): Promise<CompatibilityVers
 
 /** Splits "a@x.com, b@y.com; c@z.com" into clean addresses. */
 export function parseRecipients(value: string): string[] {
-  return [...new Set(value.split(/[,;\s]+/).map((v) => v.trim().toLowerCase()).filter(Boolean))];
+  // A list pasted from a mail app or a spreadsheet: "Name <address>" keeps only the address,
+  // and addresses may be separated by commas, semicolons, spaces, tabs or new lines
+  const withoutNames = value.replace(/"[^"]*"|[^,;\n<>]*<([^<>]+)>/g, (whole, inside) => (inside ? ` ${inside} ` : " "));
+  return [...new Set(withoutNames.split(/[,;\s]+/).map((v) => v.trim().toLowerCase()).filter(Boolean))];
 }
 
 /** Emails the design to the signed-in user's own address. */

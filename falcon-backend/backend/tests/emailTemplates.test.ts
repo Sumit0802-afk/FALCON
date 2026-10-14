@@ -350,7 +350,12 @@ async function apiTests() {
     assert(emailService.getDevLatestDesignTest("first.person@example.com").subject === "Spring sale" && !!emailService.getDevLatestDesignTest("second@example.com").html?.includes("Hello from the send test"), "Each recipient gets the subject and HTML that were sent");
     assert((await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.3", body: { to: ["not-an-email"], subject: "Hi", html } })).status === 400, "An invalid address is rejected");
     assert((await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.3", body: { to: [], subject: "Hi", html } })).status === 400, "At least one recipient is required");
-    assert((await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.3", body: { to: Array.from({ length: 20 }, (_v, i) => `p${i}@example.com`), bcc: Array.from({ length: 10 }, (_v, i) => `b${i}@example.com`), subject: "Hi", html } })).status === 400, "More than 25 recipients in one send is refused");
+    assert((await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.3", body: { to: Array.from({ length: 70 }, (_v, i) => `p${i}@example.com`), bcc: Array.from({ length: 31 }, (_v, i) => `b${i}@example.com`), subject: "Hi", html } })).status === 400, "More than 100 recipients in one send is refused");
+    const many = await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.4", body: { to: Array.from({ length: 40 }, (_v, i) => `list${i}@example.com`), subject: "Class list", html } });
+    assert(many.status === 200 && many.body.recipients === 40 && emailService.getDevLatestDesignTest("list39@example.com").subject === "Class list", "A long list is sent, every person getting their own copy");
+    emailService.failNextSendForTest();
+    const partly = await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.4", body: { to: ["one@example.com", "two@example.com", "three@example.com"], subject: "Partly", html } });
+    assert(partly.status === 200 && partly.body.recipients === 2 && partly.body.failed.length === 1 && /could not be delivered/.test(partly.body.message), "One address that fails does not stop the others, and is named");
     emailService.failNextSendForTest();
     const undelivered = await request("/user/email-templates/send", { method: "POST", token: alice.token, ip: "10.1.0.3", body: { to: ["a@example.com"], subject: "Hi", html } });
     assert(undelivered.status === 502 && undelivered.body.code === "EMAIL_DELIVERY_FAILED", "A delivery failure is reported, not shown as success");

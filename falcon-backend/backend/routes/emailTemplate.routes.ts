@@ -47,9 +47,9 @@ const sendTestSchema = z.object({
 const address = z.string().trim().toLowerCase().max(254).email("Enter valid email addresses");
 
 const sendSchema = z.object({
-  to: z.array(address).min(1, "Add at least one recipient").max(25),
-  cc: z.array(address).max(25).optional(),
-  bcc: z.array(address).max(25).optional(),
+  to: z.array(address).min(1, "Add at least one recipient").max(100, "You can send to at most 100 people at a time"),
+  cc: z.array(address).max(100, "You can send to at most 100 people at a time").optional(),
+  bcc: z.array(address).max(100, "You can send to at most 100 people at a time").optional(),
   subject: z.string().trim().min(1, "A subject is required").max(200),
   html: z.string().min(1).max(600_000, "This email is too large to send"),
   fromName: z.string().max(80).optional(),

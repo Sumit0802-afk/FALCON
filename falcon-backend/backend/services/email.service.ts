@@ -253,6 +253,9 @@ function failureReason(err: any): EmailFailureReason {
   return "unknown";
 }
 
+/** How many copies of a design are sent at the same time */
+const EACH_AT_ONCE = 4;
+
 /** Sends one email. Throws on any failure; callers decide what the user sees. */
 async function dispatchEmail(email: OutgoingEmail): Promise<void> {
   // The test runner reads codes from the in-memory inbox instead of a mailbox
@@ -493,6 +496,39 @@ export const emailService = {
       html: opts.html,
     });
     return { effects: body.effects, unreachableImages: body.unreachableImages };
+  },
+
+  /**
+   * Sends a finished design to each recipient as a copy of their own. Nobody
+   * sees anyone else's address, and an address the mail server refuses does
+   * not stop the others. The design is prepared once and every copy shares it.
+   */
+  async sendDesignToEach(opts: {
+    recipients: string[];
+    subject: string;
+    html: string;
+    fromName?: string;
+    replyTo?: string;
+    asPicture?: boolean;
+  }): Promise<DesignSendResult & { sent: string[]; failed: { address: string; reason: EmailFailureReason }[] }> {
+    const body = await designBody(opts.html, opts.subject, opts.asPicture, "This email was designed in Falcon. Open it in an HTML-capable mail client to see it.");
+    const sent: string[] = [];
+    const failed: { address: string; reason: EmailFailureReason }[] = [];
+    const queue = [...opts.recipients];
+    // A few at a time: quick enough for a long list, gentle enough that the mail server does not refuse
+    const worker = async () => {
+      for (let address = queue.shift(); address; address = queue.shift()) {
+        try {
+          await dispatchEmail({ to: address, replyTo: opts.replyTo, fromName: opts.fromName || "Falcon", subject: opts.subject, text: body.text, html: body.html });
+          if (process.env.NODE_ENV === "test") _testInbox.set(address.toLowerCase(), { designSubject: opts.subject, designHtml: body.html });
+          sent.push(address);
+        } catch (err) {
+          failed.push({ address, reason: err instanceof EmailDeliveryError ? err.reason : "unknown" });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(EACH_AT_ONCE, queue.length) }, worker));
+    return { effects: body.effects, unreachableImages: body.unreachableImages, sent, failed };
   },
 
   /** Send a finished email design to the recipients its author chose */

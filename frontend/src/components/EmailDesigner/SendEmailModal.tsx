@@ -348,16 +348,17 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                         To (Recipient Email)
                       </label>
                       <span className="text-[10px] text-zinc-500">
-                        Separate multiple emails with commas
+                        Commas or new lines · each person gets their own copy
                       </span>
                     </div>
-                    <input
-                      type="text"
+                    {/* Several lines, so a list pasted from a spreadsheet or a mail app keeps its line breaks */}
+                    <textarea
                       required
+                      rows={2}
                       value={to}
                       onChange={(e) => setTo(e.target.value)}
                       placeholder="client@example.com, team@falcon.io"
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
+                      className="w-full resize-y rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] leading-relaxed text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
                     />
                   </div>
 
