@@ -57,6 +57,7 @@ async function runTests() {
   let passed = 0;
   let failed = 0;
   let testUserId: string | undefined;
+  let signupUserId = "";
 
   function assert(condition: boolean, desc: string) {
     if (condition) {
@@ -258,6 +259,25 @@ async function runTests() {
     });
     assert(resetRes.status === 200, "Password reset succeeds with valid token");
 
+    console.log(`\n--- Test 14b: Signing up emails a code that signs the new account in ---`);
+    const newEmail = `signup_test_${Date.now()}@falcon.app`;
+    const signUp = (password = "Password123!") =>
+      request("/auth/register", { method: "POST", body: { name: "New Person", email: newEmail, password, confirmPassword: password }, ip: "10.0.0.20" });
+    const signed = await signUp();
+    signupUserId = (await prisma.user.findUnique({ where: { email: newEmail } }))?.id || "";
+    const signupCode = emailService.getDevLatestOtp(newEmail);
+    if (signupCode) issuedCodes.push(signupCode);
+    assert(signed.status === 201 && signed.body?.expiresInSeconds > 0 && !!signupCode, "Sign-up answers with a code challenge and emails a code");
+    assert(!JSON.stringify(signed.body).includes(signupCode || "no code"), "The code is not in the sign-up response");
+    assert((await prisma.user.findUnique({ where: { email: newEmail } }))?.isVerified === false, "The new account is not confirmed until the code is entered");
+    const again = await signUp("Different456!");
+    assert(again.status === 429 && again.body?.code === "OTP_COOLDOWN", "Signing up again at once is told to wait for the code just sent");
+    const joined = await request("/auth/verify-otp", { method: "POST", body: { email: newEmail, otp: signupCode }, ip: "10.0.0.20" });
+    assert(joined.status === 200 && !!joined.body?.token && joined.body?.user?.email === newEmail, "Entering the code signs the new account in");
+    assert((await prisma.user.findUnique({ where: { email: newEmail } }))?.isVerified === true, "Entering the code confirms the address");
+    const taken = await signUp();
+    assert(taken.status === 409, "A confirmed address cannot be signed up for again");
+
     console.log(`\n--- Test 15: Nothing sensitive was logged ---`);
     const leaked = issuedCodes.filter((code) => capturedOutput.includes(code));
     assert(issuedCodes.length >= 6, `Checked ${issuedCodes.length} issued codes against all process output`);
@@ -276,6 +296,9 @@ async function runTests() {
   } finally {
     if (testUserId) {
       await prisma.user.delete({ where: { id: testUserId } }).catch(() => null);
+    }
+    if (signupUserId) {
+      await prisma.user.delete({ where: { id: signupUserId } }).catch(() => null);
     }
     server.close();
     await disconnectDatabase();

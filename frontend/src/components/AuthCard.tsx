@@ -369,20 +369,25 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
     setSignupMessage(null);
     setSignupLoading(true);
+    // The code is entered on the sign-in side, which also resends it with the same email and password
+    const toCodeStep = (expiresInSeconds: number, resendInSeconds: number) => {
+      setEmail(newEmail.trim());
+      setPassword(newPassword);
+      switchTo("login");
+      showCodeStep(expiresInSeconds, resendInSeconds);
+      setNewPassword("");
+    };
     try {
       // The password can be shown while typing, so it is not asked for a second time
-      await register(name.trim(), newEmail.trim(), newPassword, newPassword);
-      setSignupMessage({ text: "Account created. Taking you to sign in…", ok: true });
-      setEmail(newEmail.trim());
-      setPassword("");
-      setTimeout(() => {
-        switchTo("login");
-        setStep("credentials");
-        setLoginMessage({ text: "Account created. Sign in to continue.", ok: true });
-        setNewPassword("");
-      }, 1300);
+      const challenge = await register(name.trim(), newEmail.trim(), newPassword, newPassword);
+      toCodeStep(challenge.expiresInSeconds, challenge.resendInSeconds);
     } catch (err) {
-      setSignupMessage({ text: err instanceof ApiError && err.message ? err.message : "We couldn't reach Falcon. Check your connection and try again." });
+      if (err instanceof ApiError && err.code === "OTP_COOLDOWN" && err.retryAfterSeconds) {
+        // A code for this sign-up was emailed moments ago and is still valid
+        toCodeStep(OTP_EXPIRY_SECONDS - (RESEND_COOLDOWN_SECONDS - err.retryAfterSeconds), err.retryAfterSeconds);
+      } else {
+        setSignupMessage({ text: err instanceof ApiError && err.message ? err.message : "We couldn't reach Falcon. Check your connection and try again." });
+      }
     } finally {
       setSignupLoading(false);
     }

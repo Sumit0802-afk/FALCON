@@ -7,7 +7,6 @@ import {
   LoginInput,
   OtpChallenge,
   RegisterInput,
-  RegisterResult,
   ResetPasswordInput,
   toPublicUser,
   VerifyOtpInput,
@@ -62,24 +61,34 @@ async function dispatchLoginOtp(user: { id: string; email: string; name: string 
 }
 
 export const authService = {
-  /** Register a new user with secure password hash. The user then signs in with an emailed code. */
-  async register(input: RegisterInput): Promise<RegisterResult> {
+  /**
+   * Sign up. The account is made and a one-time code is emailed to its address
+   * at once; entering the code (verifyOtp) confirms the address and signs the
+   * person in. An account whose address was never confirmed can be signed up
+   * for again, which replaces its name and password and sends a new code, so a
+   * sign-up abandoned before the code arrived is not stuck.
+   */
+  async register(input: RegisterInput): Promise<OtpChallenge> {
     const email = normalizeEmail(input.email);
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    if (existing?.isVerified) {
       throw AppError.conflict("An account with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-    await prisma.user.create({
-      data: {
-        name: input.name.trim(),
-        email,
-        passwordHash,
-      },
-    });
+    const user = existing
+      ? await prisma.user.update({ where: { id: existing.id }, data: { name: input.name.trim(), passwordHash } })
+      : await prisma.user.create({ data: { name: input.name.trim(), email, passwordHash } });
 
-    return { success: true, message: "Account created. Sign in to continue." };
+    try {
+      return await dispatchLoginOtp(user);
+    } catch (err) {
+      // An account just made whose code never left is removed, so signing up again starts clean
+      if (!existing && !(err instanceof AppError && err.code === "OTP_COOLDOWN")) {
+        await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+      }
+      throw err;
+    }
   },
 
   /** Login, step 1: verify email & password, then email a one-time code. Also used to resend. */

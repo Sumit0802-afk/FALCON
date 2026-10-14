@@ -105,14 +105,14 @@ export async function verifyOtp(email: string, otp: string): Promise<AuthResult>
   return result;
 }
 
-/** Register new account. The user then signs in with an emailed code. */
+/** Sign up. The new account is emailed a one-time code at once; verifyOtp with it signs the person in. */
 export async function register(
   name: string,
   email: string,
   password: string,
   confirmPassword: string
-): Promise<{ success: true; message: string }> {
-  return apiFetch<{ success: true; message: string }>("/auth/register", {
+): Promise<{ success: true; message: string; expiresInSeconds: number; resendInSeconds: number }> {
+  return apiFetch<{ success: true; message: string; expiresInSeconds: number; resendInSeconds: number }>("/auth/register", {
     method: "POST",
     credentials: "include",
     body: JSON.stringify({ name, email, password, confirmPassword }),

@@ -29,7 +29,7 @@ function clearSessionCookie(res: Response) {
 }
 
 export const authController = {
-  /** Register new account */
+  /** Sign up: make the account and email it a one-time code */
   register: asyncHandler(async (req: Request, res: Response) => {
     const result = await authService.register(req.body);
     res.status(201).json(result);
