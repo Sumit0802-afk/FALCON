@@ -53,7 +53,6 @@ const sendSchema = z.object({
   subject: z.string().trim().min(1, "A subject is required").max(200),
   html: z.string().min(1).max(600_000, "This email is too large to send"),
   fromName: z.string().max(80).optional(),
-  replyTo: address.optional(),
   /** Draw the effects mail apps cannot show as pictures, so the design keeps its look */
   exact: z.boolean().optional(),
 });

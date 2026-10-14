@@ -31,7 +31,6 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
 
   // Form fields prefilled from existing email settings
   const [fromName, setFromName] = useState(design.settings.senderName || "Falcon Studio");
-  const [fromEmail, setFromEmail] = useState(design.settings.replyTo || "");
   const [to, setTo] = useState("");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -84,7 +83,6 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
         subject: `[TEST] ${subject.trim() || "Falcon email"}`,
         html: emailHtml,
         fromName: fromName.trim() || undefined,
-        replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
         exact,
       });
       setTestResult({ success: true, message: `Test email sent to ${recipients.join(", ")}.` });
@@ -132,7 +130,6 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
         subject: subject.trim(),
         html: emailHtml,
         fromName: fromName.trim() || undefined,
-        replyTo: VALID_EMAIL.test(fromEmail.trim()) ? fromEmail.trim() : undefined,
         exact,
       });
       setStatusMessage(result.message || "Your email has been sent to the selected recipients.");
@@ -299,31 +296,17 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                     </div>
                   )}
                   {/* From Section */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Sender Name
-                      </label>
-                      <input
-                        type="text"
-                        value={fromName}
-                        onChange={(e) => setFromName(e.target.value)}
-                        placeholder="Falcon Studio"
-                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Reply-To (optional)
-                      </label>
-                      <input
-                        type="email"
-                        value={fromEmail}
-                        onChange={(e) => setFromEmail(e.target.value)}
-                        placeholder="Replies go to your account email"
-                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
-                      />
-                    </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                      Sender Name
+                    </label>
+                    <input
+                      type="text"
+                      value={fromName}
+                      onChange={(e) => setFromName(e.target.value)}
+                      placeholder="Falcon Studio"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[13px] text-white placeholder-zinc-600 outline-none focus:border-[#00D084]/40"
+                    />
                   </div>
 
                   {/* Subject Line */}
@@ -457,7 +440,7 @@ export default function SendEmailModal({ design, onClose }: SendEmailModalProps)
                   <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-[12px] text-zinc-400 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-zinc-300 w-16">From:</span>
-                      <span className="text-zinc-200">{fromName}{fromEmail ? ` (replies to ${fromEmail})` : ""}</span>
+                      <span className="text-zinc-200">{fromName}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-zinc-300 w-16">To:</span>

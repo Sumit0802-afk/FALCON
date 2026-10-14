@@ -168,7 +168,6 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   fromName?: string;
-  replyTo?: string;
   /** Draw the effects mail apps cannot show as pictures, so the design keeps its look */
   exact?: boolean;
 }

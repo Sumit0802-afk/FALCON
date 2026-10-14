@@ -508,7 +508,6 @@ export const emailService = {
     subject: string;
     html: string;
     fromName?: string;
-    replyTo?: string;
     asPicture?: boolean;
   }): Promise<DesignSendResult & { sent: string[]; failed: { address: string; reason: EmailFailureReason }[] }> {
     const body = await designBody(opts.html, opts.subject, opts.asPicture, "This email was designed in Falcon. Open it in an HTML-capable mail client to see it.");
@@ -519,7 +518,7 @@ export const emailService = {
     const worker = async () => {
       for (let address = queue.shift(); address; address = queue.shift()) {
         try {
-          await dispatchEmail({ to: address, replyTo: opts.replyTo, fromName: opts.fromName || "Falcon", subject: opts.subject, text: body.text, html: body.html });
+          await dispatchEmail({ to: address, fromName: opts.fromName || "Falcon", subject: opts.subject, text: body.text, html: body.html });
           if (process.env.NODE_ENV === "test") _testInbox.set(address.toLowerCase(), { designSubject: opts.subject, designHtml: body.html });
           sent.push(address);
         } catch (err) {

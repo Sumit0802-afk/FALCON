@@ -159,12 +159,11 @@ export const userEmailTemplateService = {
 
   /**
    * Sends a finished design to the recipients the signed-in user entered.
-   * Mail goes out from Falcon's configured sender; the user's own address is
-   * used as Reply-To so replies reach them.
+   * Mail goes out from Falcon's configured sender, with no Reply-To.
    */
   async sendEmail(
     userId: string,
-    input: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; html: string; fromName?: string; replyTo?: string; exact?: boolean }
+    input: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; html: string; fromName?: string; exact?: boolean }
   ) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
     if (!user) throw AppError.unauthorized("Authentication required");
@@ -181,7 +180,6 @@ export const userEmailTemplateService = {
         subject: input.subject,
         html: input.html,
         fromName: cleanName(input.fromName, user.name),
-        replyTo: input.replyTo || user.email,
         asPicture: input.exact,
       });
     } catch (err) {
