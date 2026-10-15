@@ -752,10 +752,11 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
 .fa-or::before,.fa-or::after{content:"";flex:1;height:1px;background:var(--fa-field)}
 .fa-google{position:relative;height:40px;color-scheme:light;visibility:hidden}
 .fa-google.ready{visibility:visible}
-.fa-google-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #dadce0;border-radius:8px;background:#fff;color:#1f1f1f;font-size:13px;font-weight:600;pointer-events:none;transition:background .2s,border-color .2s}
-.fa-google:hover .fa-google-face{background:#f6f8fc;border-color:#c6d4ec}
+.fa-google-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:1px solid #3a3c42;border-radius:8px;background:#18191c;color:#fff;font-size:13px;font-weight:600;pointer-events:none;transition:background .2s,border-color .2s}
+.fa-google-face svg{position:absolute;left:14px;top:50%;translate:0 -50%}
+.fa-google:hover .fa-google-face{background:#24262b;border-color:#4a4d55}
 .fa-google:focus-within .fa-google-face{outline:2px solid var(--fa-accent);outline-offset:2px}
-.fa-google-hit{position:absolute;inset:0;overflow:hidden;opacity:.01}
+.fa-google-hit{position:absolute;inset:0;overflow:hidden;opacity:.01}
 .fa-msg.ok{color:#1c8a4b}
 
 /* ---------- Code step ---------- */
