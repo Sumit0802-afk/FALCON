@@ -27,7 +27,7 @@ const FAQS: { question: string; answer: string }[] = [
   },
   {
     question: "How do I send an email I designed?",
-    answer: "In the Email Designer choose Send Email, add up to 25 recipients and a subject, and send. Replies come back to your account email. To see it in your own inbox first, open More and choose Send test to me.",
+    answer: "In the Email Designer choose Send Email, add up to 100 recipients (a list pasted from a spreadsheet works) and a subject, and send. Each person gets their own copy, so nobody sees anyone else's address. To see it in your own inbox first, open More and choose Send test to me.",
   },
   {
     question: "How do I change my password?",

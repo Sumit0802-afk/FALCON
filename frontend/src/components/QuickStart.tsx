@@ -71,7 +71,8 @@ export default function QuickStart({ onCreate, onCustomSize }: QuickStartProps) 
 
   return (
     <nav aria-label="Start something new" className="falcon-quick mt-7 w-full max-w-[1040px]">
-      <div className="falcon-quick-row no-scrollbar flex gap-1 overflow-x-auto px-2 pb-1 pt-3 sm:flex-wrap sm:justify-center sm:gap-x-2 sm:gap-y-5 sm:overflow-visible">
+      {/* On a phone every shortcut is in view, four to a row, instead of a row that runs off the screen */}
+      <div className="falcon-quick-row flex flex-wrap justify-center gap-y-5 px-1 pb-1 pt-3 sm:gap-x-2">
         {SHORTCUTS.map((shortcut, index) => {
           const Icon = shortcut.icon;
           const working = busy === shortcut.id;
@@ -83,14 +84,14 @@ export default function QuickStart({ onCreate, onCustomSize }: QuickStartProps) 
               disabled={!!busy && !working}
               onClick={() => run(shortcut)}
               style={{ "--qs": shortcut.color, "--qs-i": index } as CSSProperties}
-              className="falcon-quick-item group flex w-[88px] shrink-0 flex-col items-center gap-2.5 rounded-2xl px-0.5 py-1 text-center outline-none disabled:opacity-40 sm:w-[98px]"
+              className="falcon-quick-item group flex w-1/4 flex-col items-center gap-2.5 rounded-2xl px-0.5 py-1 text-center outline-none disabled:opacity-40 sm:w-[98px]"
             >
               <span className="falcon-quick-orb falcon-quick-badge relative flex h-14 w-14 items-center justify-center">
                 {working
                   ? <Loader2 size={20} className="relative z-10 animate-spin" />
                   : <BadgeIcon icon={Icon} tone={shortcut.tone} size={58} className="falcon-quick-icon" />}
               </span>
-              <span className="falcon-quick-label whitespace-nowrap text-[13px] font-medium leading-tight">{working ? "Opening…" : shortcut.label}</span>
+              <span className="falcon-quick-label text-[12px] font-medium leading-tight sm:whitespace-nowrap sm:text-[13px]">{working ? "Opening…" : shortcut.label}</span>
             </button>
           );
         })}

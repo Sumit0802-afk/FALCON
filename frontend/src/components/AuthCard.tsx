@@ -556,7 +556,7 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
             <label className={`fa-row${signupBad.terms ? " bad" : ""}`}>
               <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setSignupBad((b) => ({ ...b, terms: false })); }} />
-              <span>I agree to the Terms and Privacy Policy</span>
+              <span>I agree to the <a href="/terms" target="_blank" rel="noreferrer" className="fa-legal">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer" className="fa-legal">Privacy Policy</a></span>
             </label>
 
             <button type="submit" className="fa-submit" disabled={signupLoading || googleLoading}>{signupLoading ? "Creating account…" : "Sign up"}</button>
@@ -733,6 +733,7 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
 .fa-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fa-ink);cursor:pointer}
 .fa-row input{accent-color:var(--fa-accent);width:15px;height:15px;margin:0;flex:none}
 .fa-row.bad{color:#c9353a}
+.fa-legal{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .fa-link{font-size:12px;color:var(--fa-muted);text-decoration:none;align-self:flex-start}
 .fa-link:hover,.fa-link:focus-visible{color:var(--fa-ink)}
 .fa-note{margin:0;font-size:12px;line-height:1.45;color:var(--fa-muted)}

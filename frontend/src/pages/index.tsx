@@ -1191,7 +1191,8 @@ const openTemplateByName = (name: string) => {
 
 
 
-            <div className="absolute bottom-8 left-6 right-6 flex items-center justify-between font-mono text-[10.5px] tracking-[0.15em] text-zinc-700 lg:left-12 lg:right-12">
+            {/* Corner captions; on a phone there is no room beside the shortcuts, so they are left out */}
+            <div className="absolute bottom-8 left-6 right-6 hidden items-center justify-between font-mono text-[10.5px] tracking-[0.15em] text-zinc-700 sm:flex lg:left-12 lg:right-12">
               <span>
                 FALCON / 001
               </span>
@@ -2389,9 +2390,9 @@ const openTemplateByName = (name: string) => {
               <div className="flex items-center gap-6">
                 <span>© {new Date().getFullYear()} Falcon Studio Inc. All rights reserved.</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">Privacy Policy</span>
+                <a href="/privacy" className="hidden transition-colors hover:text-white sm:inline">Privacy Policy</a>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">Terms of Service</span>
+                <a href="/terms" className="hidden transition-colors hover:text-white sm:inline">Terms of Service</a>
               </div>
               <div className="mt-4 sm:mt-0 font-mono text-[12px] tracking-widest text-zinc-500">
                 PURPOSE → DESIGN → INTELLIGENCE
