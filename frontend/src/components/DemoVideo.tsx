@@ -4,8 +4,8 @@ import { X } from "lucide-react";
 const OPEN_EVENT = "falcon:watch-demo";
 
 // The number changes with each new recording, so a browser does not keep playing the last one
-const VIDEO = "/demo/falcon-demo.mp4?v=3";
-const POSTER = "/demo/falcon-demo-poster.jpg?v=3";
+const VIDEO = "/demo/falcon-demo.mp4?v=4";
+const POSTER = "/demo/falcon-demo-poster.jpg?v=4";
 
 /** Opens the demo video from any "Watch demo" button on a page that shows <DemoVideo /> */
 export function openDemoVideo(): void {
@@ -84,7 +84,7 @@ export default function DemoVideo() {
         </div>
 
         <p className="mt-4 text-center text-[12px] text-zinc-500">
-          A two-minute tour: templates, the email designer, AI Studio, the editor, Brand Kit and QR codes.
+          A two-minute tour: signing in, templates, the email designer, AI Studio making a whole presentation, the editor, Brand Kit and QR codes.
         </p>
 
       </div>
