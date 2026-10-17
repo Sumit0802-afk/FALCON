@@ -2,8 +2,10 @@ export function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
+  // Without a configured address, the backend is looked for beside the site, over the same protocol,
+  // so a site served over HTTPS never sends sign-in details over plain HTTP
   if (typeof window !== "undefined" && window.location.hostname) {
-    return `http://${window.location.hostname}:4000/api`;
+    return `${window.location.protocol}//${window.location.hostname}:4000/api`;
   }
   return "http://localhost:4000/api";
 }

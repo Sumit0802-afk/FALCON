@@ -14,6 +14,8 @@ import {
 import { tokenService } from "./token.service";
 import { emailService } from "./email.service";
 import { otpService, OTP_EXPIRY_SECONDS, OTP_RESEND_COOLDOWN_SECONDS } from "./otp.service";
+import { appOrigin } from "../utils/origins";
+import { hit } from "../middleware/rateLimit.middleware";
 
 const SALT_ROUNDS = 12;
 const DUMMY_HASH = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
@@ -128,6 +130,11 @@ export const authService = {
     const google = await checkGoogleToken(credential, clientId);
 
     const existing = await prisma.user.findUnique({ where: { email: google.email } });
+    // An account nobody ever confirmed may have been signed up for by someone else. Google has now
+    // proved who owns the address, so whatever password that sign-up chose stops working
+    if (existing && !existing.isVerified) {
+      await prisma.user.update({ where: { id: existing.id }, data: { passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), SALT_ROUNDS) } });
+    }
     const user = existing ?? await prisma.user.create({
       data: {
         name: google.name,
@@ -151,7 +158,12 @@ export const authService = {
     const email = normalizeEmail(input.email);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing?.isVerified) {
-      throw AppError.conflict("An account with this email already exists");
+      // At most one such note an hour per address, so this cannot be used to flood someone's inbox
+      const { count } = await hit(`exists:${email}`, 60 * 60 * 1000);
+      if (count === 1) {
+        await emailService.sendAccountExistsEmail({ to: email, name: existing.name, signInUrl: `${appOrigin()}/login` }).catch(() => undefined);
+      }
+      return { success: true, message: "OTP sent successfully", expiresInSeconds: OTP_EXPIRY_SECONDS, resendInSeconds: OTP_RESEND_COOLDOWN_SECONDS };
     }
 
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -232,8 +244,9 @@ export const authService = {
     });
 
     if (!user) {
-      // Constant-time mitigation
+      // About as long as preparing and sending the email takes, so the answer's timing says nothing
       await bcrypt.compare("dummy_pass", DUMMY_HASH);
+      await new Promise((done) => setTimeout(done, 700 + crypto.randomInt(900)));
       return genericResponse;
     }
 
@@ -256,7 +269,7 @@ export const authService = {
       },
     });
 
-    const baseUrl = clientOrigin || process.env.CORS_ORIGIN?.split(",")[0] || "http://localhost:3000";
+    const baseUrl = appOrigin(clientOrigin);
     const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
 
     await emailService.sendPasswordResetEmail({
@@ -389,12 +402,14 @@ export const authService = {
 
     const session = await prisma.session.findUnique({
       where: { sessionTokenHash: tokenHash },
+      include: { user: { select: { id: true, role: true } } },
     });
 
-    if (!session || session.revokedAt !== null || session.expiresAt < new Date()) {
+    if (!session || session.revokedAt !== null || session.expiresAt < new Date() || !session.user || session.user.id !== payload.userId) {
       throw AppError.unauthorized("Session expired or revoked. Please sign in again.");
     }
 
-    return { userId: payload.userId, role: payload.role };
+    // The role now, not the one the token was signed with, so a change takes effect at once
+    return { userId: session.user.id, role: session.user.role };
   },
 };

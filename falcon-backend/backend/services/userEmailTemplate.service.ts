@@ -8,12 +8,15 @@ import { renderEmailHtml } from "../templates/email/core/renderHtml";
 import { exactHtmlOf } from "../templates/email/core/schema";
 import { estimateEmailHeight, renderThumbnailSvg } from "../templates/email/core/renderThumbnail";
 import { emailService, DesignSendResult, EmailDeliveryError, EmailFailureReason } from "./email.service";
+import { hit } from "../middleware/rateLimit.middleware";
 
 const MAX_PER_USER = 500;
 const MAX_DOCUMENT_BYTES = 1_500_000;
 const PREVIEW_RATIO = 1.45;
 /** The most people one send reaches. Each gets a copy of their own, so this is also the most copies */
 const MAX_RECIPIENTS = 100;
+/** The most people one account may email in a day. Mail goes out from Falcon's own sender, whose standing every user shares */
+const DAILY_RECIPIENTS = 300;
 
 const LIST_SELECT = {
   id: true, name: true, sourceTemplateId: true, width: true, height: true, thumbnailSvg: true, createdAt: true,
@@ -172,6 +175,16 @@ export const userEmailTemplateService = {
     const everyone = [...new Set([...input.to, ...(input.cc || []), ...(input.bcc || [])].map((a) => a.trim().toLowerCase()))];
     if (everyone.length > MAX_RECIPIENTS) {
       throw AppError.badRequest(`You can send to at most ${MAX_RECIPIENTS} people at a time. Split the list and send the rest separately.`);
+    }
+    // The day's count goes up before sending, so two sends at once cannot both slip under it
+    const day = await hit(`mail-day:${userId}`, 24 * 60 * 60 * 1000, everyone.length);
+    if (day.count > DAILY_RECIPIENTS) {
+      await hit(`mail-day:${userId}`, 24 * 60 * 60 * 1000, -everyone.length);
+      const left = Math.max(0, DAILY_RECIPIENTS - (day.count - everyone.length));
+      throw new AppError(
+        left ? `You can email ${left} more ${left === 1 ? "person" : "people"} today. Shorten the list, or send the rest tomorrow.` : "You have reached today's limit of people to email. You can send again tomorrow.",
+        429, "EMAIL_DAILY_LIMIT",
+      );
     }
     let result: Awaited<ReturnType<typeof emailService.sendDesignToEach>>;
     try {

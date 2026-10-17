@@ -7,7 +7,7 @@ import { aiStudioService, analysisSchema, contentSchema, dnaSchema, referenceSch
 import { findPhotos } from "../services/aiImages";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
-import { aiRateLimit } from "../middleware/rateLimit.middleware";
+import { aiLightRateLimit, aiRateLimit } from "../middleware/rateLimit.middleware";
 import { AppError } from "../utils/AppError";
 
 const router = Router();
@@ -162,7 +162,7 @@ router.post("/designs/variations", aiRateLimit, validateBody(variationsSchema), 
 });
 
 // Setting the same designs out for another format asks nothing of the AI service
-router.post("/designs/resize", validateBody(resizeSchema), async (req, res, next) => {
+router.post("/designs/resize", aiLightRateLimit, validateBody(resizeSchema), async (req, res, next) => {
   try {
     const { specs, size } = req.body;
     const result = await aiDesignService.resize({ specs, sizeId: size, baseUrl: baseUrl(req) });
@@ -172,7 +172,7 @@ router.post("/designs/resize", validateBody(resizeSchema), async (req, res, next
   }
 });
 
-router.post("/designs/use", validateBody(useSchema), async (req, res, next) => {
+router.post("/designs/use", aiLightRateLimit, validateBody(useSchema), async (req, res, next) => {
   try {
     const result = await aiDesignService.use(userId(req), { spec: req.body.spec, sizeId: req.body.size, baseUrl: baseUrl(req) });
     res.status(201).json({ success: true, ...result });
@@ -213,7 +213,7 @@ router.post("/studio/artwork", aiRateLimit, validateBody(studioArtworkSchema), a
   }
 });
 
-router.post("/studio/evaluate", validateBody(studioEvaluateSchema), async (req, res, next) => {
+router.post("/studio/evaluate", aiRateLimit, validateBody(studioEvaluateSchema), async (req, res, next) => {
   try {
     res.status(200).json(await aiStudioService.evaluate(req.body));
   } catch (error) {
@@ -230,7 +230,7 @@ router.post("/studio/layout", aiRateLimit, validateBody(studioLayoutSchema), asy
   }
 });
 
-router.post("/studio/open", validateBody(studioOpenSchema), async (req, res, next) => {
+router.post("/studio/open", aiLightRateLimit, validateBody(studioOpenSchema), async (req, res, next) => {
   try {
     res.status(201).json(await aiStudioService.open(userId(req), { url: req.body.url, sizeId: req.body.size, title: req.body.title }));
   } catch (error) {
@@ -240,7 +240,7 @@ router.post("/studio/open", validateBody(studioOpenSchema), async (req, res, nex
 
 // ─── Photographs for the editor's element search ─────────────────────────────
 
-router.get("/photos", async (req, res, next) => {
+router.get("/photos", aiLightRateLimit, async (req, res, next) => {
   try {
     const q = String(req.query.q || "").trim().slice(0, 80);
     if (q.length < 2) return res.status(200).json({ photos: [] });
@@ -256,7 +256,7 @@ router.get("/portrait/styles", (_req, res) => {
   res.status(200).json(portraitService.catalogue());
 });
 
-router.post("/portrait/previews", validateBody(previewsSchema), async (req, res, next) => {
+router.post("/portrait/previews", aiLightRateLimit, validateBody(previewsSchema), async (req, res, next) => {
   try {
     res.status(200).json({ previews: await portraitService.previews(readImage(req.body.image)) });
   } catch (error) {
@@ -273,7 +273,7 @@ router.post("/portrait", aiRateLimit, validateBody(portraitSchema), async (req, 
   }
 });
 
-router.post("/portrait/blend", validateBody(blendSchema), async (req, res, next) => {
+router.post("/portrait/blend", aiLightRateLimit, validateBody(blendSchema), async (req, res, next) => {
   try {
     res.status(200).json(await portraitService.blend({ ...req.body, baseUrl: baseUrl(req) }));
   } catch (error) {

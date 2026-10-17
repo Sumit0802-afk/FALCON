@@ -1,34 +1,26 @@
+# PostgreSQL for local development. Falcon's tables are made by the Prisma migrations:
+#   cd falcon-backend/backend && npx prisma migrate deploy
+#
+# The password must be set (copy .env.example to .env and choose one), and the database
+# listens on this computer only, not on the network.
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: falcon-mysql
+  postgres:
+    image: postgres:16
+    container_name: falcon-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-falcon}
-      MYSQL_USER: ${MYSQL_USER:-falcon}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-falcon}
+      POSTGRES_DB: ${POSTGRES_DB:-falcon}
+      POSTGRES_USER: ${POSTGRES_USER:-falcon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in database/.env}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - falcon_mysql_data:/var/lib/mysql
-      # Only run automatically on a brand-new (empty) data volume, in filename order.
-      - ./init/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./init/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - falcon_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-password}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-falcon} -d ${POSTGRES_DB:-falcon}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  adminer:
-    image: adminer:latest
-    container_name: falcon-adminer
-    restart: unless-stopped
-    depends_on:
-      - mysql
-    ports:
-      - "${ADMINER_PORT:-8080}:8080"
-
 volumes:
-  falcon_mysql_data:
+  falcon_postgres_data:

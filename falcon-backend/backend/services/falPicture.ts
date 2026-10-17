@@ -1,3 +1,4 @@
+import { safeFetch } from "../utils/netSafety";
 /**
  * Pictures from fal.ai, as an alternative to a Gemini picture model.
  *
@@ -85,7 +86,8 @@ export const falPicture = {
       const made: string = answer?.images?.[0]?.url || "";
       if (!made) throw new FalError("empty");
       if (made.startsWith("data:")) return Buffer.from(made.slice(made.indexOf(",") + 1), "base64");
-      const file = await fetch(made, { signal: controller.signal });
+      // The address comes back in the service's answer, so where it points is checked before fetching it
+      const file = await safeFetch(made, { signal: controller.signal });
       if (!file.ok) throw new FalError("empty", file.status);
       return Buffer.from(await file.arrayBuffer());
     } catch (err) {

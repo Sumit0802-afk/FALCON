@@ -8,6 +8,8 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
 import routes from "./routes";
+import { AppError } from "./utils/AppError";
+import { isAllowedOrigin, originOf } from "./utils/origins";
 import {
   errorHandler,
   notFoundHandler,
@@ -26,25 +28,12 @@ export function createApp(): Application {
     })
   );
 
-  const configuredOrigins = (process.env.CORS_ORIGIN || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
   app.use(
     cors({
-      origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, server-to-server)
-        if (!origin) return callback(null, true);
-
-        // Allow localhost and 127.0.0.1 on any port in development
-        const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-        if (isLocalhost || configuredOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-
-        return callback(new Error("Not allowed by CORS origin policy"), false);
-      },
+      // Falcon's own sites (CORS_ORIGIN; and localhost outside production) may call the API with a
+      // session. Requests with no Origin come from tools and servers, not from a web page. Any other
+      // site gets no CORS headers, so its page cannot read the answer
+      origin: (origin, callback) => callback(null, !origin || isAllowedOrigin(origin)),
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -60,8 +49,24 @@ export function createApp(): Application {
   app.use("/project-thumbs", express.static(PROJECT_THUMB_DIR, { maxAge: "365d", immutable: true, index: false, dotfiles: "deny" }));
 
   app.use(cookieParser());
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // A request that changes something must come from one of Falcon's own pages. Browsers always say
+  // which page sent a cross-site request, so a form or script on another website that tries to act
+  // with a visitor's session is turned away here, before any work is done
+  app.use("/api", (req, _res, next) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    const from = origin || originOf(req.headers.referer);
+    if (origin === "null" || (from && !isAllowedOrigin(from))) {
+      return next(new AppError("This request did not come from Falcon.", 403, "FOREIGN_ORIGIN"));
+    }
+    next();
+  });
+
+  // Bodies are JSON only; a form-encoded body (what a plain HTML form sends) is not read at all.
+  // Sign-in requests are small; nothing else needs more than the 4.5 MB a hosted function accepts
+  app.use("/api/auth", express.json({ limit: "50kb" }));
+  app.use(express.json({ limit: "5mb" }));
 
   app.use(
     morgan(

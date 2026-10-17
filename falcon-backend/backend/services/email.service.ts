@@ -436,6 +436,25 @@ function passwordResetHtml(name: string, resetUrl: string, expiresInMinutes: num
   });
 }
 
+function accountExistsHtml(name: string, signInUrl: string): string {
+  const link = escapeHtml(signInUrl);
+  const body = `      <h1 style="margin:0 0 10px;font-family:${FONT};font-size:24px;line-height:1.25;font-weight:700;color:#ffffff;">You already have an account</h1>
+      <p style="margin:0 0 26px;font-family:${FONT};font-size:15px;line-height:1.6;color:#a4a9bd;">Hi ${escapeHtml(firstName(name))}, someone just tried to sign up for Falcon with this email address. It already has an account, so nothing was changed. To get in, sign in; if you have forgotten your password, choose Forgot your password on the sign-in page.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;margin:0 auto;"><tr>
+        <td align="center" bgcolor="#6d5bff" style="background-color:#6d5bff;border-radius:10px;">
+          <a href="${link}" class="btn" style="display:inline-block;padding:14px 34px;font-family:${FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">Sign in to Falcon</a>
+        </td>
+      </tr></table>
+      <p style="margin:22px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:#7c8196;">Wasn&rsquo;t you? You can ignore this email. Your account and password stay as they are.</p>`;
+  return accountEmail({
+    title: "You already have a Falcon account",
+    label: "Sign-up",
+    preheader: "Someone tried to sign up with this email. It already has an account.",
+    body,
+    footer: "This is an automated message from Falcon. Replies are not read.",
+  });
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const emailService = {
@@ -460,6 +479,21 @@ export const emailService = {
       subject: "Your Falcon sign-in code",
       text: `Your Falcon sign-in code is ${otp}\n\nIt expires in ${expiresInMinutes} minutes and works once. Never share it: Falcon will never ask for it anywhere except the sign-in screen.\n\nDidn't try to sign in? Then someone else entered your password. They cannot get in without this code, but you should change your password soon.`,
       html: otpHtml(name, otp, expiresInMinutes),
+    });
+  },
+
+  /** Tells the owner of an address that already has an account that someone tried to sign up with it */
+  async sendAccountExistsEmail(opts: { to: string; name: string; signInUrl: string }): Promise<void> {
+    if (process.env.NODE_ENV === "test") {
+      _testInbox.set(opts.to.toLowerCase(), { designSubject: "account-exists" });
+      return;
+    }
+    await dispatchEmail({
+      to: opts.to,
+      fromName: "Falcon Security",
+      subject: "You already have a Falcon account",
+      text: `Hi ${firstName(opts.name)},\n\nSomeone just tried to sign up for Falcon with this email address. It already has an account, so nothing was changed. Sign in here: ${opts.signInUrl}\n\nForgotten your password? Choose "Forgot your password?" on the sign-in page.\n\nWasn't you? You can ignore this email.`,
+      html: accountExistsHtml(opts.name, opts.signInUrl),
     });
   },
 

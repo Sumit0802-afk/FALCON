@@ -1,12 +1,34 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "./prismaClient";
 
+/**
+ * Sample data for a development database: a demo account with a starter
+ * project, and the starter templates.
+ *
+ * No account gets a known password. The demo password is SEED_DEMO_PASSWORD
+ * when set, or a random one printed once. An admin account is made only when
+ * SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are both set. The seed refuses to
+ * run with NODE_ENV=production unless ALLOW_PRODUCTION_SEED=1.
+ */
+
+/** A password that meets the sign-up rules, made fresh each time */
+function randomPassword(): string {
+  return `Falcon-${crypto.randomBytes(12).toString("base64url")}9`;
+}
+
 async function main() {
-  const passwordHash = await bcrypt.hash("password123", 10);
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_SEED !== "1") {
+    throw new Error("Refusing to seed a production database. Set ALLOW_PRODUCTION_SEED=1 if you really mean to.");
+  }
+
+  const demoPassword = process.env.SEED_DEMO_PASSWORD || randomPassword();
+  const passwordHash = await bcrypt.hash(demoPassword, 12);
 
   const user = await prisma.user.upsert({
     where: { email: "demo@falcon.app" },
-    update: {},
+    // An existing demo account gets the new password too, so no old, known password keeps working
+    update: { passwordHash },
     create: {
       name: "Demo User",
       email: "demo@falcon.app",
@@ -37,18 +59,18 @@ async function main() {
     });
   }
 
-  const adminHash = await bcrypt.hash("password123", 10);
-  await prisma.user.upsert({
-    where: { email: "admin@falcon.app" },
-    update: { role: "admin" },
-    create: {
-      name: "Falcon Admin",
-      email: "admin@falcon.app",
-      passwordHash: adminHash,
-      role: "admin",
-      isVerified: true,
-    },
-  });
+  const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (adminEmail && adminPassword) {
+    if (adminPassword.length < 12) throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters.");
+    const adminHash = await bcrypt.hash(adminPassword, 12);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: { role: "admin", passwordHash: adminHash },
+      create: { name: "Falcon Admin", email: adminEmail, passwordHash: adminHash, role: "admin", isVerified: true },
+    });
+    console.log(`[seed] admin account: ${adminEmail}`);
+  }
 
   const { templateService } = await import("../services/template.service");
   const { generateTemplateBatch } = await import("../templates/generator");
@@ -67,7 +89,7 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log(`[seed] Ready — login with demo@falcon.app / password123 (admin@falcon.app for admin)`);
+  console.log(`[seed] Ready — demo account demo@falcon.app${process.env.SEED_DEMO_PASSWORD ? " (password from SEED_DEMO_PASSWORD)" : `, password: ${demoPassword} (shown once)`}`);
 }
 
 main()

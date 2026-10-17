@@ -19,7 +19,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-import { isPublicUrl } from "./emailSnapshot";
+import { isPublicUrl, safeFetch } from "../utils/netSafety";
 import { STORAGE_ROOT } from "../utils/storageDir";
 
 /** Where found and generated pictures are kept; served from /ai-assets */
@@ -137,7 +137,8 @@ export async function fetchSource(photo: FoundPhoto): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
   try {
-    const res = await fetch(photo.url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
+    // The address came from a search result, so where it really points, and every redirect, is checked
+    const res = await safeFetch(photo.url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
     if (!res.ok || !/^image\//.test(res.headers.get("content-type") || "")) return null;
     const content = Buffer.from(await res.arrayBuffer());
     if (content.length < 2000 || content.length > MAX_DOWNLOAD) return null;

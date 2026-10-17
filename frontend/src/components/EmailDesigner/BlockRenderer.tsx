@@ -6,6 +6,21 @@ import { SOCIAL_LABELS, contrastColor, videoPoster } from "@/lib/emailCore/rende
 import { pickHtml } from "@/utils/htmlPick";
 import { isFullHtmlDocument } from "@/lib/emailCore/schema";
 import HtmlFrame from "./HtmlFrame";
+import DOMPurify from "dompurify";
+
+/**
+ * A piece of HTML shown inside the designer itself, not in a frame of its own, so
+ * nothing in it may run: scripts, event handlers, forms and script links are
+ * taken out by DOMPurify. Inline styles and <style> are kept for the look.
+ */
+function safeFragment(html: string): string {
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ["form", "base", "meta", "link", "iframe", "object", "embed", "frame", "frameset"],
+    FORBID_ATTR: ["action", "formaction", "srcdoc"],
+    ADD_TAGS: ["style"],
+    FORCE_BODY: true,
+  });
+}
 
 // ─── Inline Editable Text ──────────────────────────────────────────────────────
 
@@ -27,7 +42,8 @@ function Editable({ value, onChange, style, className, multiline = true }: Edita
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || editing) return;
-    const html = value.replace(/\n/g, "<br>");
+    // Text from an imported or shared template may carry markup; nothing in it is allowed to run
+    const html = safeFragment(value.replace(/\n/g, "<br>"));
     if (el.innerHTML !== html) el.innerHTML = html;
   }, [value, editing]);
 
@@ -66,7 +82,7 @@ function EditableLabel({ value, onChange, style }: { value: string; onChange: (v
       onBlur={(e) => { if (e.currentTarget.innerText !== value) onChange(e.currentTarget.innerText); }}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
       style={{ cursor: "text", userSelect: "text", outline: "none", textDecoration: "none", lineHeight: 1.2, ...style }}
-      dangerouslySetInnerHTML={{ __html: value }}
+      dangerouslySetInnerHTML={{ __html: safeFragment(value) }}
     />
   );
 }
@@ -307,7 +323,7 @@ export default function BlockRenderer({ block, selected = false, onChange }: Blo
       }
       return (
         <div style={pad}>
-          <div dangerouslySetInnerHTML={{ __html: block.html }} />
+          <div dangerouslySetInnerHTML={{ __html: safeFragment(block.html) }} />
         </div>
       );
 

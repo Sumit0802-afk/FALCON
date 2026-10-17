@@ -151,22 +151,13 @@ export function UploadsPanel({
       "image/webp",
       "image/svg+xml",
       "image/gif",
-      "video/mp4",
-      "video/quicktime",
-      "video/webm",
-      "audio/mpeg",
-      "audio/mp3",
-      "audio/wav",
-      "audio/x-wav",
-      "audio/ogg",
-      "application/pdf",
     ];
 
     if (!allowed.includes(file.type.toLowerCase())) {
       setUploadQueue((prev) =>
         prev.map((item) =>
           item.id === uploadId
-            ? { ...item, status: "error", errorMessage: "Unsupported format" }
+            ? { ...item, status: "error", errorMessage: "Only pictures can be uploaded: PNG, JPG, WebP, GIF or SVG" }
             : item
         )
       );
@@ -198,44 +189,15 @@ export function UploadsPanel({
           )
         );
 
-        let createdAsset: Asset;
-        if (file.type.toLowerCase().startsWith("image/")) {
-          // Pictures are kept by the backend, in the database, so they are there on any host.
-          // A large photo is made smaller first
-          const fitted = await fitImageForUpload(file);
-          const data = await apiFetch<{ asset: Asset }>("/uploads", {
-            method: "POST",
-            body: JSON.stringify({ fileName: fitted.name, fileType: fitted.type, base64Data: fitted.dataUrl, folderId: selectedFolderId }),
-            signal: abortCtrl.signal,
-          });
-          createdAsset = data.asset;
-        } else {
-          // Video, audio and documents are too large for that and are written to this site's own disk
-          const response = await fetch("/api/uploads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size,
-              base64Data,
-              folderId: selectedFolderId,
-            }),
-            signal: abortCtrl.signal,
-          });
-
-          if (!response.ok) {
-            // A host with no disk to write to (or a request limit) cannot take these files
-            if (response.status === 413 || response.status >= 500) {
-              throw new Error("Video, audio and PDF files cannot be uploaded on this site. Pictures can.");
-            }
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || "Upload failed");
-          }
-
-          const data = await response.json();
-          createdAsset = data.asset as Asset;
-        }
+        // Pictures are kept by the backend, in the database, for the signed-in account, so they are
+        // there on any host. A large photo is made smaller first
+        const fitted = await fitImageForUpload(file);
+        const data = await apiFetch<{ asset: Asset }>("/uploads", {
+          method: "POST",
+          body: JSON.stringify({ fileName: fitted.name, fileType: fitted.type, base64Data: fitted.dataUrl, folderId: selectedFolderId }),
+          signal: abortCtrl.signal,
+        });
+        const createdAsset = data.asset;
 
         // Persist to local asset service
         assetService.addUpload(createdAsset);
@@ -389,7 +351,7 @@ export function UploadsPanel({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,application/pdf"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
         onChange={(e) => {
           if (e.target.files) handleFiles(e.target.files);
           e.target.value = "";
@@ -402,7 +364,7 @@ export function UploadsPanel({
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-cyan-950/80 backdrop-blur-sm border-2 border-dashed border-cyan-400 p-6 text-center animate-in fade-in duration-150">
           <UploadCloud size={48} className="text-cyan-400 mb-3 animate-bounce" />
           <h3 className="text-sm font-semibold text-white">Drop files to upload</h3>
-          <p className="text-[11px] text-cyan-200 mt-1">PNG, JPG, WEBP, SVG, MP4, MP3, WAV, PDF</p>
+          <p className="text-[11px] text-cyan-200 mt-1">PNG, JPG, WEBP, GIF, SVG</p>
         </div>
       )}
 
@@ -413,7 +375,7 @@ export function UploadsPanel({
             <BadgeIcon icon={UploadCloud} tone="sky" size={38} />
             <div>
               <h2 className="text-xs font-semibold tracking-wide text-white">Asset Uploads</h2>
-              <p className="text-[10px] text-zinc-400">Images, videos, audio & media</p>
+              <p className="text-[10px] text-zinc-400">Your pictures, kept with your account</p>
             </div>
           </div>
           <button
@@ -666,7 +628,7 @@ export function UploadsPanel({
             <UploadCloud size={32} className="text-zinc-600 mb-2.5" />
             <p className="text-xs font-semibold text-zinc-300">No assets found</p>
             <p className="text-[10px] text-zinc-500 mt-1 max-w-[200px]">
-              Drag and drop your photos, videos, or audio here, or click upload.
+              Drag and drop your pictures here, or click upload.
             </p>
             <button
               type="button"

@@ -3,9 +3,12 @@ import { z } from "zod";
 import { projectController } from "../controllers/project.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate.middleware";
+import { projectWriteRateLimit } from "../middleware/rateLimit.middleware";
 
 const router = Router();
 router.use(requireAuth);
+// Saving and changing projects is limited per person; opening them is not
+router.use((req, res, next) => (req.method === "GET" ? next() : projectWriteRateLimit(req, res, next)));
 
 const createProjectSchema = z.object({
   title: z.string().min(1).max(200).default("Untitled design"),

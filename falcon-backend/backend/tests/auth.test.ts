@@ -275,8 +275,13 @@ async function runTests() {
     const joined = await request("/auth/verify-otp", { method: "POST", body: { email: newEmail, otp: signupCode }, ip: "10.0.0.20" });
     assert(joined.status === 200 && !!joined.body?.token && joined.body?.user?.email === newEmail, "Entering the code signs the new account in");
     assert((await prisma.user.findUnique({ where: { email: newEmail } }))?.isVerified === true, "Entering the code confirms the address");
-    const taken = await signUp();
-    assert(taken.status === 409, "A confirmed address cannot be signed up for again");
+    const takenBefore = await prisma.user.findUnique({ where: { email: newEmail }, select: { passwordHash: true, name: true } });
+    const taken = await signUp("Takeover789!");
+    const takenAfter = await prisma.user.findUnique({ where: { email: newEmail }, select: { passwordHash: true, name: true } });
+    assert(taken.status === 201 && taken.body?.expiresInSeconds > 0, "Signing up with a confirmed address answers like any sign-up, so it cannot be used to find accounts");
+    assert(takenAfter?.passwordHash === takenBefore?.passwordHash && takenAfter?.name === takenBefore?.name, "A confirmed account is not changed by someone signing up with its address");
+    assert(emailService.getDevLatestDesignTest(newEmail).subject === "account-exists", "The owner is told by email that someone tried to sign up");
+    assert(!JSON.stringify(taken.body).includes("exists"), "The answer does not say the account exists");
 
     console.log(`\n--- Test 14c: Continue with Google ---`);
     const savedClientId = process.env.GOOGLE_CLIENT_ID;

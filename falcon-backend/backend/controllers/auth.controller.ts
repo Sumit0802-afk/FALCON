@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { appOrigin, originOf } from "../utils/origins";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { authService } from "../services/auth.service";
@@ -71,8 +72,9 @@ export const authController = {
 
   /** Request password reset email */
   forgotPassword: asyncHandler(async (req: Request, res: Response) => {
-    const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : undefined);
-    const result = await authService.forgotPassword(req.body.email, origin);
+    // Origin and Referer can be made up, so only one of Falcon's own sites is used for the link
+    const origin = (typeof req.headers.origin === "string" && req.headers.origin) || originOf(req.headers.referer);
+    const result = await authService.forgotPassword(req.body.email, appOrigin(origin));
     res.status(200).json(result);
   }),
 

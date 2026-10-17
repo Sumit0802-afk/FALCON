@@ -48,7 +48,8 @@ server.ts      Entry point: loads .env, connects the DB, starts listening
 5. (Optional) Seed a demo user + project:
    ```bash
    npm run seed
-   # login with demo@falcon.app / password123
+   # makes demo@falcon.app and prints its password once
+   # (set SEED_DEMO_PASSWORD to choose it; SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD add an admin)
    ```
 6. Start the API:
    ```bash

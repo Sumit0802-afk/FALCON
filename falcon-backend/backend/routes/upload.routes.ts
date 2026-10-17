@@ -14,6 +14,7 @@ import { z } from "zod";
 import { prisma } from "../database/prismaClient";
 import { requireAuth } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate.middleware";
+import { uploadRateLimit } from "../middleware/rateLimit.middleware";
 import { AppError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -26,6 +27,20 @@ const KINDS: Record<string, "image" | "svg" | "gif"> = {
   "image/gif": "gif",
   "image/svg+xml": "svg",
 };
+
+/** Whether the bytes are really a picture of the kind named, by their opening bytes */
+function looksLike(kind: string, data: Buffer): boolean {
+  const head = data.subarray(0, 16);
+  switch (kind) {
+    case "image/png": return head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case "image/jpeg":
+    case "image/jpg": return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+    case "image/gif": return head.subarray(0, 6).toString("latin1") === "GIF87a" || head.subarray(0, 6).toString("latin1") === "GIF89a";
+    case "image/webp": return head.subarray(0, 4).toString("latin1") === "RIFF" && head.subarray(8, 12).toString("latin1") === "WEBP";
+    case "image/svg+xml": return /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg[\s>]/i.test(data.subarray(0, 4096).toString("utf8").replace(/^\uFEFF/, ""));
+    default: return false;
+  }
+}
 
 /** One picture. A function's request may not pass 4.5 MB, and the picture travels as base64, a third larger */
 const MAX_BYTES = 3 * 1024 * 1024;
@@ -96,7 +111,8 @@ router.get(
     const found = await prisma.upload.findUnique({ where: { id: String(req.params.id) }, select: { mimeType: true, data: true } });
     if (!found) throw AppError.notFound("That picture is no longer here.");
     res.setHeader("Content-Type", found.mimeType);
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    // Kept for a day, not for ever, so a picture its owner deletes stops being served soon after
+    res.setHeader("Cache-Control", "public, max-age=86400");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -109,6 +125,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
+  uploadRateLimit,
   validateBody(uploadSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const owner = userId(req);
@@ -120,6 +137,7 @@ router.post(
     const data = Buffer.from(comma >= 0 ? base64Data.slice(comma + 1) : base64Data, "base64");
     if (data.length === 0) throw AppError.badRequest("That file is empty.");
     if (data.length > MAX_BYTES) throw AppError.badRequest("That picture is too large. Pictures up to 3 MB can be kept.");
+    if (!looksLike(fileType, data)) throw AppError.badRequest("That file is not the kind of picture its name says. Upload a PNG, JPG, WebP, GIF or SVG.");
 
     const kept = await prisma.upload.aggregate({ where: { ownerId: owner }, _sum: { size: true } });
     if ((kept._sum.size || 0) + data.length > ACCOUNT_BYTES) {

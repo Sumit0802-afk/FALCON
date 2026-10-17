@@ -28,16 +28,48 @@ export function sanitizeInlineHtml(value: string): string {
     .replace(/\n/g, "<br>");
 }
 
+/** Elements removed with everything inside them: they run code or load another page */
+const ACTIVE_BLOCKS = "script|iframe|object|embed|applet|frame|frameset|noembed|noframes|portal";
+/** Elements whose tags are removed and whose content is kept: forms, a page base, and redirecting meta */
+const ACTIVE_TAGS = `${ACTIVE_BLOCKS}|form|base`;
+
+/** An attribute value as a browser would read it, so an encoded "javascript:" is recognised */
+function decodeAttribute(value: string): string {
+  return value
+    .replace(/^["']|["']$/g, "")
+    .replace(/&#x([0-9a-f]+);?/gi, (_m, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_m, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&colon;/gi, ":")
+    .replace(/&(tab|newline);/gi, "")
+    .replace(/[\u0000- \u007f-\u009f]/g, "")
+    .toLowerCase();
+}
+
 /**
- * Removes anything that could run code from a complete HTML document while
- * leaving its markup and stylesheet untouched.
+ * Takes out what would run code in an email: script-like elements, event
+ * handler attributes, script links and redirects. Email apps strip these too;
+ * Falcon removes them so its own previews and sent mail never carry them.
  */
 export function stripActiveHtml(value: string): string {
-  return String(value ?? "")
-    .replace(/<\s*(script|iframe|object|embed)[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
-    .replace(/<\s*\/?\s*(script|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1="#"');
+  let html = String(value ?? "")
+    .replace(new RegExp(`<\\s*(${ACTIVE_BLOCKS})\\b[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>`, "gi"), "")
+    .replace(new RegExp(`<\\s*\\/?\\s*(${ACTIVE_TAGS})\\b[^>]*>`, "gi"), "")
+    .replace(/<\s*meta\b[^>]*http-equiv[^>]*>/gi, "");
+  // Event handlers, however they are separated from the tag name: a space, a slash or a quote
+  for (let pass = 0; pass < 8; pass++) {
+    const next = html.replace(/(<[^>]*?[\s/"'])on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, (_m, before: string) => before.replace(/\s+$/, ""));
+    if (next === html) break;
+    html = next;
+  }
+  // Addresses that would run code, written plainly or encoded
+  return html.replace(
+    /\b(href|src|action|formaction|xlink:href|background|poster|data|srcdoc)(\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)/gi,
+    (whole, attr: string, eq: string, raw: string) => {
+      if (attr.toLowerCase() === "srcdoc") return "";
+      const target = decodeAttribute(raw);
+      return /^(javascript|vbscript|livescript):|^data:(?!image\/(png|jpe?g|gif|webp|svg\+xml)[;,])/.test(target) ? `${attr}${eq}"#"` : whole;
+    },
+  );
 }
 
 function safeUrl(url: string): string {

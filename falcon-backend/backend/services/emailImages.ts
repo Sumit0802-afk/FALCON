@@ -15,7 +15,8 @@
  */
 
 import * as cheerio from "cheerio";
-import { canHostEmailPictures, hostEmailPicture, isPublicUrl } from "./emailSnapshot";
+import { canHostEmailPictures, hostEmailPicture } from "./emailSnapshot";
+import { isPublicUrl } from "../utils/netSafety";
 
 export interface CheckedEmail {
   html: string;

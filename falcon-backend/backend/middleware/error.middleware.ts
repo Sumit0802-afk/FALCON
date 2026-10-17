@@ -29,6 +29,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     }
   }
 
+  // A body the JSON reader refused: too large, or not JSON. The client's mistake, not the server's
+  const parse = err as { type?: string };
+  if (parse?.type === "entity.too.large") {
+    return res.status(413).json({ error: "That request is too large.", code: "PAYLOAD_TOO_LARGE" });
+  }
+  if (parse?.type === "entity.parse.failed" || parse?.type === "encoding.unsupported" || parse?.type === "charset.unsupported") {
+    return res.status(400).json({ error: "The request could not be read.", code: "BAD_BODY" });
+  }
+
   // eslint-disable-next-line no-console
   console.error("[unhandled error]", err);
   res.status(500).json({ error: "Something went wrong. Please try again." });

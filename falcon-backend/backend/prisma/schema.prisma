@@ -487,3 +487,13 @@ model Upload {
   @@index([ownerId, createdAt])
   @@map("uploads")
 }
+
+// How many requests a person or address has made within a window, shared by every server instance
+model RateLimit {
+  key     String   @id @db.VarChar(200)
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+  @@map("rate_limits")
+}

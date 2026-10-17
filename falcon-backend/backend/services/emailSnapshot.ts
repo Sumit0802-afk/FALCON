@@ -23,7 +23,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import net from "net";
+import { isPublicDestination, isPublicUrl } from "../utils/netSafety";
 import type { Browser, Page } from "puppeteer-core";
 import { stripActiveHtml } from "../templates/email/core/renderHtml";
 import { inlineEmailStyles } from "./emailInliner";
@@ -93,27 +93,19 @@ async function getBrowser(): Promise<Browser> {
   browser = puppeteer.launch({
     executablePath,
     headless: true,
-    args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--disable-extensions", "--force-color-profile=srgb"],
+    // Chrome's sandbox stays on. It can only be turned off where Chrome cannot use it at all (running as
+    // root on Linux), or by setting CHROME_NO_SANDBOX=1 for a host that needs it
+    args: [
+      ...(process.env.CHROME_NO_SANDBOX === "1" || (process.platform === "linux" && process.getuid?.() === 0) ? ["--no-sandbox"] : []),
+      "--disable-gpu", "--hide-scrollbars", "--disable-extensions", "--force-color-profile=srgb",
+    ],
   });
   browser.catch(() => { browser = null; });
   return browser;
 }
 
 /** The design may load pictures and fonts from the web, but nothing on this machine or its network */
-export function isPublicUrl(raw: string): boolean {
-  if (raw.startsWith("data:") || raw === "about:blank") return true;
-  let url: URL;
-  try { url = new URL(raw); } catch { return false; }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
-  if (net.isIPv4(host)) {
-    const [a, b] = host.split(".").map(Number);
-    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return false;
-  }
-  if (net.isIPv6(host) && (host === "::1" || host === "::" || /^f[cde]/.test(host) || host.startsWith("::ffff:"))) return false;
-  return true;
-}
+export { isPublicUrl };
 
 interface Effect {
   id: number;
@@ -299,15 +291,39 @@ export function hostEmailPicture(content: Buffer, ext: string): string | null {
 export async function snapshotEmail(sourceHtml: string, title: string): Promise<EmailSnapshot> {
   if (!canHostEmailPictures()) throw new EffectsUnavailable("no_host");
   if (!findBrowser()) throw new EffectsUnavailable("no_browser");
+  // Only a few emails are drawn at once, so a burst of sends cannot tie up the whole server
+  await takeTurn();
+  try {
+    return await drawEmail(sourceHtml, title);
+  } finally {
+    giveTurn();
+  }
+}
+
+const AT_ONCE = 2;
+let drawing = 0;
+const waiting: (() => void)[] = [];
+function takeTurn(): Promise<void> {
+  if (drawing < AT_ONCE) { drawing += 1; return Promise.resolve(); }
+  return new Promise((go) => waiting.push(() => { drawing += 1; go(); }));
+}
+function giveTurn(): void {
+  drawing -= 1;
+  waiting.shift()?.();
+}
+
+async function drawEmail(sourceHtml: string, title: string): Promise<EmailSnapshot> {
   const instance = await getBrowser();
   const page: Page = await instance.newPage();
   try {
     // Nothing in the design is allowed to run, or to reach private addresses
     await page.setJavaScriptEnabled(false);
     await page.setRequestInterception(true);
+    // Every request, redirects included, is checked against where its name really points
     page.on("request", (request) => {
-      if (isPublicUrl(request.url())) request.continue().catch(() => undefined);
-      else request.abort().catch(() => undefined);
+      isPublicDestination(request.url())
+        .then((ok) => (ok ? request.continue() : request.abort()))
+        .catch(() => request.abort().catch(() => undefined));
     });
     await page.setViewport({ width: WIDTH, height: 900, deviceScaleFactor: SCALE });
     await page.setContent(stripActiveHtml(sourceHtml), { waitUntil: "load", timeout: 20000 }).catch(() => undefined);
