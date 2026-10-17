@@ -88,7 +88,7 @@ export function TopBar({
 
   return (
     <header
-      className={`relative z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b px-2 transition-colors sm:px-4 duration-200 select-none ${
+      className={`relative z-[60] flex h-14 shrink-0 items-center justify-between gap-2 border-b px-2 transition-colors sm:px-4 duration-200 select-none ${
         isDark
           ? "border-white/[0.06] bg-[#090b0e] text-white"
           : "border-slate-200 bg-white text-slate-900"

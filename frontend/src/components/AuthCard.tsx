@@ -184,7 +184,11 @@ function loadGoogle(): Promise<void> {
   return googleScript;
 }
 
-/** Whichever form's button was pressed last receives Google's answer */
+/**
+ * Where Google's answer goes: the sign-in card sets it to whichever form is on show. It cannot be
+ * set by watching the click, because a person already signed in to Google gets Google's button in
+ * a frame of its own, and a click there never reaches this page.
+ */
 let googleReceiver: ((credential: string) => void) | null = null;
 let googleReady = false;
 
@@ -206,10 +210,8 @@ function GoogleMark() {
  * people see always reads "Continue with Google". Google's button would
  * otherwise show the name and email of whoever is signed in to the browser.
  */
-function GoogleButton({ onCredential, onUnavailable }: { onCredential: (credential: string) => void; onUnavailable: () => void }) {
+function GoogleButton({ onUnavailable }: { onUnavailable: () => void }) {
   const box = useRef<HTMLDivElement>(null);
-  const receive = useRef(onCredential);
-  receive.current = onCredential;
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -222,7 +224,10 @@ function GoogleButton({ onCredential, onUnavailable }: { onCredential: (credenti
           google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r: { credential?: string }) => r.credential && googleReceiver?.(r.credential), ux_mode: "popup" });
           googleReady = true;
         }
-        google.accounts.id.renderButton(box.current, { theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "center", width: Math.min(400, Math.max(200, box.current.clientWidth)) });
+        // Drawn at Google's widest (400 px) and centred, so it covers the whole visible button at any
+        // screen size: measured while the page was still being laid out, it came out at 200 px and
+        // clicks on the rest of the button reached nothing
+        google.accounts.id.renderButton(box.current, { theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "center", width: 400 });
         setReady(true);
       })
       .catch(() => live && onUnavailable());
@@ -230,9 +235,8 @@ function GoogleButton({ onCredential, onUnavailable }: { onCredential: (credenti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Pressing anywhere in this button makes this form the one Google answers
   return (
-    <div className={`fa-google${ready ? " ready" : ""}`} onPointerDownCapture={() => { googleReceiver = (c) => receive.current(c); }}>
+    <div className={`fa-google${ready ? " ready" : ""}`}>
       <div className="fa-google-face" aria-hidden="true"><GoogleMark />Continue with Google</div>
       <div ref={box} className="fa-google-hit" />
     </div>
@@ -448,6 +452,14 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
   }
   const googleOff = () => {};
 
+  // Google's answer goes to the form on show: its message line shows anything that goes wrong
+  const answerGoogle = useRef<(credential: string) => void>(() => undefined);
+  answerGoogle.current = (credential) => handleGoogle(credential, mode === "register" ? setSignupMessage : setLoginMessage);
+  useEffect(() => {
+    googleReceiver = (credential) => answerGoogle.current(credential);
+    return () => { googleReceiver = null; };
+  }, []);
+
   // ── Sign up ───────────────────────────────────────────────
   async function handleSignup(e: FormEvent) {
     e.preventDefault();
@@ -563,7 +575,7 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
             {GOOGLE_CLIENT_ID && (
               <>
                 <div className="fa-or" aria-hidden="true"><span>or</span></div>
-                <GoogleButton onCredential={(c) => handleGoogle(c, setSignupMessage)} onUnavailable={googleOff} />
+                <GoogleButton onUnavailable={googleOff} />
               </>
             )}
             <div className={`fa-msg${signupMessage?.ok ? " ok" : ""}`} role={signupMessage && !signupMessage.ok ? "alert" : undefined} aria-live="polite">{signupMessage?.text}</div>
@@ -606,7 +618,7 @@ export default function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               {GOOGLE_CLIENT_ID ? (
                 <>
                   <div className="fa-or" aria-hidden="true"><span>or</span></div>
-                  <GoogleButton onCredential={(c) => handleGoogle(c, setLoginMessage)} onUnavailable={googleOff} />
+                  <GoogleButton onUnavailable={googleOff} />
                 </>
               ) : (
                 <p className="fa-note">We&apos;ll email you a one-time code to finish signing in.</p>
@@ -757,7 +769,7 @@ html[data-theme="light"] .fa-page{ --fa-page:#f3f5fb; --fa-shadow:rgba(41,30,113
 .fa-google-face svg{position:absolute;left:14px;top:50%;translate:0 -50%}
 .fa-google:hover .fa-google-face{background:#24262b;border-color:#4a4d55}
 .fa-google:focus-within .fa-google-face{outline:2px solid var(--fa-accent);outline-offset:2px}
-.fa-google-hit{position:absolute;inset:0;overflow:hidden;opacity:.01}
+.fa-google-hit{position:absolute;inset:0;overflow:hidden;opacity:.01;display:flex;align-items:center;justify-content:center}
 .fa-msg.ok{color:#1c8a4b}
 
 /* ---------- Code step ---------- */
