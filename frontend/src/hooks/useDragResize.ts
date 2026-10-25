@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { CanvasElement } from "@/types";
 import { clamp, snapToGrid } from "@/utils/geometry";
 
@@ -33,24 +33,54 @@ interface UseDragResizeArgs {
   onFontSizeChange?: (size: number) => void;
 }
 
+/** Smallest an element can be made, in design pixels */
+const MIN_SIZE = 16;
+
+/** Position and size are kept to a hundredth of a pixel: smooth, and the opposite edge never creeps */
+const precise = (value: number) => Math.round(value * 100) / 100;
+
+// Elements that keep their proportions when pulled by a corner
+const KEEPS_PROPORTIONS = new Set(["text", "image", "frame"]);
+
 export function useDragResize({
   element,
   zoom,
   onChange,
   initialFontSize,
-  onFontSizeChange,
 }: UseDragResizeArgs) {
-  const dragRef = useRef<DragState | null>(null);
-
-  const resizeRef = useRef<
-    ({ handle: ResizeHandle } & DragState) | null
-  >(null);
-
-  // Keep the latest position/size so pointerup
-  // commits the actual final state instead of {}.
-  const lastPatchRef = useRef<Partial<CanvasElement> | null>(null);
-
   const rafIdRef = useRef<number | null>(null);
+
+  // The latest values, read while a gesture is under way. A gesture outlives the render it
+  // started in, so reading the values captured at its start would apply every step to a
+  // page that has since changed.
+  const onChangeRef = useRef(onChange);
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    zoomRef.current = zoom;
+  });
+
+  // Stops a gesture still listening if the element goes away mid-drag
+  const cleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cleanupRef.current?.(), []);
+
+  /** Sends a step of the gesture, at most once per frame */
+  const queue = useCallback((patch: Partial<CanvasElement>) => {
+    if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      onChangeRef.current(patch, { commit: false });
+    });
+  }, []);
+
+  /** Ends a gesture: drops the pending frame and records the final state as one undo step */
+  const finish = useCallback((finalPatch: Partial<CanvasElement> | null) => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    if (finalPatch) onChangeRef.current(finalPatch, { commit: true });
+  }, []);
 
   /* =======================================================
      DRAG (MOVE ELEMENT)
@@ -59,73 +89,47 @@ export function useDragResize({
   const startDrag = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation();
+      cleanupRef.current?.();
 
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origin: {
-          x: element.x,
-          y: element.y,
-          width: element.width,
-          height: element.height,
-        },
-      };
-
-      lastPatchRef.current = {
-        x: element.x,
-        y: element.y,
-      };
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const origin = { x: element.x, y: element.y };
+      let lastPatch: Partial<CanvasElement> | null = null;
 
       function onMove(ev: PointerEvent) {
-        if (!dragRef.current) return;
+        const dx = (ev.clientX - startX) / zoomRef.current;
+        const dy = (ev.clientY - startY) / zoomRef.current;
 
-        const dx = (ev.clientX - dragRef.current.startX) / zoom;
-        const dy = (ev.clientY - dragRef.current.startY) / zoom;
-
-        const patch: Partial<CanvasElement> = {
-          x: snapToGrid(dragRef.current.origin.x + dx),
-          y: snapToGrid(dragRef.current.origin.y + dy),
+        lastPatch = {
+          x: snapToGrid(origin.x + dx),
+          y: snapToGrid(origin.y + dy),
         };
-
-        lastPatchRef.current = patch;
-
-        if (rafIdRef.current !== null) {
-          cancelAnimationFrame(rafIdRef.current);
-        }
-        rafIdRef.current = requestAnimationFrame(() => {
-          onChange(patch, { commit: false });
-          rafIdRef.current = null;
-        });
+        queue(lastPatch);
       }
 
-      function onUp() {
-        if (rafIdRef.current !== null) {
-          cancelAnimationFrame(rafIdRef.current);
-          rafIdRef.current = null;
-        }
-
-        const finalPatch = lastPatchRef.current;
-        dragRef.current = null;
-        lastPatchRef.current = null;
-
-        if (finalPatch) {
-          onChange(finalPatch, { commit: true });
-        }
-
+      function stop() {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
+        cleanupRef.current = null;
       }
 
+      function onUp() {
+        stop();
+        // A plain click only selects; it is not a change to undo
+        finish(lastPatch);
+      }
+
+      cleanupRef.current = stop;
       window.addEventListener("pointermove", onMove, { passive: true });
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [element, zoom, onChange]
+    [element, queue, finish]
   );
 
   /* =======================================================
-     RESIZE (CORNER & EDGE / SPLITTER HANDLES)
+     RESIZE (CORNER & EDGE HANDLES)
      ======================================================= */
 
   const startResize = useCallback(
@@ -133,253 +137,120 @@ export function useDragResize({
       (e: React.PointerEvent) => {
         e.stopPropagation();
         e.preventDefault();
+        cleanupRef.current?.();
 
-        // Lock pointer capture on the active handle element if available
+        // Keeps the pointer on the handle even when it runs ahead of the element
         const target = e.currentTarget as HTMLElement | null;
-        if (target && target.setPointerCapture) {
-          try {
-            target.setPointerCapture(e.pointerId);
-          } catch {
-            // Ignore in environments where pointer capture might fail
-          }
+        try {
+          target?.setPointerCapture?.(e.pointerId);
+        } catch {
+          // Pointer capture is not available everywhere
         }
 
-        // Snapshot font size at resize start so we can scale proportionally
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origin = {
+          x: element.x,
+          y: element.y,
+          width: element.width,
+          height: element.height,
+        };
         const fontSizeAtStart =
-          initialFontSize ?? (element as any).fontSize ?? undefined;
+          initialFontSize ?? (element as { fontSize?: number }).fontSize;
+        const keepsProportions = KEEPS_PROPORTIONS.has(element.type);
 
-        const startOrigin = {
-          x: element.x,
-          y: element.y,
-          width: element.width,
-          height: element.height,
-        };
+        const rad = ((element.rotation || 0) * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
 
-        const rotationDeg = element.rotation || 0;
-        const rad = (rotationDeg * Math.PI) / 180;
-        const cosTheta = Math.cos(rad);
-        const sinTheta = Math.sin(rad);
+        // Which sides the handle moves: -1 left/top, +1 right/bottom, 0 not at all
+        const sideX = handle.includes("e") ? 1 : handle.includes("w") ? -1 : 0;
+        const sideY = handle.includes("s") ? 1 : handle.includes("n") ? -1 : 0;
+        const isCorner = sideX !== 0 && sideY !== 0;
 
-        resizeRef.current = {
-          handle,
-          startX: e.clientX,
-          startY: e.clientY,
-          origin: startOrigin,
-        };
+        // The point opposite the handle stays where it is on the page. In the element's own
+        // (unrotated) frame, measured from its centre, it sits at the mirror of the handle.
+        const centreX = origin.x + origin.width / 2;
+        const centreY = origin.y + origin.height / 2;
+        const anchorU = (-sideX * origin.width) / 2;
+        const anchorV = (-sideY * origin.height) / 2;
+        const anchorX = centreX + anchorU * cos - anchorV * sin;
+        const anchorY = centreY + anchorU * sin + anchorV * cos;
 
-        lastPatchRef.current = {
-          x: element.x,
-          y: element.y,
-          width: element.width,
-          height: element.height,
-        };
+        let lastPatch: Partial<CanvasElement> | null = null;
 
         function onMove(ev: PointerEvent) {
-          if (!resizeRef.current) return;
+          // The pointer's travel in design pixels, turned into the element's own axes
+          const dxPage = (ev.clientX - startX) / zoomRef.current;
+          const dyPage = (ev.clientY - startY) / zoomRef.current;
+          const dx = dxPage * cos + dyPage * sin;
+          const dy = -dxPage * sin + dyPage * cos;
 
-          const { origin, handle: activeHandle } = resizeRef.current;
+          let width = origin.width;
+          let height = origin.height;
 
-          // 1. Unrotated delta in screen/canvas space
-          const dxScreen = (ev.clientX - resizeRef.current.startX) / zoom;
-          const dyScreen = (ev.clientY - resizeRef.current.startY) / zoom;
-
-          // 2. Project delta into element's local coordinate space
-          //    Local X axis is rotated by +rad, so inverse rotation is -rad
-          const dxLocal = dxScreen * cosTheta + dyScreen * sinTheta;
-          const dyLocal = -dxScreen * sinTheta + dyScreen * cosTheta;
-
-          const MIN = 16;
-          const isCorner =
-            activeHandle === "nw" ||
-            activeHandle === "ne" ||
-            activeHandle === "sw" ||
-            activeHandle === "se";
-          const isTextElement = fontSizeAtStart !== undefined;
-
-          let newWidth = origin.width;
-          let newHeight = origin.height;
-
-          if (isTextElement && isCorner) {
-            // Proportional scaling for text when dragging corner handles
-            let scale = 1;
-            if (activeHandle === "se") {
-              const scaleX = (origin.width + dxLocal) / origin.width;
-              const scaleY = (origin.height + dyLocal) / origin.height;
-              scale = Math.max(0.1, Math.abs(dxLocal) > Math.abs(dyLocal) ? scaleX : scaleY);
-            } else if (activeHandle === "sw") {
-              const scaleX = (origin.width - dxLocal) / origin.width;
-              const scaleY = (origin.height + dyLocal) / origin.height;
-              scale = Math.max(0.1, Math.abs(dxLocal) > Math.abs(dyLocal) ? scaleX : scaleY);
-            } else if (activeHandle === "ne") {
-              const scaleX = (origin.width + dxLocal) / origin.width;
-              const scaleY = (origin.height - dyLocal) / origin.height;
-              scale = Math.max(0.1, Math.abs(dxLocal) > Math.abs(dyLocal) ? scaleX : scaleY);
-            } else if (activeHandle === "nw") {
-              const scaleX = (origin.width - dxLocal) / origin.width;
-              const scaleY = (origin.height - dyLocal) / origin.height;
-              scale = Math.max(0.1, Math.abs(dxLocal) > Math.abs(dyLocal) ? scaleX : scaleY);
-            }
-
-            newWidth = Math.max(MIN, Math.round(origin.width * scale));
-            newHeight = Math.max(MIN, Math.round(origin.height * scale));
+          if (isCorner && (keepsProportions || ev.shiftKey)) {
+            // One scale for both sides, taken from whichever the pointer has pulled further, so
+            // the corner follows the pointer smoothly instead of switching between the two
+            const scaleX = (origin.width + sideX * dx) / origin.width;
+            const scaleY = (origin.height + sideY * dy) / origin.height;
+            const floor = Math.max(MIN_SIZE / origin.width, MIN_SIZE / origin.height);
+            const scale = Math.max(floor, scaleX, scaleY);
+            width = origin.width * scale;
+            height = origin.height * scale;
           } else {
-            // Regular element or text side-handle splitter resize
-            if (activeHandle.includes("e")) {
-              newWidth = clamp(origin.width + dxLocal, MIN, Infinity);
-            } else if (activeHandle.includes("w")) {
-              newWidth = clamp(origin.width - dxLocal, MIN, Infinity);
-            }
-
-            if (activeHandle.includes("s")) {
-              newHeight = clamp(origin.height + dyLocal, MIN, Infinity);
-            } else if (activeHandle.includes("n")) {
-              newHeight = clamp(origin.height - dyLocal, MIN, Infinity);
-            }
+            if (sideX !== 0) width = clamp(origin.width + sideX * dx, MIN_SIZE, Infinity);
+            if (sideY !== 0) height = clamp(origin.height + sideY * dy, MIN_SIZE, Infinity);
           }
 
-          // 3. Anchor point pinning math:
-          // Determine the local coordinates of the opposite (fixed) anchor before resize
-          let fixedLocalX0 = 0;
-          let fixedLocalY0 = 0;
+          // The new centre that leaves the opposite point exactly where it was
+          const u = (-sideX * width) / 2;
+          const v = (-sideY * height) / 2;
+          const newCentreX = anchorX - (u * cos - v * sin);
+          const newCentreY = anchorY - (u * sin + v * cos);
 
-          if (activeHandle === "se") {
-            fixedLocalX0 = 0;
-            fixedLocalY0 = 0;
-          } else if (activeHandle === "sw") {
-            fixedLocalX0 = origin.width;
-            fixedLocalY0 = 0;
-          } else if (activeHandle === "ne") {
-            fixedLocalX0 = 0;
-            fixedLocalY0 = origin.height;
-          } else if (activeHandle === "nw") {
-            fixedLocalX0 = origin.width;
-            fixedLocalY0 = origin.height;
-          } else if (activeHandle === "e") {
-            fixedLocalX0 = 0;
-            fixedLocalY0 = origin.height / 2;
-          } else if (activeHandle === "w") {
-            fixedLocalX0 = origin.width;
-            fixedLocalY0 = origin.height / 2;
-          } else if (activeHandle === "s") {
-            fixedLocalX0 = origin.width / 2;
-            fixedLocalY0 = 0;
-          } else if (activeHandle === "n") {
-            fixedLocalX0 = origin.width / 2;
-            fixedLocalY0 = origin.height;
-          }
+          const patch: Partial<CanvasElement> = {
+            x: precise(newCentreX - width / 2),
+            y: precise(newCentreY - height / 2),
+            width: precise(width),
+            height: precise(height),
+          };
 
-          // Invariant world coordinate of the fixed anchor point before resize:
-          // Center before resize:
-          const cx0 = origin.x + origin.width / 2;
-          const cy0 = origin.y + origin.height / 2;
-          const du0 = fixedLocalX0 - origin.width / 2;
-          const dv0 = fixedLocalY0 - origin.height / 2;
-
-          const fixedWorldX = cx0 + (du0 * cosTheta - dv0 * sinTheta);
-          const fixedWorldY = cy0 + (du0 * sinTheta + dv0 * cosTheta);
-
-          // Now determine local coordinates of that same fixed feature in new dimensions:
-          let fixedLocalX1 = 0;
-          let fixedLocalY1 = 0;
-
-          if (activeHandle === "se") {
-            fixedLocalX1 = 0;
-            fixedLocalY1 = 0;
-          } else if (activeHandle === "sw") {
-            fixedLocalX1 = newWidth;
-            fixedLocalY1 = 0;
-          } else if (activeHandle === "ne") {
-            fixedLocalX1 = 0;
-            fixedLocalY1 = newHeight;
-          } else if (activeHandle === "nw") {
-            fixedLocalX1 = newWidth;
-            fixedLocalY1 = newHeight;
-          } else if (activeHandle === "e") {
-            fixedLocalX1 = 0;
-            fixedLocalY1 = newHeight / 2;
-          } else if (activeHandle === "w") {
-            fixedLocalX1 = newWidth;
-            fixedLocalY1 = newHeight / 2;
-          } else if (activeHandle === "s") {
-            fixedLocalX1 = newWidth / 2;
-            fixedLocalY1 = 0;
-          } else if (activeHandle === "n") {
-            fixedLocalX1 = newWidth / 2;
-            fixedLocalY1 = newHeight;
-          }
-
-          const du1 = fixedLocalX1 - newWidth / 2;
-          const dv1 = fixedLocalY1 - newHeight / 2;
-
-          // New center is calculated so fixedWorld remains exactly at fixedWorld:
-          const cx1 = fixedWorldX - (du1 * cosTheta - dv1 * sinTheta);
-          const cy1 = fixedWorldY - (du1 * sinTheta + dv1 * cosTheta);
-
-          const newX = Math.round(cx1 - newWidth / 2);
-          const newY = Math.round(cy1 - newHeight / 2);
-
-          let newFontSize: number | undefined;
+          // Text grows with its box when pulled by a corner. It goes in the same step as the
+          // size, as a separate step would be applied on top of a page without the new size
           if (isCorner && fontSizeAtStart !== undefined) {
-            const scale = newWidth / (origin.width || 1);
-            newFontSize = Math.round(
-              Math.max(8, Math.min(300, fontSizeAtStart * scale))
+            (patch as { fontSize?: number }).fontSize = Math.round(
+              clamp(fontSizeAtStart * (width / origin.width), 8, 300)
             );
           }
 
-          const patch: Partial<CanvasElement> = {
-            x: newX,
-            y: newY,
-            width: Math.round(newWidth),
-            height: Math.round(newHeight),
-            ...(newFontSize !== undefined ? { fontSize: newFontSize } : {}),
-          };
-
-          lastPatchRef.current = patch;
-
-          if (rafIdRef.current !== null) {
-            cancelAnimationFrame(rafIdRef.current);
-          }
-          rafIdRef.current = requestAnimationFrame(() => {
-            onChange(patch, { commit: false });
-            if (newFontSize !== undefined && onFontSizeChange) {
-              onFontSizeChange(newFontSize);
-            }
-            rafIdRef.current = null;
-          });
+          lastPatch = patch;
+          queue(patch);
         }
 
-        function onUp(ev: PointerEvent) {
-          if (target && target.releasePointerCapture) {
-            try {
-              target.releasePointerCapture(ev.pointerId);
-            } catch {
-              // Ignore release errors
-            }
+        function stop() {
+          try {
+            target?.releasePointerCapture?.(e.pointerId);
+          } catch {
+            // Already released
           }
-
-          if (rafIdRef.current !== null) {
-            cancelAnimationFrame(rafIdRef.current);
-            rafIdRef.current = null;
-          }
-
-          const finalPatch = lastPatchRef.current;
-          resizeRef.current = null;
-          lastPatchRef.current = null;
-
-          if (finalPatch) {
-            onChange(finalPatch, { commit: true });
-          }
-
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onUp);
+          cleanupRef.current = null;
         }
 
+        function onUp() {
+          stop();
+          finish(lastPatch);
+        }
+
+        cleanupRef.current = stop;
         window.addEventListener("pointermove", onMove, { passive: true });
         window.addEventListener("pointerup", onUp);
         window.addEventListener("pointercancel", onUp);
       },
-    [element, zoom, onChange, initialFontSize, onFontSizeChange]
+    [element, initialFontSize, queue, finish]
   );
 
   return {

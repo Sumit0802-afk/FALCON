@@ -19,13 +19,19 @@ export function useHistory<T>(initial: T): UseHistoryResult<T> {
   const [state, setState] = useState<T>(initial);
   const past = useRef<T[]>([]);
   const future = useRef<T[]>([]);
+  // The state a drag or resize began from, so the whole gesture undoes in one step
+  const gestureBase = useRef<{ value: T } | null>(null);
 
   const set = useCallback(
     (next: T, opts?: { commit?: boolean }) => {
       const commit = opts?.commit ?? true;
       if (commit) {
-        past.current = [...past.current, state].slice(-HISTORY_LIMIT);
+        const before = gestureBase.current ? gestureBase.current.value : state;
+        gestureBase.current = null;
+        past.current = [...past.current, before].slice(-HISTORY_LIMIT);
         future.current = [];
+      } else if (!gestureBase.current) {
+        gestureBase.current = { value: state };
       }
       setState(next);
     },
@@ -34,6 +40,7 @@ export function useHistory<T>(initial: T): UseHistoryResult<T> {
 
   const undo = useCallback(() => {
     if (past.current.length === 0) return;
+    gestureBase.current = null;
     const previous = past.current[past.current.length - 1];
     past.current = past.current.slice(0, -1);
     future.current = [state, ...future.current];
@@ -42,6 +49,7 @@ export function useHistory<T>(initial: T): UseHistoryResult<T> {
 
   const redo = useCallback(() => {
     if (future.current.length === 0) return;
+    gestureBase.current = null;
     const next = future.current[0];
     future.current = future.current.slice(1);
     past.current = [...past.current, state];

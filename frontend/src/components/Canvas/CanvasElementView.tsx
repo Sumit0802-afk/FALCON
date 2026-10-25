@@ -85,11 +85,6 @@ export default function CanvasElementView({
     // For text elements, pass the current font size so corner-handle resizes
     // scale the font proportionally (same behaviour as Canva).
     initialFontSize: isText(element) ? (element as any).fontSize : undefined,
-    onFontSizeChange: isText(element)
-      ? (newSize: number) => {
-          onChange({ fontSize: newSize } as any, { commit: false });
-        }
-      : undefined,
   });
 
   const [editing, setEditing] =
