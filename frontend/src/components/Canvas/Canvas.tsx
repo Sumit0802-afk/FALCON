@@ -49,6 +49,12 @@ interface CanvasProps {
   onToolChange?: (
     tool: ToolId
   ) => void;
+
+  /** A right click on the page: where it was, and the element under it (if any) */
+  onContextMenu?: (
+    point: { x: number; y: number },
+    elementId: string | null
+  ) => void;
 }
 
 interface SelectionBox {
@@ -69,6 +75,7 @@ export function Canvas({
   onCanvasClick,
   onWheel,
   onToolChange,
+  onContextMenu,
 }: CanvasProps) {
   const surfaceRef =
     useRef<HTMLDivElement>(null);
@@ -633,6 +640,12 @@ export function Canvas({
 
         <div
           ref={surfaceRef}
+          onContextMenu={(e) => {
+            if (!onContextMenu) return;
+            e.preventDefault();
+            const hit = (e.target as HTMLElement).closest("[data-element-id]");
+            onContextMenu({ x: e.clientX, y: e.clientY }, hit?.getAttribute("data-element-id") ?? null);
+          }}
           onClick={
             handleCanvasClick
           }

@@ -278,6 +278,12 @@ export default function CanvasElementView({
     e.preventDefault();
     e.stopPropagation();
 
+    // A right click selects what is under it, but keeps a selection it is already part of
+    if (e.button === 2) {
+      if (!selected) onSelect(false);
+      return;
+    }
+
     onSelect(e.shiftKey);
 
     if (!element.locked) {
@@ -515,6 +521,7 @@ export default function CanvasElementView({
   return (
     <div
       data-canvas-element
+      data-element-id={element.id}
       onPointerDown={
         handlePointerDown
       }

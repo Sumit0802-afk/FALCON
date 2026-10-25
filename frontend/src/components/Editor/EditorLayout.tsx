@@ -33,6 +33,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Toolbar, SidebarTab } from "@/components/Toolbar/Toolbar";
 import { TopBar } from "@/components/TopBar/TopBar";
 import { Canvas } from "@/components/Canvas/Canvas";
+import { ElementContextMenu, AlignTarget } from "@/components/Editor/ElementContextMenu";
 import { BlendControl } from "@/components/Editor/BlendControl";
 import { NotesButton, PagesViewButton, TimerButton } from "@/components/Editor/FooterTools";
 import { AiToolsPanel } from "@/components/Sidebar/AiToolsPanel";
@@ -1473,6 +1474,42 @@ export function EditorLayout({
   }, [editor.page, projectId, isFirstPage]);
 
   /* =======================================================
+     RIGHT-CLICK MENU
+     ======================================================= */
+
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  function copySelection() {
+    if (!editor.selectedElements.length) return;
+    copiedElements = editor.selectedElements.map((el) => ({ ...el }));
+  }
+
+  function pasteCopied() {
+    if (!copiedElements.length) return;
+    editor.pasteElements(copiedElements);
+    copiedElements = copiedElements.map((el) => ({ ...el, x: el.x + 24, y: el.y + 24 }));
+  }
+
+  function alignSelection(target: AlignTarget) {
+    const { width: pw, height: ph } = editor.page.size;
+    editor.selectedElements.forEach((el) => {
+      if (el.locked) return;
+      const patch: Record<string, number> = {};
+      if (target === "left") patch.x = 0;
+      if (target === "center") patch.x = (pw - el.width) / 2;
+      if (target === "right") patch.x = pw - el.width;
+      if (target === "top") patch.y = 0;
+      if (target === "middle") patch.y = (ph - el.height) / 2;
+      if (target === "bottom") patch.y = ph - el.height;
+      editor.updateElement(el.id, patch as any);
+    });
+  }
+
+  function layerAction(action: (id: string) => void) {
+    editor.selectedElements.forEach((el) => action(el.id));
+  }
+
+  /* =======================================================
      KEYBOARD SHORTCUTS
      ======================================================= */
 
@@ -1889,13 +1926,17 @@ export function EditorLayout({
     } as Partial<typeof el>);
   }
 
-  function handleAddImageToCanvas(src: string) {
+  async function handleAddImageToCanvas(source: string) {
+    const src = await stretchableSvg(source);
     const img = document.createElement("img");
-    img.onload = () => {
+    img.onload = async () => {
       const nw = img.naturalWidth || 300;
       const nh = img.naturalHeight || 300;
+      // Drawings usually carry empty margin inside their own canvas, which would show as a gap
+      // between the selection box and what is drawn; the element is cut down to the drawing itself
+      const bounds = await visibleBounds(img, src, nw, nh);
       const MAX = 400;
-      let w = nw, h = nh;
+      let w = bounds.width, h = bounds.height;
       if (w > MAX || h > MAX) {
         const scale = Math.min(MAX / w, MAX / h);
         w = Math.round(w * scale);
@@ -1912,10 +1953,10 @@ export function EditorLayout({
         src,
         naturalWidth: nw,
         naturalHeight: nh,
-        cropX: 0,
-        cropY: 0,
-        cropWidth: nw,
-        cropHeight: nh,
+        cropX: bounds.x,
+        cropY: bounds.y,
+        cropWidth: bounds.width,
+        cropHeight: bounds.height,
       });
       if (newEl) {
         setApplyPrompt({
@@ -3481,7 +3522,41 @@ export function EditorLayout({
               onCanvasClick={handleCanvasClick}
               onWheel={onWheel}
               onToolChange={editor.setActiveTool}
+              onContextMenu={(point, elementId) => {
+                // Only a right click on an element opens the menu; elsewhere the page keeps its own
+                if (!elementId) {
+                  setContextMenu(null);
+                  return;
+                }
+                setContextMenu(point);
+              }}
             />
+            {contextMenu && editor.selectedElements.length > 0 && (
+              <ElementContextMenu
+                x={contextMenu.x}
+                y={contextMenu.y}
+                locked={editor.selectedElements.every((el) => el.locked)}
+                isGroup={editor.selectedElements.length === 1 && editor.selectedElements[0].type === "group"}
+                canGroup={editor.selectedElements.length > 1}
+                canPaste={copiedElements.length > 0}
+                onClose={() => setContextMenu(null)}
+                onCopy={copySelection}
+                onPaste={pasteCopied}
+                onDuplicate={editor.duplicateSelected}
+                onDelete={editor.deleteSelected}
+                onToggleLock={() => {
+                  const lock = !editor.selectedElements.every((el) => el.locked);
+                  editor.selectedElements.forEach((el) => editor.updateElement(el.id, { locked: lock }));
+                }}
+                onGroup={editor.groupSelected}
+                onUngroup={editor.ungroupSelected}
+                onBringToFront={() => layerAction(editor.bringToFront)}
+                onBringForward={() => layerAction(editor.bringForward)}
+                onSendBackward={() => layerAction(editor.sendBackward)}
+                onSendToBack={() => layerAction(editor.sendToBack)}
+                onAlign={alignSelection}
+              />
+            )}
           </div>
 
           {/* ── CANVA BOTTOM FILMSTRIP & CONTROLS FOOTER ── */}
@@ -5314,6 +5389,97 @@ function ColorSwatch({
 
     </div>
   );
+}
+
+/* =========================================================
+   STRETCHABLE DRAWINGS
+   ========================================================= */
+
+/**
+ * An SVG keeps its own proportions inside whatever box it is given, so pulling the
+ * box taller leaves empty bands above and below the drawing. Telling it to fill the
+ * box instead makes it stretch with the handles like any other element.
+ */
+async function stretchableSvg(src: string): Promise<string> {
+  try {
+    let text: string;
+    if (/^data:image\/svg/i.test(src)) {
+      const body = src.slice(src.indexOf(",") + 1);
+      text = /;base64,/i.test(src.slice(0, src.indexOf(",") + 1)) ? atob(body) : decodeURIComponent(body);
+    } else if (/^https?:\/\/.+\.svg(\?|$)/i.test(src)) {
+      const res = await fetch(src);
+      if (!res.ok) return src;
+      text = await res.text();
+    } else {
+      return src;
+    }
+    const open = text.match(/<svg[^>]*>/i);
+    if (!open || !/viewBox=/i.test(open[0])) return src;
+    const tag = /preserveAspectRatio=/i.test(open[0])
+      ? open[0].replace(/preserveAspectRatio=(["'])[^"']*/i, 'preserveAspectRatio="none"')
+      : open[0].replace(/<svg/i, '<svg preserveAspectRatio="none"');
+    if (tag === open[0]) return src;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text.replace(open[0], tag))}`;
+  } catch {
+    return src;
+  }
+}
+
+/* =========================================================
+   VISIBLE PART OF A DRAWING
+   ========================================================= */
+
+/** The box around everything an SVG actually draws; the whole image when it cannot be measured */
+async function visibleBounds(
+  img: HTMLImageElement,
+  src: string,
+  nw: number,
+  nh: number
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const whole = { x: 0, y: 0, width: nw, height: nh };
+  const isSvg = /^data:image\/svg/i.test(src) || /\.svg(\?|$)/i.test(src);
+  if (!isSvg) return whole;
+  try {
+    // A second copy is loaded so a host that refuses cross-origin reads cannot spoil the first
+    const copy = document.createElement("img");
+    copy.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      copy.onload = () => resolve();
+      copy.onerror = () => reject(new Error("blocked"));
+      copy.src = src;
+    });
+    const scale = Math.min(1, 512 / Math.max(nw, nh));
+    const cw = Math.max(1, Math.round(nw * scale));
+    const ch = Math.max(1, Math.round(nh * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return whole;
+    ctx.drawImage(copy, 0, 0, cw, ch);
+    const { data } = ctx.getImageData(0, 0, cw, ch);
+    let minX = cw, minY = ch, maxX = -1, maxY = -1;
+    for (let y = 0; y < ch; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (data[(y * cw + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return whole;
+    const x = Math.floor(minX / scale);
+    const y = Math.floor(minY / scale);
+    const width = Math.min(nw - x, Math.ceil((maxX + 1) / scale) - x);
+    const height = Math.min(nh - y, Math.ceil((maxY + 1) / scale) - y);
+    // Nothing worth cutting when the drawing already fills its canvas
+    if (width >= nw * 0.98 && height >= nh * 0.98) return whole;
+    return { x, y, width: Math.max(1, width), height: Math.max(1, height) };
+  } catch {
+    return whole;
+  }
 }
 
 /* =========================================================

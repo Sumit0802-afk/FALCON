@@ -134,6 +134,8 @@ interface AssetCardProps {
   onInsert: (def: AssetDef) => void;
 }
 
+const ICONIFY_MIRRORS = ["https://api.simplesvg.com", "https://api.unisvg.com", "https://api.iconify.design"];
+
 const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
   const thumb = useAssetThumbnail(def);
   const [hovered, setHovered] = useState(false);
@@ -149,7 +151,15 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
     return null;
   }, [def]);
 
-  const displaySrc = (hovered && animatedSrc) ? animatedSrc : thumb;
+  // Iconify's main host can refuse a burst of requests, so a failed icon is asked again from its mirrors
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const shown = (hovered && animatedSrc) ? animatedSrc : thumb;
+  const displaySrc = useMemo(() => {
+    if (!shown || attempt === 0) return shown;
+    const mirror = ICONIFY_MIRRORS[(attempt - 1) % ICONIFY_MIRRORS.length];
+    return shown.replace("https://api.iconify.design", mirror);
+  }, [shown, attempt]);
 
   const handleClick = useCallback(() => {
     if (animating) return;
@@ -175,15 +185,20 @@ const AssetCard = memo(function AssetCard({ def, onInsert }: AssetCardProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <div className="falcon-asset-thumb-wrap">
-        {displaySrc ? (
+        {displaySrc && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            key={displaySrc}
             src={displaySrc}
             alt={def.name}
             loading="lazy"
             className={`falcon-asset-thumb${def.category === "stickers" && def.thumbnailUrl ? " falcon-asset-thumb--sticker" : ""}${def.templateId === "art" ? " falcon-asset-thumb--art" : ""}`}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.opacity = "0.3";
+            onError={() => {
+              if (attempt < ICONIFY_MIRRORS.length + 1 && shown?.includes("https://api.iconify.design")) {
+                setTimeout(() => setAttempt((n) => n + 1), 400 * (attempt + 1));
+              } else {
+                setFailed(true);
+              }
             }}
           />
         ) : (

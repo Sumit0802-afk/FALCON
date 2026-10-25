@@ -483,6 +483,23 @@ export function useCanvasEditor({
       [page, setPage]
     );
 
+  /** Moves an element to the very front or very back, keeping the others in order */
+  const moveToEnd = useCallback(
+    (id: string, end: "front" | "back") => {
+      const ordered = [...page.elements].sort((a, b) => a.zIndex - b.zIndex);
+      const target = ordered.find((el) => el.id === id);
+      if (!target) return;
+      const rest = ordered.filter((el) => el.id !== id);
+      const next = end === "front" ? [...rest, target] : [target, ...rest];
+      const order = new Map(next.map((el, index) => [el.id, index]));
+      setPage({ ...page, elements: page.elements.map((el) => ({ ...el, zIndex: order.get(el.id) ?? el.zIndex }) as CanvasElement) });
+    },
+    [page, setPage]
+  );
+
+  const bringToFront = useCallback((id: string) => moveToEnd(id, "front"), [moveToEnd]);
+  const sendToBack = useCallback((id: string) => moveToEnd(id, "back"), [moveToEnd]);
+
   /*
    * =======================================================
    * DUPLICATE SELECTED
@@ -1035,6 +1052,8 @@ export function useCanvasEditor({
      */
     bringForward,
     sendBackward,
+    bringToFront,
+    sendToBack,
 
     /*
      * Group controls
