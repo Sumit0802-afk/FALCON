@@ -306,14 +306,6 @@ export default function AIStudioPage() {
         </section>
 
         {/* =========================================================
-            FLOATING MARK
-        ========================================================== */}
-
-        <div className="fixed bottom-5 left-5 z-[90] flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-black/75 font-serif text-[15px] text-zinc-500 backdrop-blur-xl">
-          N
-        </div>
-
-        {/* =========================================================
             ANIMATION
         ========================================================== */}
 

@@ -2401,9 +2401,6 @@ const openTemplateByName = (name: string) => {
           </div>
         </footer>
 
-        <div className="fixed bottom-5 left-5 z-[90] flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.12] bg-black/80 font-serif text-sm text-zinc-400">
-          N
-        </div>
       </main>
 
       {/* =========================================================
