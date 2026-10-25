@@ -51,21 +51,25 @@ async function getJson(url: string, headers: Record<string, string> = {}, timeou
   }
 }
 
-async function searchPexels(query: string, key: string, timeout?: number): Promise<FoundPhoto[]> {
-  const data = await getJson(`https://api.pexels.com/v1/search?per_page=12&query=${encodeURIComponent(query)}`, { Authorization: key }, timeout);
+async function searchPexels(query: string, key: string, timeout?: number, page = 1): Promise<FoundPhoto[]> {
+  const data = await getJson(`https://api.pexels.com/v1/search?per_page=12&page=${page}&query=${encodeURIComponent(query)}`, { Authorization: key }, timeout);
   return (data.photos || []).map((p: any) => ({ url: String(p.src?.large2x || p.src?.large || ""), width: Number(p.width) || 0, height: Number(p.height) || 0 }));
 }
 
-async function searchUnsplash(query: string, key: string, timeout?: number): Promise<FoundPhoto[]> {
-  const data = await getJson(`https://api.unsplash.com/search/photos?per_page=12&query=${encodeURIComponent(query)}`, { Authorization: `Client-ID ${key}` }, timeout);
+async function searchUnsplash(query: string, key: string, timeout?: number, page = 1): Promise<FoundPhoto[]> {
+  const data = await getJson(`https://api.unsplash.com/search/photos?per_page=12&page=${page}&query=${encodeURIComponent(query)}`, { Authorization: `Client-ID ${key}` }, timeout);
   return (data.results || []).map((p: any) => ({ url: String(p.urls?.regular || p.urls?.full || ""), width: Number(p.width) || 0, height: Number(p.height) || 0 }));
 }
 
-async function searchOpenverse(query: string, stockOnly: boolean, timeout?: number): Promise<FoundPhoto[]> {
+async function searchOpenverse(query: string, stockOnly: boolean, timeout?: number, page = 1): Promise<FoundPhoto[]> {
   // StockSnap is tried first: its pictures are taken as stock photography, so they are clean and well lit
   const source = stockOnly ? "&source=stocksnap" : "&category=photograph&size=large,medium";
-  const data = await getJson(`https://api.openverse.org/v1/images/?license=cc0,pdm&mature=false&page_size=12${source}&q=${encodeURIComponent(query)}`, {}, timeout);
+  const data = await getJson(`https://api.openverse.org/v1/images/?license=cc0,pdm&mature=false&page_size=12&page=${page}${source}&q=${encodeURIComponent(query)}`, {}, timeout);
   return (data.results || []).map((r: any) => ({ url: String(r.url || ""), width: Number(r.width) || 0, height: Number(r.height) || 0 }));
+}
+
+function validPhoto(p: FoundPhoto): boolean {
+  return /^https:\/\//.test(p.url) && isPublicUrl(p.url) && Math.min(p.width, p.height) >= 500;
 }
 
 /** Words that describe a look, not a thing a photograph could be tagged with */
@@ -103,7 +107,7 @@ export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
       // Out of time, or the service is being rested: answers already known may still be used
       if (left < 800 || Date.now() < restingUntil) continue;
       try {
-        found = (await run(Math.min(SEARCH_TIMEOUT, left))).filter((p) => /^https:\/\//.test(p.url) && isPublicUrl(p.url) && Math.min(p.width, p.height) >= 500);
+        found = (await run(Math.min(SEARCH_TIMEOUT, left))).filter(validPhoto);
         failuresInARow = 0;
       } catch {
         // Not remembered: a search that failed may well work the next time it is asked
@@ -119,6 +123,30 @@ export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
     if (found.length) return found;
   }
   return [];
+}
+
+/**
+ * One extra page of photographs for a single query, straight from the first
+ * provider that is configured. Used to load more results for a category a
+ * person is browsing, as opposed to findPhotos's multi-phrase design search.
+ */
+export async function searchPhotosPage(query: string, page: number): Promise<FoundPhoto[]> {
+  const q = query.trim().toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ").trim();
+  if (q.length < 2) return [];
+  const unsplash = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  const pexels = process.env.PEXELS_API_KEY?.trim();
+  const page2 = Math.max(1, Math.min(20, Math.round(page)));
+  try {
+    if (unsplash) return (await searchUnsplash(q, unsplash, SEARCH_TIMEOUT, page2)).filter(validPhoto);
+  } catch { /* falls through to the next provider */ }
+  try {
+    if (pexels) return (await searchPexels(q, pexels, SEARCH_TIMEOUT, page2)).filter(validPhoto);
+  } catch { /* falls through to Openverse */ }
+  try {
+    return (await searchOpenverse(q, false, SEARCH_TIMEOUT, page2)).filter(validPhoto);
+  } catch {
+    return [];
+  }
 }
 
 function sourcePath(id: string): string {

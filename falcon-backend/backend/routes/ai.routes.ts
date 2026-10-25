@@ -4,7 +4,7 @@ import { generateDesignBlueprint } from "../services/ai.service";
 import { AI_DESIGN_SIZES, aiDesignService, designSpecSchema } from "../services/aiDesign.service";
 import { readImage, portraitService } from "../services/portrait.service";
 import { aiStudioService, analysisSchema, contentSchema, dnaSchema, referenceSchema, settingsSchema } from "../services/aiStudio.service";
-import { findPhotos } from "../services/aiImages";
+import { findPhotos, searchPhotosPage } from "../services/aiImages";
 import { validateBody } from "../middleware/validate.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
 import { aiLightRateLimit, aiRateLimit } from "../middleware/rateLimit.middleware";
@@ -243,8 +243,12 @@ router.post("/studio/open", aiLightRateLimit, validateBody(studioOpenSchema), as
 router.get("/photos", aiLightRateLimit, async (req, res, next) => {
   try {
     const q = String(req.query.q || "").trim().slice(0, 80);
+    const page = Math.max(1, Math.min(20, parseInt(String(req.query.page || "1"), 10) || 1));
     if (q.length < 2) return res.status(200).json({ photos: [] });
-    res.status(200).json({ photos: (await findPhotos([q])).slice(0, 12) });
+    // The first page uses the richer multi-phrase design search; later pages go straight
+    // to one provider for this exact query, since the page is for browsing, not a design
+    const photos = page === 1 ? await findPhotos([q]) : await searchPhotosPage(q, page);
+    res.status(200).json({ photos: photos.slice(0, 12) });
   } catch (error) {
     next(error);
   }

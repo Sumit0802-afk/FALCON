@@ -12,6 +12,7 @@ import React, {
 import {
   Search, X, ChevronLeft, SlidersHorizontal,
   Loader2, Play, Check, Sparkles,
+  Image as ImageIcon, MoveRight, Briefcase, Cpu, Leaf, Users, UtensilsCrossed, Plane, Share2,
 } from "lucide-react";
 import type { AssetCategoryId, AssetDef } from "@/lib/assetEngine/types";
 import { useAssetLibrary, useAssetThumbnail, renderAssetSvg } from "@/hooks/useAssetLibrary";
@@ -23,6 +24,59 @@ import { searchAssets } from "@/lib/assetEngine/registry";
 import { IconHits, PhotoHit, searchIcons, searchPhotos } from "@/lib/assetEngine/liveSearch";
 import { FrameDefinition, FRAME_DEFINITIONS } from "@/data/frameDefinitions";
 import { CategoryBadgeIcon } from "./CategoryBadgeIcon";
+
+// ── Live categories: thematic tabs browsed straight from Iconify + the photo
+//    providers, rather than from Falcon's own fixed catalog ──────────────────
+interface LiveCategoryMeta {
+  id: string;
+  label: string;
+  /** What is searched for when the tab is opened; the person can refine it */
+  query: string;
+  icon: typeof ImageIcon;
+  color: string;
+}
+
+const LIVE_CATEGORIES: LiveCategoryMeta[] = [
+  { id: "backgrounds", label: "Backgrounds",    query: "abstract background", icon: ImageIcon,        color: "#0ea5e9" },
+  { id: "arrows",      label: "Arrows & Lines", query: "arrow",               icon: MoveRight,         color: "#f59e0b" },
+  { id: "business",    label: "Business",       query: "business",            icon: Briefcase,         color: "#6366f1" },
+  { id: "technology",  label: "Technology",     query: "technology",          icon: Cpu,               color: "#06b6d4" },
+  { id: "nature",      label: "Nature",         query: "nature",              icon: Leaf,              color: "#22c55e" },
+  { id: "people",      label: "People",         query: "people",              icon: Users,             color: "#ec4899" },
+  { id: "food",        label: "Food",           query: "food",                icon: UtensilsCrossed,   color: "#f97316" },
+  { id: "travel",      label: "Travel",         query: "travel",              icon: Plane,             color: "#3b82f6" },
+  { id: "social",      label: "Social Media",   query: "social media",        icon: Share2,            color: "#a855f7" },
+];
+
+// ── Suggested searches shown when the search box is empty ──────────────────────
+const POPULAR_SEARCHES = [
+  "Business", "Technology", "Nature", "People", "Food", "Travel",
+  "Social media", "Abstract background", "Arrows", "Gaming", "Eagle", "Flowers",
+];
+
+const RECENT_SEARCHES_KEY = "falcon-recent-element-searches";
+const MAX_RECENT = 8;
+
+function readRecentSearches(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter((s): s is string => typeof s === "string").slice(0, MAX_RECENT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecentSearch(query: string) {
+  const q = query.trim();
+  if (q.length < 2) return;
+  try {
+    const existing = readRecentSearches().filter((s) => s.toLowerCase() !== q.toLowerCase());
+    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify([q, ...existing].slice(0, MAX_RECENT)));
+  } catch {
+    // Browser storage can be unavailable (private window, blocked site data); recent searches are a convenience, not required
+  }
+}
 
 // ── Browse Categories list (matches 1st image 3-column layout) ─────────────────
 const BROWSE_CATEGORIES: Array<{ id: AssetCategoryId; label: string }> = [
@@ -305,19 +359,204 @@ function SearchEverything({ query, iconColor, onIconColor, onInsert, onAddImage 
   );
 }
 
+// ── A thematic category tab (Business, Nature, Travel, …), browsed live ───────
+
+interface LiveBrowseProps {
+  meta: LiveCategoryMeta;
+  iconColor: string;
+  onIconColor: (color: string) => void;
+  onInsert: (def: AssetDef) => void;
+  onAddImage?: (src: string, name?: string) => void;
+  onBack: () => void;
+}
+
+function LiveCategoryBrowse({ meta, iconColor, onIconColor, onInsert, onAddImage, onBack }: LiveBrowseProps) {
+  const [query, setQuery] = useState(meta.query);
+  const [searchInput, setSearchInput] = useState("");
+  const [icons, setIcons] = useState<IconHits>({ icons: [], art: [] });
+  const [photos, setPhotos] = useState<PhotoHit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMorePhotos, setLoadingMorePhotos] = useState(false);
+  const [photoPage, setPhotoPage] = useState(1);
+  const [morePhotos, setMorePhotos] = useState(true);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    setIcons({ icons: [], art: [] });
+    setPhotos([]);
+    setPhotoPage(1);
+    setMorePhotos(true);
+    setOpen({});
+    Promise.all([
+      searchIcons(query).then((hits) => { if (live) setIcons(hits); }),
+      searchPhotos(query).then((found) => { if (live) setPhotos(found); }),
+    ]).finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [query]);
+
+  const loadMorePhotos = useCallback(async () => {
+    setLoadingMorePhotos(true);
+    const next = photoPage + 1;
+    const found = await searchPhotos(query, undefined, next);
+    const seen = new Set(photos.map((p) => p.url));
+    const fresh = found.filter((p) => !seen.has(p.url));
+    setPhotos((prev) => [...prev, ...fresh]);
+    setPhotoPage(next);
+    if (!fresh.length) setMorePhotos(false);
+    setLoadingMorePhotos(false);
+  }, [query, photoPage, photos]);
+
+  const sections: { id: string; title: string; items: AssetDef[] }[] = [
+    { id: "icons", title: "Graphics", items: icons.icons },
+    { id: "art", title: "Colour art", items: icons.art },
+  ];
+  const nothing = !loading && !photos.length && sections.every((s) => !s.items.length);
+
+  return (
+    <div className="falcon-detail-container">
+      <div className="falcon-panel-header">
+        <button type="button" className="falcon-back-btn" onClick={onBack}>
+          <ChevronLeft size={16} />
+          <span>{meta.label}</span>
+        </button>
+      </div>
+
+      <p className="falcon-sticker-credit">
+        Icons and art from open sets through Iconify; photos from Unsplash, Pexels, or Openverse, each under its own licence.
+      </p>
+
+      <div className="falcon-search-wrap">
+        <div className="falcon-search-inner">
+          <Search size={14} className="falcon-search-icon" />
+          <input
+            type="text"
+            placeholder={`Search ${meta.label.toLowerCase()}…`}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && searchInput.trim()) setQuery(searchInput.trim()); }}
+            className="falcon-search-input"
+          />
+          {searchInput && (
+            <button type="button" onClick={() => { setSearchInput(""); setQuery(meta.query); }} className="falcon-search-clear">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="falcon-asset-scroll-area">
+        {loading && (
+          <div className="falcon-asset-grid">
+            <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+          </div>
+        )}
+
+        {nothing && (
+          <div className="falcon-empty-state">
+            <Search size={28} className="text-zinc-600 mb-2" />
+            <p className="text-zinc-400 font-medium text-xs">Nothing found for “{query}”</p>
+            <p className="text-zinc-600 text-[11px] mt-1">Try a simpler word, in English</p>
+          </div>
+        )}
+
+        {!loading && sections.map((section) => {
+          if (!section.items.length) return null;
+          const shown = open[section.id] ? section.items : section.items.slice(0, FIRST);
+          return (
+            <section key={section.id} className="falcon-everything-section">
+              <div className="falcon-shapes-header">
+                <h3 className="falcon-shapes-title">{section.title}</h3>
+                {section.items.length > FIRST && (
+                  <button type="button" className="falcon-see-all-btn" onClick={() => setOpen((s) => ({ ...s, [section.id]: !s[section.id] }))}>
+                    {open[section.id] ? "Show less" : "Show more >"}
+                  </button>
+                )}
+              </div>
+              {section.id === "icons" && (
+                <div className="falcon-icon-colors">
+                  {ICON_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      aria-label={`Place icons in ${color}`}
+                      aria-pressed={iconColor === color}
+                      onClick={() => onIconColor(color)}
+                      className={`falcon-icon-color${iconColor === color ? " falcon-icon-color--active" : ""}`}
+                      style={{ background: color }}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="falcon-asset-grid">
+                {shown.map((asset) => (
+                  <AssetCard key={asset.id} def={asset} onInsert={onInsert} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {!loading && photos.length > 0 && (
+          <section className="falcon-everything-section">
+            <div className="falcon-shapes-header">
+              <h3 className="falcon-shapes-title">Photos</h3>
+            </div>
+            <div className="falcon-everything-photos">
+              {photos.map((photo) => (
+                <button key={photo.url} type="button" className="falcon-everything-photo" title="Add this photo" onClick={() => onAddImage?.(photo.url, query)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo.url} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+            {morePhotos && (
+              <div className="falcon-load-more">
+                <button type="button" className="falcon-see-all-btn" disabled={loadingMorePhotos} onClick={loadMorePhotos}>
+                  {loadingMorePhotos ? "Loading…" : "Load more photos >"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Elements Panel ────────────────────────────────────────────────────────────
 export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElements }: ElementsPanelProps) {
   const [iconColor, setIconColor] = useState(ICON_COLORS[0]);
   const [activeCategory, setActiveCategory] = useState<AssetCategoryId | null>(null);
+  const [activeLive, setActiveLive] = useState<LiveCategoryMeta | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   /** The search on the opening view, which looks through every kind of element at once */
   const [everything, setEverything] = useState("");
   const [everythingQuery, setEverythingQuery] = useState("");
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setRecentSearches(readRecentSearches());
+  }, []);
+
+  /** Runs a search right away, bypassing the debounce, and remembers it for next time */
+  const runEverythingSearch = useCallback((value: string) => {
+    const q = value.trim();
+    setEverything(value);
+    if (q.length >= 2) {
+      setEverythingQuery(q);
+      pushRecentSearch(q);
+      setRecentSearches(readRecentSearches());
+    } else {
+      setEverythingQuery("");
+    }
+  }, []);
 
   const {
     assets, total, subcategories, suggestions,
@@ -329,7 +568,13 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
   // The search runs a moment after typing stops, not on every key
   useEffect(() => {
     const value = everything.trim();
-    const timer = setTimeout(() => setEverythingQuery(value.length >= 2 ? value : ""), 350);
+    const timer = setTimeout(() => {
+      setEverythingQuery(value.length >= 2 ? value : "");
+      if (value.length >= 2) {
+        pushRecentSearch(value);
+        setRecentSearches(readRecentSearches());
+      }
+    }, 350);
     return () => clearTimeout(timer);
   }, [everything]);
 
@@ -412,6 +657,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
 
   const handleBack = () => {
     setActiveCategory(null);
+    setActiveLive(null);
     reset();
     setSearchInput("");
   };
@@ -425,7 +671,16 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {/* 1. TOP-LEVEL BROWSE CATEGORIES VIEW (Matches 1st reference screenshot)    */}
       {/* ══════════════════════════════════════════════════════════════════════════ */}
-      {!activeCategory ? (
+      {activeLive ? (
+        <LiveCategoryBrowse
+          meta={activeLive}
+          iconColor={iconColor}
+          onIconColor={setIconColor}
+          onInsert={handleInsert}
+          onAddImage={onAddImage}
+          onBack={handleBack}
+        />
+      ) : !activeCategory ? (
         <div className="falcon-browse-container">
           {/* One search for every kind of element */}
           <div className="falcon-search-wrap falcon-search-wrap--home">
@@ -436,6 +691,7 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
                 placeholder="Search all elements…"
                 value={everything}
                 onChange={(e) => setEverything(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") runEverythingSearch(everything); }}
                 className="falcon-search-input"
                 aria-label="Search all elements"
               />
@@ -452,6 +708,32 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
           )}
 
           <div style={{ display: everythingQuery ? "none" : undefined }}>
+          {/* Recent and popular searches, shown while the search box is empty */}
+          {!everything && (
+            <div className="falcon-suggested-searches">
+              {recentSearches.length > 0 && (
+                <>
+                  <h3 className="falcon-suggested-title">Recent searches</h3>
+                  <div className="falcon-chip-row">
+                    {recentSearches.map((term) => (
+                      <button key={term} type="button" className="falcon-chip" onClick={() => runEverythingSearch(term)}>
+                        {term}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <h3 className="falcon-suggested-title">Popular searches</h3>
+              <div className="falcon-chip-row">
+                {POPULAR_SEARCHES.map((term) => (
+                  <button key={term} type="button" className="falcon-chip" onClick={() => runEverythingSearch(term)}>
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <h2 className="falcon-browse-title">Browse categories</h2>
 
@@ -471,6 +753,27 @@ export function ElementsPanel({ onAddShape, onAddFrame, onAddImage, onAddElement
                 <span className="falcon-badge-label">{cat.label}</span>
               </button>
             ))}
+          </div>
+
+          {/* Thematic tabs browsed live, straight from Iconify and the photo providers */}
+          <div className="falcon-live-badge-grid">
+            {LIVE_CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveLive(cat)}
+                  className="falcon-live-badge-btn group"
+                  title={cat.label}
+                >
+                  <div className="falcon-live-badge-icon-wrap" style={{ background: `${cat.color}26`, borderColor: `${cat.color}55` }}>
+                    <Icon size={22} color={cat.color} strokeWidth={2} />
+                  </div>
+                  <span className="falcon-badge-label">{cat.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* ── Shapes Section ── */}
@@ -861,6 +1164,81 @@ const PANEL_STYLES = `
 }
 .falcon-badge-btn:hover .falcon-badge-label {
   color: #ffffff;
+}
+
+/* Suggested / recent searches */
+.falcon-suggested-searches {
+  margin-bottom: 20px;
+}
+.falcon-suggested-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #8392a5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px 2px;
+}
+.falcon-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.falcon-chip {
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: #141720;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.falcon-chip:hover {
+  background: rgba(0, 223, 182, 0.12);
+  border-color: #00dfb6;
+  color: #00dfb6;
+}
+
+/* Live (thematic) category badges */
+.falcon-live-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 10px;
+  row-gap: 14px;
+  margin-bottom: 22px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.falcon-live-badge-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.falcon-live-badge-btn:hover {
+  transform: translateY(-2px);
+}
+.falcon-live-badge-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid;
+  margin-bottom: 4px;
+  transition: transform 0.18s;
+}
+.falcon-live-badge-btn:hover .falcon-live-badge-icon-wrap {
+  transform: scale(1.06);
 }
 
 /* ── Shapes Section ── */

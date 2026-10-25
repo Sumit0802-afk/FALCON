@@ -49,12 +49,13 @@ export interface IconHits {
 const iconCache = new Map<string, Promise<IconHits>>();
 
 /** Icons and colour art for a word or phrase, from every open set */
-export function searchIcons(query: string): Promise<IconHits> {
+export function searchIcons(query: string, start = 0): Promise<IconHits> {
   const q = query.trim().toLowerCase();
-  const cached = iconCache.get(q);
+  const cacheKey = start > 0 ? `${q}@${start}` : q;
+  const cached = iconCache.get(cacheKey);
   if (cached) return cached;
 
-  const run = fetch(`${ICONIFY}/search?query=${encodeURIComponent(q)}&limit=160`)
+  const run = fetch(`${ICONIFY}/search?query=${encodeURIComponent(q)}&limit=160${start > 0 ? `&start=${start}` : ""}`)
     .then((res) => (res.ok ? (res.json() as Promise<IconifySearch>) : Promise.reject(new Error("search failed"))))
     .then((data) => {
       const hits: IconHits = { icons: [], art: [] };
@@ -88,12 +89,12 @@ export function searchIcons(query: string): Promise<IconHits> {
       return hits;
     })
     .catch(() => {
-      iconCache.delete(q);
+      iconCache.delete(cacheKey);
       return { icons: [], art: [] } as IconHits;
     });
 
   if (iconCache.size > 60) iconCache.clear();
-  iconCache.set(q, run);
+  iconCache.set(cacheKey, run);
   return run;
 }
 
@@ -104,9 +105,10 @@ export interface PhotoHit {
 }
 
 /** Photographs for a word or phrase. Empty when the user is not signed in or nothing is found */
-export async function searchPhotos(query: string, signal?: AbortSignal): Promise<PhotoHit[]> {
+export async function searchPhotos(query: string, signal?: AbortSignal, page = 1): Promise<PhotoHit[]> {
   try {
-    return (await apiFetch<{ photos: PhotoHit[] }>(`/ai/photos?q=${encodeURIComponent(query.trim())}`, { signal })).photos || [];
+    const p = page > 1 ? `&page=${page}` : "";
+    return (await apiFetch<{ photos: PhotoHit[] }>(`/ai/photos?q=${encodeURIComponent(query.trim())}${p}`, { signal })).photos || [];
   } catch {
     return [];
   }
