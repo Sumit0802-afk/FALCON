@@ -15,7 +15,8 @@ import {
   Wand2,
 } from "lucide-react";
 import { ImageElement } from "@/types";
-import { removeImageBackgroundAI } from "@/services/backgroundRemovalService";
+import { removeImageBackgroundAI, refineCutoutEdges } from "@/services/backgroundRemovalService";
+import { AlertTriangle } from "lucide-react";
 import { BadgeIcon } from "@/components/common/BadgeIcon";
 
 interface BackgroundRemoverModalProps {
@@ -46,6 +47,9 @@ export function BackgroundRemoverModal({
   const [dragOver, setDragOver] = useState(false);
   const [brushMode, setBrushMode] = useState<"none" | "erase" | "restore">("none");
   const [brushSize, setBrushSize] = useState(24);
+  /** True once a run falls back to the crude colour-distance cutout, because the neural model could not run */
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Active source image
   const activeSrc = customSrc || (element ? (element.originalSrc || element.src) : null);
@@ -79,6 +83,8 @@ export function BackgroundRemoverModal({
 
     const runAI = async () => {
       setIsProcessing(true);
+      setUsedFallback(false);
+      setLoadError(null);
       setProgressPercent(10);
       setProgressStatus("Starting AI segmentation model...");
 
@@ -111,8 +117,10 @@ export function BackgroundRemoverModal({
           drawToCanvas(resImg);
         };
       } catch (err) {
-        console.warn("AI segmentation error, running high-precision fallback:", err);
+        console.warn("AI segmentation unavailable, using the colour-distance fallback instead:", err);
         if (!cancelled) {
+          setUsedFallback(true);
+          setLoadError("The AI model couldn't run (likely a blocked download or an offline browser), so a simpler colour-based cutout was used. Edges will be less accurate, especially around hair and fine detail.");
           runCanvasFallback(activeSrc);
         }
       } finally {
@@ -143,7 +151,10 @@ export function BackgroundRemoverModal({
     ctx.drawImage(img, 0, 0, w, h);
   };
 
-  // High-precision Edge Fallback if AI fails or network unavailable
+  // Last-resort fallback for when the neural model genuinely cannot run (e.g. the model
+  // download is blocked and the browser is offline): a colour-distance flood fill from the
+  // image's border. This is NOT real segmentation — it only works on a fairly flat, distinct
+  // background — which is exactly why usedFallback is surfaced to the person using it.
   const runCanvasFallback = (src: string) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -223,14 +234,20 @@ export function BackgroundRemoverModal({
         if (isBg[i]) data[i * 4 + 3] = 0;
       }
       ctx.putImageData(imgData, 0, 0);
-      const fallbackUrl = canvas.toDataURL("image/png");
-      setResultSrc(fallbackUrl);
-      const resImg = new Image();
-      resImg.src = fallbackUrl;
-      resImg.onload = () => {
-        resultImgRef.current = resImg;
-        drawToCanvas(resImg);
-      };
+      const rawFallbackUrl = canvas.toDataURL("image/png");
+
+      // The flood fill above is a hard binary cutoff with no soft edge, so it is run through
+      // the same un-mixing refinement used on the real AI result to soften jagged pixels and
+      // pull out colour halo along the boundary
+      refineCutoutEdges(rawFallbackUrl).then((fallbackUrl) => {
+        setResultSrc(fallbackUrl);
+        const resImg = new Image();
+        resImg.src = fallbackUrl;
+        resImg.onload = () => {
+          resultImgRef.current = resImg;
+          drawToCanvas(resImg);
+        };
+      });
     };
   };
 
@@ -325,17 +342,32 @@ export function BackgroundRemoverModal({
     e.target.value = "";
   };
 
+  const MAX_FILE_BYTES = 30 * 1024 * 1024;
+  const MAX_DIMENSION = 8000;
+
   const processFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image (PNG, JPG, WebP).");
       return;
     }
+    if (file.size > MAX_FILE_BYTES) {
+      alert(`This image is ${(file.size / (1024 * 1024)).toFixed(1)}MB, which is over the ${MAX_FILE_BYTES / (1024 * 1024)}MB limit. Try a smaller file.`);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result;
-      if (typeof result === "string") {
+      if (typeof result !== "string") return;
+      const probe = new Image();
+      probe.onload = () => {
+        if (probe.naturalWidth > MAX_DIMENSION || probe.naturalHeight > MAX_DIMENSION) {
+          alert(`This image is ${probe.naturalWidth}×${probe.naturalHeight}px, which is over the ${MAX_DIMENSION}px limit per side. Try a smaller image.`);
+          return;
+        }
         setCustomSrc(result);
-      }
+      };
+      probe.onerror = () => alert("This file doesn't look like a valid image.");
+      probe.src = result;
     };
     reader.readAsDataURL(file);
   };
@@ -593,11 +625,25 @@ export function BackgroundRemoverModal({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
-                  <ShieldCheck size={13} />
-                  <span>Subject 100% Preserved</span>
-                </div>
+                {usedFallback ? (
+                  <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full">
+                    <AlertTriangle size={13} />
+                    <span>Fallback cutout — lower accuracy</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                    <ShieldCheck size={13} />
+                    <span>AI segmentation + edge refinement applied</span>
+                  </div>
+                )}
               </div>
+
+              {loadError && (
+                <div className="mt-3 flex w-full max-w-xl items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>{loadError} Use the Restore/Erase brushes below to correct rough spots by hand.</span>
+                </div>
+              )}
             </div>
 
             {/* RIGHT: CONTROL PANEL */}
@@ -625,23 +671,30 @@ export function BackgroundRemoverModal({
 
                 <button
                   type="button"
-                  disabled={isProcessing}
+                  disabled={isProcessing || !activeSrc}
                   onClick={() => {
-                    if (activeSrc) {
-                      setResultSrc(null);
-                      removeImageBackgroundAI(activeSrc, (pct, status) => {
-                        setProgressPercent(pct);
-                        setProgressStatus(status);
-                      }).then((res) => {
-                        setResultSrc(res);
-                        const img = new Image();
-                        img.src = res;
-                        img.onload = () => {
-                          resultImgRef.current = img;
-                          drawToCanvas(img);
-                        };
-                      });
-                    }
+                    if (!activeSrc) return;
+                    setResultSrc(null);
+                    setIsProcessing(true);
+                    setUsedFallback(false);
+                    setLoadError(null);
+                    removeImageBackgroundAI(activeSrc, (pct, status) => {
+                      setProgressPercent(pct);
+                      setProgressStatus(status);
+                    }).then((res) => {
+                      setResultSrc(res);
+                      const img = new Image();
+                      img.src = res;
+                      img.onload = () => {
+                        resultImgRef.current = img;
+                        drawToCanvas(img);
+                      };
+                    }).catch((err) => {
+                      console.warn("AI segmentation unavailable, using the colour-distance fallback instead:", err);
+                      setUsedFallback(true);
+                      setLoadError("The AI model couldn't run (likely a blocked download or an offline browser), so a simpler colour-based cutout was used. Edges will be less accurate, especially around hair and fine detail.");
+                      runCanvasFallback(activeSrc);
+                    }).finally(() => setIsProcessing(false));
                   }}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/[0.08] hover:bg-white/[0.14] py-2 text-xs font-medium text-white transition disabled:opacity-50"
                 >
