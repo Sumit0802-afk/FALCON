@@ -4,8 +4,9 @@
  * Finds a photograph that suits a design, and cuts it to the shape the layout
  * needs.
  *
- * Search: Pexels when PEXELS_API_KEY is set, which has the widest and best
- * choice. Without a key, Openverse is searched for public-domain photographs
+ * Search: Unsplash when UNSPLASH_ACCESS_KEY is set, then Pexels when
+ * PEXELS_API_KEY is set, both of which have a wide and good choice. Without
+ * either key, Openverse is searched for public-domain photographs
  * (CC0 and public domain mark only, so none needs a credit line). The design
  * model supplies several search phrases, from exact to general, and they are
  * tried in turn until one finds something.
@@ -55,6 +56,11 @@ async function searchPexels(query: string, key: string, timeout?: number): Promi
   return (data.photos || []).map((p: any) => ({ url: String(p.src?.large2x || p.src?.large || ""), width: Number(p.width) || 0, height: Number(p.height) || 0 }));
 }
 
+async function searchUnsplash(query: string, key: string, timeout?: number): Promise<FoundPhoto[]> {
+  const data = await getJson(`https://api.unsplash.com/search/photos?per_page=12&query=${encodeURIComponent(query)}`, { Authorization: `Client-ID ${key}` }, timeout);
+  return (data.results || []).map((p: any) => ({ url: String(p.urls?.regular || p.urls?.full || ""), width: Number(p.width) || 0, height: Number(p.height) || 0 }));
+}
+
 async function searchOpenverse(query: string, stockOnly: boolean, timeout?: number): Promise<FoundPhoto[]> {
   // StockSnap is tried first: its pictures are taken as stock photography, so they are clean and well lit
   const source = stockOnly ? "&source=stocksnap" : "&category=photograph&size=large,medium";
@@ -74,6 +80,7 @@ let restingUntil = 0;
 
 /** Photographs for the first of the phrases that finds any; an empty list when none does */
 export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
+  const unsplash = process.env.UNSPLASH_ACCESS_KEY?.trim();
   const pexels = process.env.PEXELS_API_KEY?.trim();
   const clean = queries.map((q) => q.trim().toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ").trim()).filter((q) => q.length >= 2);
   // When no whole phrase finds anything, its words are tried on their own, last words first:
@@ -82,6 +89,7 @@ export async function findPhotos(queries: string[]): Promise<FoundPhoto[]> {
   const phrases = [...new Set([...clean, ...words])].slice(0, 14);
   const attempts: [string, (timeout: number) => Promise<FoundPhoto[]>][] = [];
   for (const phrase of phrases) {
+    if (unsplash) attempts.push([`unsplash:${phrase}`, (timeout) => searchUnsplash(phrase, unsplash, timeout)]);
     if (pexels) attempts.push([`pexels:${phrase}`, (timeout) => searchPexels(phrase, pexels, timeout)]);
     attempts.push([`stock:${phrase}`, (timeout) => searchOpenverse(phrase, true, timeout)]);
   }
