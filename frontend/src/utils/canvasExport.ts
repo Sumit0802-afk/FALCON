@@ -519,7 +519,16 @@ async function drawElement(
       cropHeight !==
         el.naturalHeight;
 
-    if (!hasCrop) {
+    if (!hasCrop && el.qr) {
+      // A QR picture is an SVG, which the editor shows at its own shape inside
+      // the box; stretching it here would distort the code and its finders
+      const iw = img.naturalWidth || el.width;
+      const ih = img.naturalHeight || el.height;
+      const fit = Math.min(el.width / iw, el.height / ih);
+      const w = iw * fit;
+      const h = ih * fit;
+      ctx.drawImage(img, el.x + (el.width - w) / 2, el.y + (el.height - h) / 2, w, h);
+    } else if (!hasCrop) {
       ctx.drawImage(
         img,
         el.x,

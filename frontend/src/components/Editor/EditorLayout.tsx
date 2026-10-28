@@ -226,6 +226,14 @@ export function EditorLayout({
     y: 100,
   });
 
+  // The picture or frame a Replace button asked to fill; null when the file adds a new picture
+  const replaceTargetRef = useRef<string | null>(null);
+
+  function pickReplacement(id: string) {
+    replaceTargetRef.current = id;
+    fileInputRef.current?.click();
+  }
+
   /* =======================================================
      AI COACH
      ======================================================= */
@@ -1636,6 +1644,7 @@ export function EditorLayout({
         y,
       };
 
+      replaceTargetRef.current = null;
       fileInputRef.current?.click();
 
       return;
@@ -2236,6 +2245,31 @@ export function EditorLayout({
         const naturalHeight =
           img.naturalHeight ||
           300;
+
+        const targetId = replaceTargetRef.current;
+        replaceTargetRef.current = null;
+        const target = targetId ? editor.page.elements.find((item) => item.id === targetId) : undefined;
+
+        if (target && (isImage(target) || isFrame(target))) {
+          if (isFrame(target)) {
+            editor.updateElement(target.id, { imageSrc: result, imageNaturalWidth: naturalWidth, imageNaturalHeight: naturalHeight, imageZoom: 1, imageOffsetX: 0, imageOffsetY: 0 });
+          } else {
+            // The new picture keeps the old one's width and place, at its own shape, uncropped
+            editor.updateElement(target.id, {
+              src: result,
+              naturalWidth,
+              naturalHeight,
+              height: Math.round((target.width * naturalHeight) / naturalWidth),
+              cropX: 0,
+              cropY: 0,
+              cropWidth: naturalWidth,
+              cropHeight: naturalHeight,
+              qr: undefined,
+            } as Partial<typeof target>);
+          }
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
 
         const MAX_SIZE = 400;
 
@@ -2838,7 +2872,7 @@ export function EditorLayout({
 
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => selectedElement && pickReplacement(selectedElement.id)}
                   className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition"
                   title="Replace image"
                 >
@@ -3370,7 +3404,7 @@ export function EditorLayout({
 
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => selectedElement && pickReplacement(selectedElement.id)}
                   className="flex items-center gap-1.5 rounded-xl bg-pink-500/20 border border-pink-500/30 px-3 py-1.5 text-xs font-medium text-pink-200 hover:bg-pink-500/30 transition"
                   title="Upload / Replace image inside frame"
                 >
