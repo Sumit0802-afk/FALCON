@@ -153,7 +153,9 @@ export function UploadsPanel({
       "image/gif",
     ];
 
-    if (!allowed.includes(file.type.toLowerCase())) {
+    // A phone's picker can hand over a photo with no type, or as HEIC; those are redrawn as JPEG before sending
+    const fromPhone = file.type === "" || /^image\/hei[cf]$/i.test(file.type);
+    if (!allowed.includes(file.type.toLowerCase()) && !fromPhone) {
       setUploadQueue((prev) =>
         prev.map((item) =>
           item.id === uploadId
