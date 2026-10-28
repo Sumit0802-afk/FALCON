@@ -516,6 +516,9 @@ export function UploadsPanel({
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
+              {item.status === "error" && item.errorMessage && (
+                <p className="text-[10px] leading-snug text-rose-300">{item.errorMessage}</p>
+              )}
             </div>
           ))}
         </div>
